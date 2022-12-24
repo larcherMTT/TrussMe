@@ -339,11 +339,11 @@ end proc:
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeQLoad := proc(
-  comps::{list},              # Distributed load components
-  obj::{'BEAM', 'ROD'},       # Target object
-  ell_min     := 0,           # Initial application point (axial coordinate)
-  ell_max     := obj[length], # Final application point (axial coordinate)
-  RF::{'FRAME'} := ground,    # Reference frame in which the object is defined
+  comps::{list},                # Distributed load components
+  obj::{'BEAM', 'ROD'},         # Target object
+  ell_min       := 0,           # Initial application point (axial coordinate)
+  ell_max       := obj[length], # Final application point (axial coordinate)
+  RF::{'FRAME'} := ground,      # Reference frame in which the object is defined
   $)
 
   description "Define a 'QLOAD' object with inputs: load components, target "
@@ -429,7 +429,7 @@ MakeSupport := proc(
           S[support_reactions] := [
             op(S[support_reactions]),
             sr[j] = -S[forces][i][components][j]
-            ]; 
+            ];
         end if;
       end do;
       break;
@@ -541,7 +541,7 @@ MakeJoint := proc(
     # Extract the survived components
     jf_indets := indets(jf_comp);
     # Check if there are reactions
-    if (jf_comp_obj <> [0,0,0]) then
+    if (jf_comp_obj <> [0, 0, 0]) then
       # Create the reaction force between joint and obj
       JF_||(id)||_||(objs[i][name]) := MakeForce(jf_comp_obj, X[i], objs[i], objs[i][frame]);
       JF_||(objs[i][name])||_||(id) := MakeForce(-jf_comp_obj, 0, J, objs[i][frame]);
@@ -585,7 +585,7 @@ MakeJoint := proc(
     # Extract the survived components
     jm_indets := indets(jm_comp);
     # Check if there are reactions
-    if jf_comp_obj<>[0,0,0] then
+    if (jf_comp_obj <> [0, 0, 0]) then
       # Create the reaction force between joint and obj
       JM_||(id)||_||(objs[i][name]) := MakeMoment(jm_comp_obj, X[i], objs[i], objs[i][frame]);
       JM_||(objs[i][name])||_||(id) := MakeMoment(-jm_comp_obj, 0, J, objs[i][frame]);
@@ -608,7 +608,7 @@ end proc:
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 CleanJoint := proc(
-  obj::{JOINT}, # Object to be cleaned
+  obj::{'JOINT'}, # Object to be cleaned
   $)
 
   description "Clean 'JOINT' object internal variables";
@@ -625,8 +625,8 @@ MakeRod := proc(
   RF,           # Reference frame
   ell,          # Length (m)
   {
-    A := 0,                 # Cross-section area (m^2)
-    mat::{MATERIAL} := NULL # Material
+    A                 := 0,   # Cross-section area (m^2)
+    mat::{'MATERIAL'} := NULL # Material
   },
   $)
 
@@ -648,7 +648,7 @@ end proc:
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 CleanRod := proc(
-  obj::{ROD}, # Object to be cleaned
+  obj::{'ROD'}, # Object to be cleaned
   $)
 
   description "Clean 'ROD' object internal variables";
@@ -665,11 +665,11 @@ MakeBeam := proc(
   RF,           # Reference frame
   ell,          # Length (m)
   {
-    A               := 0,   # Cross-section area (m^2)
-    I_xx            := 0,   # Cross-section x-axis inertia (m^4)
-    I_yy            := 0,   # Cross-section y-axis inertia (m^4)
-    I_zz            := 0,   # Cross-section z-axis inertia (m^4)
-    mat::{MATERIAL} := NULL # Material
+    A                 := 0,   # Cross-section area (m^2)
+    I_xx              := 0,   # Cross-section x-axis inertia (m^4)
+    I_yy              := 0,   # Cross-section y-axis inertia (m^4)
+    I_zz              := 0,   # Cross-section z-axis inertia (m^4)
+    mat::{'MATERIAL'} := NULL # Material
   },
   $)
 
@@ -693,7 +693,7 @@ end proc:
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 CleanBeam := proc(
-  obj::{BEAM}, # Object to be cleaned
+  obj::{'BEAM'}, # Object to be cleaned
   $)
 
   description "Clean 'BEAM' object internal variables";
@@ -715,11 +715,12 @@ MakeStructure := proc(
     set( {'FORCE', 'MOMENT', 'QLOAD'})
   } := [],
   {
-    hyper_vars::{list ,set} # Hyperstatic variables
-      := [],
-    hyper_disp::{list, set} # Hyperstatic displacements
-      := [seq(0, 1..nops(hyper_vars))],
-    dim::{string} := "3D"   # Structure dimension ("2D" or "3D")
+    hyper_vars::{list ,set} := [],
+      # Hyperstatic variables
+    hyper_disp::{list, set} := [seq(0, 1..nops(hyper_vars))],
+      # Hyperstatic displacements
+    dim::{string} := "3D"
+      # Structure dimension ("2D" or "3D")
   },
   $)
 
