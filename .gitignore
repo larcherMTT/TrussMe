@@ -1,1 +1,4 @@
 # Gitignore
+
+# Ignore the maple library
+*.mla
