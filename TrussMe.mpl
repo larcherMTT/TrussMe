@@ -16,6 +16,10 @@
 TrussMe := module()
 
 export  Show,
+        MakeFrame,
+        IsFrame,
+        MakePoint,
+        IsPoint,
         Rotate,
         Translate,
         Project,
@@ -218,6 +222,7 @@ Protect := proc()
   # Protect the types
   protect(
     'FRAME',
+    'POINT',
     'EARTH',
     'BEAM',
     'ROD',
@@ -284,6 +289,72 @@ GetNames := proc(
 
   return [seq(objs[i][name], i = 1..nops(objs))];
 end proc: # GetNames
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+MakeFrame := proc(
+  T::{list}   := [0, 0, 0],                        # Translation vector
+  R::{Matrix} := LinearAlgebra:-IdentityMatrix(3), # Rotation matrix
+  $)
+
+  description "Create a reference frame";
+
+  if (T = [0, 0, 0]) and (R = LinearAlgebra:-IdentityMatrix(3)) then
+    return EARTH;
+  else
+    return table({
+      type        = FRAME,
+      translation = T,
+      rotation    = R
+      });
+  end if;
+end proc: # MakeFrame
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IsFrame := proc(
+  obj, # Object to be checked
+  $)
+
+  description "Check if obj is a FRAME object";
+
+  if (obj[type] = FRAME) then
+    return true;
+  else
+    return false;
+  end if;
+end proc: # IsFrame
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+MakePoint := proc(
+  x::{list},            # Point coordinates
+  RF::{list} := ground, # Reference frame
+  $)
+
+  description "Create a point";
+
+  return table({
+    type   = POINT,
+    coords = x
+    frame  = RF
+    });
+end proc: # MakePoint
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IsPoint := proc(
+  obj, # Object to be checked
+  $)
+
+  description "Check if obj is a POINT object";
+
+  if (obj[type] = POINT) then
+    return true;
+  else
+    return false;
+  end if;
+end proc: # IsPoint
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
