@@ -1,4 +1,5 @@
 # Gitignore
 
-# Ignore the maple library
+# Maple
 *.mla
+*.bak
