@@ -48,6 +48,7 @@ local   ModuleLoad,
         IsostaticSolver,
         ComputeInternalActions,
         ComputePotentialEnergy,
+        ComputeDisplacements,
         InternalActions,
         InitTrussMe,
         TypeRegister,
@@ -106,7 +107,7 @@ InitTrussMe();
 Protect();
 
 NULL;
-end proc:
+end proc: # ModuleLoad
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -121,7 +122,7 @@ end proc:
 ModuleUnload := proc()
   description "Module 'TrussMe' module unload procedure";
   printf("Unloading 'TrussMe'\n");
-end proc:
+end proc: # ModuleUnload
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -163,7 +164,7 @@ TypeRegister := proc()
   TypeTools[AddType](MATERIAL, {table});
   TypeTools[AddType](STRUCTURE, {table});
 
-end proc:
+end proc: # TypeRegister
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -195,7 +196,7 @@ InitTrussMe := proc()
     admissible_loads = [1, 1, 1, 1, 1, 1]
     }):
 
-end proc:
+end proc: # InitTrussMe
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -225,7 +226,6 @@ Protect := proc()
     'QFORCE',
     'QMOMENT',
     'SUPPORT',
-    'COMPLIANTSUPPORT',
     'JOINT',
     'MATERIAL',
     'STRUCTURE'
@@ -250,7 +250,7 @@ Protect := proc()
     'SolveStructure'
   );
 
-end proc:
+end proc: # Protect
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -270,7 +270,7 @@ Show := proc(
   description "Show the content of a table";
 
   print(tab = tab[type](op(op(tab))));
-end proc:
+end proc: # Show
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -283,7 +283,7 @@ GetNames := proc(
   description "Get names of a list/set of structural elements";
 
   return [seq(objs[i][name], i = 1..nops(objs))];
-end proc:
+end proc: # GetNames
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -312,7 +312,7 @@ Rotate := proc(
   else
     error "wrong axis detected";
   end
-end proc:
+end proc: # Rotate
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -328,7 +328,7 @@ Translate := proc(
           <0, 1, 0, 0>|
           <0, 0, 1, 0>|
           <x, y, z, 1>>;
-end proc:
+end proc: # Translate
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -354,7 +354,7 @@ Project := proc(
 
   LinearAlgebra[MatrixInverse](RF_to).RF_from.x_tmp;
   return simplify([seq(%[i], i = 1..nops(x))]);
-end proc:
+end proc: # Project
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -390,7 +390,7 @@ DefineMaterial := proc(
     shear_modulus   = G,
     density         = rho
     });
-end proc:
+end proc: # DefineMaterial
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -440,7 +440,7 @@ description "Define a FORCE object with inputs: force components, force "
     coordinate = ell,
     target     = obj[name]
     });
-end proc:
+end proc: # MakeForce
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -478,7 +478,7 @@ MakeMoment := proc(
     coordinate = ell,
     target     = obj[name]
     });
-end proc:
+end proc: # MakeMoment
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -516,7 +516,7 @@ MakeQForce := proc(
     ],
     target     = obj[name]
     });
-end proc:
+end proc: # MakeQForce
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -548,7 +548,7 @@ MakeQMoment := proc(
     ],
     target     = obj[name]
     });
-end proc:
+end proc: # MakeQMoment
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -643,7 +643,7 @@ MakeSupport := proc(
   end do;
 
   return op(S);
-end proc:
+end proc: # MakeSupport
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -661,7 +661,7 @@ CleanSupport := proc(
   #obj[constraint_displacements] := [];
   #obj[support_reactions]        := [];
   return obj;
-end proc:
+end proc: # CleanSupport
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -793,7 +793,7 @@ MakeJoint := proc(
   end do;
 
   return op(J);
-end proc:
+end proc: # MakeJoint
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -806,7 +806,7 @@ CleanJoint := proc(
   # TODO: check if this is necessary
   #obj[internal_actions] := [];
   return obj;
-end proc:
+end proc: # CleanJoint
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -833,7 +833,7 @@ MakeRod := proc(
     admissible_loads = [1, 0, 0, 0, 0, 0],
     internal_actions = []
     });
-end proc:
+end proc: # MakeRod
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -846,7 +846,7 @@ CleanRod := proc(
   # TODO: check if this is necessary
   #obj[internal_actions] := [];
   return obj;
-end proc:
+end proc: # CleanRod
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -878,7 +878,7 @@ MakeBeam := proc(
     admissible_loads = [1, 1, 1, 1, 1, 1],
     internal_actions = []
     });
-end proc:
+end proc: # MakeBeam
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -891,7 +891,7 @@ CleanBeam := proc(
   # TODO: check if this is necessary
   #obj[internal_actions] := [];
   return obj;
-end proc:
+end proc: # CleanBeam
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -929,7 +929,7 @@ MakeStructure := proc(
     names := [op(names), objs[i][name]];
   end do;
 
-  num_dof := ComputeDOF(objs, dim);
+  num_dof := ComputeDOF(objs, eval("'dim'") = dim);
 
   if (num_dof < 0) then
     if (nops(hyper_vars) <> -num_dof) then
@@ -970,9 +970,11 @@ MakeStructure := proc(
     hyperstatic_variables     = hyper_vars,
     hyperstatic_displacements = hyper_disp,
     dimensions                = dim,
-    solved                    = false
+    support_reactions_solved  = false,
+    internal_actions_solved   = false,
+    displacement_solved       = false
     });
-end proc:
+end proc: # MakeStructure
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -1052,7 +1054,7 @@ for i from 1 to nops(objs_tmp) do
   print(GraphTheory[DrawGraph](G));
 
   return dof;
-end proc:
+end proc: # ComputeDOF
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -1149,7 +1151,7 @@ NewtonEuler := proc(
   end if;
 
   return [op(eq_T), op(eq_R)];
-end proc:
+end proc: # NewtonEuler
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -1217,7 +1219,7 @@ SolveStructure := proc(
       sol := IsostaticSolver(
         {op(S_obj), op(S_joint), op(S_support)},
         {op(S_ext), op(S_con_forces)},
-        vars, struct[dimensions], 'verbose' = verbose
+        vars, struct[dimensions], eval("'verbose'") = verbose
         );
       printf("DONE\n");
       if (verbose) then
@@ -1246,8 +1248,8 @@ SolveStructure := proc(
         vars,
         struct[hyperstatic_variables],
         struct[hyperstatic_displacements],
-        struct[dimensions],
-        'verbose'     = verbose,
+        eval("'dim'")         = struct[dimensions],
+        eval("'verbose'")     = verbose,
         shear_contrib = shear_contribution
         );
       printf("DONE\n");
@@ -1266,19 +1268,23 @@ SolveStructure := proc(
       printf("DONE\n");
     end if;
 
+  # Set support reactions solved flag
+  struct[support_reactions_solved] := true;
+
   # Compute internal actions
-  if (compute_intact) then
+  if (compute_intact) and not struct[internal_actions_computed] then
+    # FIXME: in case of Hyperstatic Structure, the internal actions are already computed
     ComputeInternalActions(
       S_obj, {op(S_ext), op(S_con_forces)}, sol, struct[dimensions],
-      'verbose' = verbose
+      eval("'verbose'") = verbose
       );
+
+    # Set internal actions computed flag
+    struct[internal_actions_computed] := true;
   end if;
 
-  # Set solved flag
-    struct[solved] := true;
-
-    return struct;
-end proc:
+  return struct;
+end proc: # SolveStructure
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -1321,10 +1327,10 @@ HyperstaticSolver := proc(
     `if`(member(vars[i], hyper_vars), NULL, vars[i]),
     i = 1..nops(vars))
     ];
-  iso_sol := IsostaticSolver(objs, ext, iso_vars, dim, 'verbose' = verbose);
+  iso_sol := IsostaticSolver(objs, ext, iso_vars, dim, eval("'verbose'") = verbose);
 
   # Compute internal actions
-  ComputeInternalActions(S_obj, ext, iso_sol, dim, 'verbose' = verbose);
+  ComputeInternalActions(S_obj, ext, iso_sol, dim, eval("'verbose'") = verbose);
 
   # Compute structure internal energy
   P := ComputePotentialEnergy(S_obj, shear_contribution = shear_contrib);
@@ -1338,7 +1344,7 @@ HyperstaticSolver := proc(
   printf("DONE\n");
 
   return [op(hyper_sol), op(subs(hyper_sol, iso_sol))];
-end proc:
+end proc: # HyperstaticSolver
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -1349,7 +1355,8 @@ ComputePotentialEnergy := proc(
   },
   {
     shear_contribution := false # Add shear contribution to the potential energy
-  }, $)
+  }, 
+  $)
 
   description "Compute the internal potential energy of the structure";
 
@@ -1443,7 +1450,7 @@ ComputePotentialEnergy := proc(
   end do;
 
   return P;
-end proc:
+end proc: # PotentialEnergy
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -1479,7 +1486,7 @@ IsostaticSolver := proc(
         active_ext := {op(active_ext), ext[j]};
             end if;
         end do;
-    eq := [op(eq), op(NewtonEuler(active_ext, objs[i], 0, dim))];
+    eq := [op(eq), op(NewtonEuler(active_ext, objs[i], 0, eval("'dim'") = dim))];
     # Add joints and supports constraint equations
     if (objs[i][type] = SUPPORT) or (objs[i][type] = JOINT) then
       eq := [op(eq), op(objs[i][constraint_loads])];
@@ -1526,7 +1533,7 @@ IsostaticSolver := proc(
   printf("DONE\n");
 
     return sol;
-end proc:
+end proc: # IsostaticSolver
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -1565,7 +1572,7 @@ ComputeInternalActions := proc(
     # Compute internal actions
     InternalActions(objs[i], active_ext, dim);
   end do;
-end proc:
+end proc: # ComputeInternalActions
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -1670,7 +1677,36 @@ InternalActions := proc(
   printf("DONE\n");
 
   return ``;
-end proc:
+end proc: # InternalActions
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# Compute displacements of the structure
+
+ComputeDisplacements := proc(
+  objs::{                       # Structure objects
+    list({BEAM, ROD, SUPPORT}),
+    set( {BEAM, ROD, SUPPORT})
+  },
+  verbose::{boolean} := false,  # Verbose mode
+  {
+    shear_contribution := false # Add shear contribution to the potential energy
+  }, 
+  $)
+
+  description "Compute the Structure displacements";
+
+  local dummy_Fx, dummy_Fy, dummy_Fz, dummy_Mx, dummy_My, dummy_Mz, i;
+
+  #
+
+  # Cicle on the structure objects
+  for i from 1 to nops(objs) do
+
+  end do;
+
+  return ;
+end proc; # ComputeDisplacements
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
