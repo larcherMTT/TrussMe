@@ -15,13 +15,16 @@
 
 TrussMe := module()
 
-export  Show,
+export  IsEarth,
+        Show,
         Rotate,
         Translate,
         Project,
         Union,
         InverseFrame,
         IsFrame,
+        IsVector,
+        IsPoint,
         Origin,
         Uvec,
         UvecX,
@@ -163,7 +166,7 @@ TypeRegister := proc()
 
   # Register types
   TypeTools[AddType](FRAME, IsFrame);
-  TypeTools[AddType](EARTH, {table});
+  TypeTools[AddType](EARTH, IsEarth);
   TypeTools[AddType](BEAM, IsBeam);
   TypeTools[AddType](ROD, IsRod);
   TypeTools[AddType](FORCE, IsForce);
@@ -177,7 +180,7 @@ TypeRegister := proc()
   TypeTools[AddType](LOAD, IsLoad);
   TypeTools[AddType](CONSTRAINT, IsConstraint);
   TypeTools[AddType](STRUCTURAL, IsStructural);
-  #TypeTools[AddType](TRUSSMEOBJ, {SUPPORT, JOINT, EARTH});
+  #TypeTools[AddType](TRUSSMEOBJECT, IsTrussMeObject);
 
 end proc: # TypeRegister
 
@@ -278,12 +281,31 @@ end proc: # Protect
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+IsEarth := proc(
+  obj::anything, # Object to be tested
+  $)::boolean;
+
+  description "Test if an object <obj> is the EARTH object";
+
+  if type(obj, table) and
+     (obj[type] = EARTH) and
+     (obj[length] = 0) and
+     (obj[frame] = ground) and
+     (obj[admissible_loads] = [1, 1, 1, 1, 1, 1]) then
+    return true;
+  else
+    return false;
+  end if:
+end proc: # IsEarth
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 Union := proc(
   A::{list, set}, # Object A to be united
   B::{list, set},  # Object B to be united
-  $)
+  $)::{list, set};
 
-  description "Extension of union operator to list objects";
+  description "Extension of union operator to list objects <A> and <B>";
 
   if type(A, 'set') and type(B, 'set') then
     return {op(A), op(B)};
@@ -296,9 +318,9 @@ end proc: # Union
 
 Show := proc(
   tab::table, # Table to be shown
-  $)
+  $)::nothing;
 
-  description "Show the content of a table";
+  description "Show the content of a table <tab>";
 
   print(tab = tab[type](op(op(tab))));
 end proc: # Show
@@ -307,40 +329,38 @@ end proc: # Show
 
 GetNames := proc(
   objs::{ # Structural elements
-    list({MATERIAL, BEAM, ROD, SUPPORT, JOINT}),
-    set( {MATERIAL, BEAM, ROD, SUPPORT, JOINT})
-  },
-  $)
+    list({MATERIAL, STRUCTURAL}),
+    set( {MATERIAL, STRUCTURAL})
+  }, $)::{list(string), set(string)};
 
-  description "Get names of a list/set of structural elements";
+  description "Get names of a list/set of objects <objs>";
 
-  return [seq(objs[i][name], i = 1..nops(objs))];
+  if type(objs, 'list') then
+    return {seq(objs[i][name], i = 1..nops(objs))};
+  else
+    return [seq(objs[i][name], i = 1..nops(objs))];
+  end if:
 end proc: # GetNames
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 InverseFrame := proc(
   RF::FRAME, # Reference frame to be inverted
-  $)
+  $)::FRAME;
 
   description "Inverse transformation matrix of <RF>";
 
-  if IsFrame(RF) then
-    return LinearAlgebra:-Transpose(RF);
-  else
-    error "invalid reference frame";
-  end if:
+  return LinearAlgebra:-Transpose(RF);
 end proc: # InverseFrame
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsFrame := proc(
-  obj, # Object to be checked
-  $)
+  obj::anything, # Object to be checked
+  $)::boolean;
 
-  description "Check if the input object is a FRAME object";
+  description "Check if the input object <obj> is a FRAME object";
 
-  # Check if obj represents an affine transformation
   if (type(obj, 'Matrix')) and
      (LinearAlgebra:-RowDimension(obj) = 4) and
      (LinearAlgebra:-ColumnDimension(obj) = 4) and
@@ -353,10 +373,44 @@ end proc: # IsFrame
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+IsVector := proc(
+  obj::anything, # Object to be checked
+  $)::boolean;
+
+  description "Check if the input object <obj> is a vector";
+
+  if (type(obj, 'Matrix')) and
+     (LinearAlgebra:-Dimension(obj) = 4) and
+     (obj[4] = 0) then
+    return true;
+  else
+    return false;
+  end if:
+end proc: # IsVector
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IsPoint := proc(
+  obj::anything, # Object to be checked
+  $)::boolean;
+
+  description "Check if the input object <obj> is a point";
+
+  if (type(obj, 'Matrix')) and
+     (LinearAlgebra:-Dimension(obj) = 4) and
+     (obj[4] = 1) then
+    return true;
+  else
+    return false;
+  end if:
+end proc: # IsPoint
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 Rotate := proc(
   axis::symbol,  # Rotation axis
   angle::scalar, # Rotation angle (rad)
-  $)
+  $)::FRAME;
 
   description "Transformation matrix corresponding to the rotation <angle> "
     "around the given <axis>";
@@ -377,7 +431,7 @@ Rotate := proc(
             <0,           0,          1, 0>|
             <0,           0,          0, 1>>;
   else
-    error "wrong axis detected";
+    error "invalid axis detected";
   end
 end proc: # Rotate
 
@@ -387,7 +441,7 @@ Translate := proc(
   x::scalar, # X-axis translation component
   y::scalar, # Y-axis translation component
   z::scalar, # Z-axis translation component
-  $)
+  $)::FRAME;
 
   description "Transformation matrix corresponding to the translation <x,y,z>";
 
@@ -401,7 +455,7 @@ end proc: # Translate
 
 Origin := proc(
   RF::FRAME, # Reference frame
-  $)
+  $)::vector;
 
   description "Extract the origin of the reference frame <RF>";
 
@@ -413,19 +467,19 @@ end proc: # Translate
 Uvec := proc(
   axis::symbol, # Axis of the unit vector
   RF::FRAME,    # Reference frame
-  $)
+  $)::vector;
 
-  description "Extract the unit vector of the reference frame <RF>along the "
+  description "Extract the unit vector of the reference frame <RF> along the "
     "given <axis>";
 
   if (axis = 'X') then
-    return <RF[1,1], RF[2,1], RF[3,1]>;
+    return <RF[1,1], RF[2,1], RF[3,1], 0>;
   elif (axis = 'Y') then
-    return <RF[1,2], RF[2,2], RF[3,2]>;
+    return <RF[1,2], RF[2,2], RF[3,2], 0>;
   elif (axis = 'Z') then
-    return <RF[1,3], RF[2,3], RF[3,3]>;
+    return <RF[1,3], RF[2,3], RF[3,3], 0>;
   else
-    error "wrong axis detected";
+    error "invalid axis detected";
   end if:
 end proc: # Uvec
 
@@ -433,9 +487,9 @@ end proc: # Uvec
 
 UvecX := proc(
   RF::FRAME, # Reference frame
-  $)
+  $)::vector;
 
-  description "Extract the X-axis unit vector of the reference frame <RF>";
+  description "Extract the x-axis unit vector of the reference frame <RF>";
 
   return <RF[1,1], RF[2,1], RF[3,1], 0>;
 end proc: # UvecX
@@ -444,9 +498,9 @@ end proc: # UvecX
 
 UvecY := proc(
   RF::FRAME, # Reference frame
-  $)
+  $)::vector;
 
-  description "Extract the Y-axis unit vector of the reference frame <RF>";
+  description "Extract the y-axis unit vector of the reference frame <RF>";
 
   return <RF[1,2], RF[2,2], RF[3,2], 0>;
 end proc: # UvecY
@@ -455,9 +509,9 @@ end proc: # UvecY
 
 UvecZ := proc(
   RF::FRAME, # Reference frame
-  $)
+  $)::vector;
 
-  description "Extract the Z-axis unit vector of the reference frame <RF>";
+  description "Extract the z-axis unit vector of the reference frame <RF>";
 
   return <RF[1,3], RF[2,3], RF[3,3], 0>;
 end proc: # UvecZ
@@ -466,12 +520,12 @@ end proc: # UvecZ
 
 Project := proc(
   x::{list, vector}, # Vector/point to be projected
-  RF_from::FRAME,    # Reference frame from which the vector/point is expressed
-  RF_to::FRAME,      # Reference frame to which the vector/point will be expressed
-  $)
+  RF_ini::FRAME,     # Reference frame from which the vector/point is expressed
+  RF_end::FRAME,     # Reference frame to which the vector/point will be expressed
+  $)::{list, vector};
 
   description "Project <x,y,z>, or vector <x,y,z,0>, or point <x,y,z,1> from "
-    "reference frame <RF_from> to reference frame <RF_to>";
+    "reference frame <RF_ini> to reference frame <RF_end>";
 
   local x_tmp;
 
@@ -481,27 +535,26 @@ Project := proc(
   elif (nops(x) = 4) then
     x_tmp := <x[1], x[2], x[3], x[4]>;
   else
-    error "wrong input vector length";
+    error "invalid input vector/point <x> detected";
   end if;
 
-  LinearAlgebra[MatrixInverse](RF_to).RF_from.x_tmp;
+  LinearAlgebra[MatrixInverse](RF_end).RF_ini.x_tmp;
   return simplify([seq(%[i], i = 1..nops(x))]);
 end proc: # Project
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeMaterial := proc({
-    name::string            := "steel",      # Name of the material
-    elastic_modulus::scalar := 210.0E+09,    # Elastic modulus (Pa)
-    poisson_modulus::scalar := 0.3,          # Poisson modulus (-)
-    shear_modulus::scalar   := E/(2*(1+nu)), # Shear modulus (Pa)
-    density::scalar         := 7.4E+03       # Density (kg/m^3)
-  },
-  $)
+    name::string            := "steel",   # Name of the material
+    elastic_modulus::scalar := 210.0E+09, # Elastic modulus (Pa)
+    poisson_modulus::scalar := 0.3,       # Poisson modulus (-)
+    shear_modulus::scalar   := 77.0E+09,  # Shear modulus (Pa)
+    density::scalar         := 7.4E+03    # Density (kg/m^3)
+  }, $)::MATERIAL;
 
   description "Define a MATERIAL object with inputs: name of the material, "
-    "elastic modulus E (default = 210.0E9 Pa), Poisson modulus nu (default = "
-    "0.3), shear modulus G (default = E/(2*(1+nu))), density rho (default = "
+    "elastic modulus (default = 210.0E9 Pa), Poisson modulus (default = "
+    "0.3), shear modulus (default = E/(2*(1+nu))), density (default = "
     "7.4E3 kg/m^3)";
 
   return table({
@@ -518,11 +571,17 @@ end proc: # DefineMaterial
 
 IsMaterial := proc(
   obj, # Object to be checked
-  $)
+  $)::boolean;
 
-  description "Check if the input object is a MATERIAL object";
+  description "Check if the input object <obj> is a MATERIAL object";
 
-  if (obj[type] = MATERIAL) then
+  if (obj[type] = MATERIAL) and
+     type(obj, table) and
+     type(obj[name], string) and
+     type(obj[elastic_modulus], scalar) and
+     type(obj[poisson_modulus], scalar) and
+     type(obj[shear_modulus], scalar) and
+     type(obj[density], scalar) then
     return true;
   else
     return false;
@@ -532,17 +591,17 @@ end proc: # IsMaterial
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeForce := proc(
-  comps::{list},           # Force components
-  ell,                     # Application point (axial coordinate)
+  components::list,        # Force components
+  ell::scalar,             # Application point (axial coordinate)
   obj::{BEAM, ROD, EARTH}, # Target object
-  RF::{FRAME} := ground,   # Reference frame in which the force is defined
-  $)
+  RF::FRAME := ground,     # Reference frame in which the force is defined
+  $)::FORCE;
 
 description "Define a FORCE object with inputs: force components, force "
-    "application axial coordinate [0,L], target object, optional reference "
-    "frame in which the force is defined (default = ground)";
+    "application axial coordinate <ell> in [0,L], target object <obj>, optional "
+    "reference frame <RF> in which the force is defined (default = ground)";
 
-  local proj_comps;
+  local proj_components;
 
   if IsBeam(obj) or IsRod(obj) then
     if (evalf(ell) < 0) or (evalf(ell) > evalf(obj[length])) then
@@ -550,9 +609,9 @@ description "Define a FORCE object with inputs: force components, force "
     end if;
   end if;
 
-  proj_comps := Project([op(comps), 0], RF, obj[frame])[1..3];
+  proj_components := Project([op(components), 0], RF, obj[frame])[1..3];
   if IsRod(obj) then
-    if (proj_comps[2] <> 0) or (proj_comps[3] <> 0) then
+    if (proj_components[2] <> 0) or (proj_components[3] <> 0) then
       error "only axial forces are accepted in ROD objects";
     end if;
   elif IsSupport(obj) or IsJoint(obj) then
@@ -563,10 +622,10 @@ description "Define a FORCE object with inputs: force components, force "
   end if;
 
   return table({
-    type       = FORCE,
-    components = proj_comps,
-    coordinate = ell,
-    target     = obj[name]
+    parse("type")       = FORCE,
+    parse("components") = proj_components,
+    parse("coordinate") = ell,
+    parse("target")     = obj[name]
     });
 end proc: # MakeForce
 
@@ -574,11 +633,15 @@ end proc: # MakeForce
 
 IsForce := proc(
   obj, # Object to be checked
-  $)
+  $)::boolean;
 
   description "Check if obj is a FORCE object";
 
-  if (obj[type] = FORCE) then
+  if (obj[type] = FORCE) and
+     type(obj, table) and
+     type(obj[components], list) and
+     type(obj[coordinate], scalar) and
+     type(obj[target], string) then
     return true;
   else
     return false;
@@ -588,26 +651,26 @@ end proc: # IsForce
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeMoment := proc(
-  comps::{list},                      # Moment components
-  ell,                                # Application point (axial coordinate)
+  components::list,                   # Moment components
+  ell::scalar,                        # Application point (axial coordinate)
   obj::{BEAM, SUPPORT, JOINT, EARTH}, # Target object
-  RF::{FRAME} := ground,              # Reference frame in which the moment is defined
-  $)
+  RF::FRAME := ground,                # Reference frame in which the moment is defined
+  $)::MOMENT;
 
   description "Define a MOMENT object with inputs: moment components, "
     "moment application axial coordinate [0,L], target object, optional "
     "reference frame in which the moment is defined (default = ground)";
 
-  local proj_comps;
+  local proj_components;
 
+  # FIXME: consider the case of symbolic length or ell
   if IsBeam(obj) then
-    # FIXME: consider the case of symbolic length or ell
     if (evalf(ell) < 0) or (evalf(ell) > evalf(obj[length])) then
       error "moment application point must be in [0,L] range";
     end if;
   end if;
 
-  proj_comps := Project([op(comps), 0], RF, obj[frame])[1..3];
+  proj_components := Project([op(components), 0], RF, obj[frame])[1..3];
   if IsSupport(obj) or IsJoint(obj) then
     if (evalf(ell) <> 0) then
       error "only null axial coordinate is accepted for SUPPORT and JOINT "
@@ -616,22 +679,26 @@ MakeMoment := proc(
   end if;
 
   return table({
-    type       = MOMENT,
-    components = proj_comps,
-    coordinate = ell,
-    target     = obj[name]
+    parse("type")       = MOMENT,
+    parse("components") = proj_components,
+    parse("coordinate") = ell,
+    parse("target")     = obj[name]
     });
 end proc: # MakeMoment
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsMoment := proc(
-  obj, # Object to be checked
-  $)
+  obj::anything, # Object to be checked
+  $)::boolean;
 
-  description "Check if obj is a MOMENT object";
+  description "Check if the object <obj> is a MOMENT object";
 
-  if (obj[type] = MOMENT) then
+  if (obj[type] = MOMENT) and
+     type(obj, table) and
+     type(obj[components], list) and
+     type(obj[coordinate], scalar) and
+     type(obj[target], string) then
     return true;
   else
     return false;
@@ -641,50 +708,54 @@ end proc: # IsMoment
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeQForce := proc(
-  comps::{list},         # Distributed load components
-  obj::{BEAM, ROD},      # Target object
-  RF::{FRAME} := ground, # Reference frame in which the object is defined
+  components::list,    # Distributed load components
+  obj::{BEAM, ROD},    # Target object
+  RF::FRAME := ground, # Reference frame in which the object is defined
   {
-    ell_min     := 0,          # Initial application point (axial coordinate)
-    ell_max     := obj[length] # Final application point (axial coordinate)
-  },
-  $)
+    ell_min::scalar := 0,          # Initial application point (axial coordinate)
+    ell_max::scalar := obj[length] # Final application point (axial coordinate)
+  }, $)::QFORCE;
 
   description "Define a 'QFORCE' object with inputs: distributed load components, "
     "target object, initial and final application points (axial coordinates), "
     "optional reference frame in which the load components are defined "
     "(default = ground)";
 
-  local proj_comps;
+  local proj_components, q_x, q_y, q_z;
 
-  proj_comps := Project([op(comps), 0], RF, obj[frame])[1..3];
+  proj_components := Project([op(components), 0], RF, obj[frame])[1..3];
 
   if IsRod(obj) then
-    if (proj_comps[2] <> 0) or (proj_comps[3] <> 0) then
+    if (proj_components[2] <> 0) or (proj_components[3] <> 0) then
       error "only axial loads are accepted in ROD objects"
     end if;
   end if;
 
+  q_x := (x) -> piecewise((x >= ell_min) and (x <= ell_max), proj_components[1], 0);
+  q_y := (x) -> piecewise((x >= ell_min) and (x <= ell_max), proj_components[2], 0);
+  q_z := (x) -> piecewise((x >= ell_min) and (x <= ell_max), proj_components[3], 0);
+
   return table({
-    type       = QFORCE,
-    components = [
-      x -> piecewise((x >= ell_min) and (x <= ell_max), proj_comps[1], 0),
-      x -> piecewise((x >= ell_min) and (x <= ell_max), proj_comps[2], 0),
-      x -> piecewise((x >= ell_min) and (x <= ell_max), proj_comps[3], 0)
-    ],
-    target     = obj[name]
+    parse("type")        = QFORCE,
+    parse("components")  = [q_x, q_y, q_z],
+    parse("coordinates") = [ell_min, ell_max],
+    parse("target")      = obj[name]
     });
 end proc: # MakeQForce
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsQForce := proc(
-  obj, # Object to be checked
-  $)
+  obj::anything, # Object to be checked
+  $)::boolean;
 
   description "Check if obj is a QFORCE object";
 
-  if (obj[type] = QFORCE) then
+  if (obj[type] = QFORCE) and
+     type(obj, table) and
+     type(obj[components], list) and
+     type(obj[coordinates], list) and
+     type(obj[target], string) then
     return true;
   else
     return false;
@@ -694,44 +765,48 @@ end proc: # IsQForce
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeQMoment := proc(
-  comps::{list},         # Distributed load components
-  obj::{BEAM},           # Target object
-  RF::{FRAME} := ground, # Reference frame in which the moment is defined
+  components::list,    # Distributed load components
+  obj::BEAM,           # Target object
+  RF::FRAME := ground, # Reference frame in which the moment is defined
   {
-    ell_min := 0,           # Initial application point (axial coordinate)
-    ell_max := obj[length]  # Final application point (axial coordinate)
-  },
-  $)
+    ell_min::scalar := 0,           # Initial application point (axial coordinate)
+    ell_max::scalar := obj[length]  # Final application point (axial coordinate)
+  }, $)::QMOMENT;
 
   description "Define a QMOMENT object with inputs: distributed torque components, "
     "target object, initial and final application points (axial coordinates), "
     "optional reference frame in which the load components are defined "
     "(default = ground)";
 
-  local proj_comps;
+  local proj_components, q_x, q_y, q_z;
 
-  proj_comps := Project([op(comps), 0], RF, obj[frame])[1..3];
+  proj_components := Project([op(components), 0], RF, obj[frame])[1..3];
+
+  q_x := (x) -> piecewise((x >= ell_min) and (x <= ell_max), proj_components[1], 0);
+  q_y := (x) -> piecewise((x >= ell_min) and (x <= ell_max), proj_components[2], 0);
+  q_z := (x) -> piecewise((x >= ell_min) and (x <= ell_max), proj_components[3], 0);
 
   return table({
-    type       = QMOMENT,
-    components = [
-      x -> piecewise((x >= ell_min) and (x <= ell_max), proj_comps[1], 0),
-      x -> piecewise((x >= ell_min) and (x <= ell_max), proj_comps[2], 0),
-      x -> piecewise((x >= ell_min) and (x <= ell_max), proj_comps[3], 0)
-    ],
-    target     = obj[name]
+    parse("type")        = QMOMENT,
+    parse("components")  = [q_x, q_y, q_z],
+    parse("coordinates") = [ell_min, ell_max],
+    parse("target")      = obj[name]
     });
 end proc: # MakeQMoment
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsQMoment := proc(
-  obj, # Object to be checked
-  $)
+  obj::anything, # Object to be checked
+  $)::boolean;
 
   description "Check if obj is a QMOMENT object";
 
-  if (obj[type] = QMOMENT) then
+  if (obj[type] = QMOMENT) and
+     type(obj, table) and
+     type(obj[components], list) and
+     type(obj[coordinates], list) and
+     type(obj[target], string) then
     return true;
   else
     return false;
@@ -741,18 +816,17 @@ end proc: # IsQMoment
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeSupport := proc(
-  id::{string},            # Support name
-  dof_constrained::{list}, # Constrained degree of freedom
+  name::string,            # Support name
+  constrained_dof::list,   # Constrained degree of freedom
   objs::list({BEAM, ROD}), # Target objects
-  ells::{list},            # Support locations
-  RF::{FRAME} := ground,   # Reference frame of the support
+  ells::list,              # Support locations
+  RF::FRAME := ground,     # Reference frame of the support
   {
-    stiff::{list} := [        # Stiffness [Ktx, Kty, Ktz, Krx, Kry, Krz]
+    stiffness::list := [ # Stiffness components [Ktx, Kty, Ktz, Krx, Kry, Krz]
       infinity, infinity, infinity,
       infinity, infinity, infinity
     ]
-  },
-  $)
+  }, $)::SUPPORT;
 
   description "Define a SUPPORT object with inputs: support name, constrained "
     "degree of freedom, target objects, list of support locations, optional "
@@ -764,29 +838,29 @@ MakeSupport := proc(
     if IsRod(objs[i]) and (ells[i] <> 0) and (ells[i] <> objs[i][length]) then
       error "SUPPORT objects can only be applied at extremes of ROD objects"
     end if;
-    if IsRod(objs[i]) and (dof_constrained[4..6] <> [0, 0, 0]) then
+    if IsRod(objs[i]) and (constrained_dof[4..6] <> [0, 0, 0]) then
       error "ROD objects supports can only have translational constraints"
     end if;
   end do;
 
   S := table({
-    type                     = SUPPORT,
-    constrained_dof          = dof_constrained,
-    coordinates              = [0, op(ells)],
-    name                     = id,
-    frame                    = RF,
-    targets                  = [EARTH[name], op(GetNames(objs))],
-    variables                = [],
-    forces                   = [],
-    moments                  = [],
-    constraint_loads         = [],
-    constraint_displacements = [],
-    support_reactions        = [], # Expressed in support reference frame
-    stiffness                = stiff
+    parse("type")                     = SUPPORT,
+    parse("constrained_dof")          = constrained_dof,
+    parse("coordinates")              = [0, op(ells)],
+    parse("name")                     = name,
+    parse("frame")                    = RF,
+    parse("targets")                  = [EARTH[name], op(GetNames(objs))],
+    parse("variables")                = [],
+    parse("forces")                   = [],
+    parse("moments")                  = [],
+    parse("constraint_loads")         = [],
+    parse("constraint_displacements") = [],
+    parse("support_reactions")        = [], # Expressed in support reference frame
+    parse("stiffness")                = stiffness
     });
 
   # Build the temporary joint
-  J_tmp := MakeJoint(id, dof_constrained, [EARTH, op(objs)], S[coordinates], RF);
+  J_tmp := MakeJoint(name, constrained_dof, [EARTH, op(objs)], S[coordinates], RF);
 
   S[variables]                := J_tmp[variables];
   S[forces]                   := J_tmp[forces];
@@ -836,12 +910,24 @@ end proc: # MakeSupport
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsSupport := proc(
-  obj, # Object to be checked
-  $)
+  obj::anything, # Object to be checked
+  $)::boolean;
 
-  description "Check if obj is a SUPPORT object";
+  description "Check if the object <obj> is a SUPPORT object";
 
-  if (obj[type] = SUPPORT) then
+  if (obj[type] = SUPPORT) and
+     type(obj[constrained_dof], list) and
+     type(obj[coordinates], list) and
+     type(obj[name], string) and
+     type(obj[frame], FRAME) and
+     type(obj[targets], list(string)) and
+     type(obj[variables], list) and
+     type(obj[forces], list) and
+     type(obj[moments], list) and
+     type(obj[constraint_loads], list) and
+     type(obj[constraint_displacements], list) and
+     type(obj[support_reactions], list) and
+     type(obj[stiffness], list) then
     return true;
   else
     return false;
@@ -852,29 +938,23 @@ end proc: # IsSupport
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 CleanSupport := proc(
-  obj::{SUPPORT}, # Support to be cleaned
-  $)
+  obj::SUPPORT, # Support to be cleaned
+  $)::SUPPORT;
 
-  description "Clean SUPPORT object internal variables";
+  description "Clean SUPPORT object <obj> internal variables";
 
-  # TODO: check if this is necessary
-  #obj[variables]                := [];
-  #obj[forces]                   := [];
-  #obj[moments]                  := [];
-  #obj[constraint_loads]         := [];
-  #obj[constraint_displacements] := [];
-  #obj[support_reactions]        := [];
+  obj[constraint_displacements] := [];
   return obj;
 end proc: # CleanSupport
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeJoint := proc(
-  id::{string},            # Joint name
-  dof_constrained::{list}, # Constrained degree of freedom
+  name::string,            # Joint name
+  constrained_dof::list,   # Constrained degree of freedom
   objs::list({BEAM, ROD}), # Target objects
-  ells::{list},            # Joint locations
-  RF::{FRAME} := ground,   # Reference frame in which the joint is defined
+  ells::list,              # Joint locations
+  RF::FRAME := ground,     # Reference frame in which the joint is defined
   $)
 
   description "Make a JOINT object with inputs: joint name, constrained "
@@ -888,24 +968,24 @@ MakeJoint := proc(
     if IsRod(objs[i]) and (ells[i] <> 0) and (ells[i] <> objs[i][length]) then
       error "JOINT objects can only be applied at extremes of ROD objects";
     end if;
-    if IsRod(objs[i]) and (dof_constrained[4..6] <> [0, 0, 0]) then
+    if IsRod(objs[i]) and (constrained_dof[4..6] <> [0, 0, 0]) then
       error "ROD objects supports can only have translational constraints";
     end if;
   end do;
 
 
     J := table({
-      type                     = JOINT,
-      constrained_dof          = dof_constrained,
-      coordinates              = ells,
-      name                     = id,
-      frame                    = RF,
-      targets                  = GetNames(objs),
-      variables                = [],
-      forces                   = [],
-      moments                  = [],
-      constraint_loads         = [],
-      constraint_displacements = []
+      parse("type")                     = JOINT,
+      parse("constrained_dof")          = constrained_dof,
+      parse("coordinates")              = ells,
+      parse("name")                     = name,
+      parse("frame")                    = RF,
+      parse("targets")                  = GetNames(objs),
+      parse("variables")                = [],
+      parse("forces")                   = [],
+      parse("moments")                  = [],
+      parse("constraint_loads")         = [],
+      parse("constraint_displacements") = []
       });
 
   # Add all the bodies forces
@@ -915,7 +995,7 @@ MakeJoint := proc(
       JFx_||(J[name])||_||(objs[i][name]),
       JFy_||(J[name])||_||(objs[i][name]),
       JFz_||(J[name])||_||(objs[i][name])
-      > *~ <op(dof_constrained[1..3])>,
+      > *~ <op(constrained_dof[1..3])>,
       list);
     # Project the components into object frame and extract admissible loads
     jf_comp_obj := convert(
@@ -937,8 +1017,8 @@ MakeJoint := proc(
     # Check if there are reactions
     if (jf_comp_obj <> [0, 0, 0]) then
       # Create the reaction force between joint and obj
-      JF_||(id)||_||(objs[i][name]) := MakeForce(jf_comp_obj, ells[i], objs[i], objs[i][frame]);
-      JF_||(objs[i][name])||_||(id) := MakeForce(-jf_comp_obj, 0, J, objs[i][frame]);
+      JF_||(name)||_||(objs[i][name]) := MakeForce(jf_comp_obj, ells[i], objs[i], objs[i][frame]);
+      JF_||(objs[i][name])||_||(name) := MakeForce(-jf_comp_obj, 0, J, objs[i][frame]);
       # Update the output joint
       J[variables] := [
         op(J[variables]),
@@ -946,8 +1026,8 @@ MakeJoint := proc(
         ];
       J[forces] := [
         op(J[forces]),
-        JF_||(id)||_||(objs[i][name]),
-        JF_||(objs[i][name])||_||(id)
+        JF_||(name)||_||(objs[i][name]),
+        JF_||(objs[i][name])||_||(name)
         ];
     end if;
   end do;
@@ -959,7 +1039,7 @@ MakeJoint := proc(
       JMx_||(J[name])||_||(objs[i][name]),
       JMy_||(J[name])||_||(objs[i][name]),
       JMz_||(J[name])||_||(objs[i][name])
-      > *~ <op(dof_constrained[4..6])>,
+      > *~ <op(constrained_dof[4..6])>,
       list);
     # Project the components into object frame and extract the admissible loads
     jm_comp_obj := convert(
@@ -981,8 +1061,8 @@ MakeJoint := proc(
     # Check if there are reactions
     if (jf_comp_obj <> [0, 0, 0]) then
       # Create the reaction force between joint and obj
-      JM_||(id)||_||(objs[i][name]) := MakeMoment(jm_comp_obj, ells[i], objs[i], objs[i][frame]);
-      JM_||(objs[i][name])||_||(id) := MakeMoment(-jm_comp_obj, 0, J, objs[i][frame]);
+      JM_||(name)||_||(objs[i][name]) := MakeMoment(jm_comp_obj, ells[i], objs[i], objs[i][frame]);
+      JM_||(objs[i][name])||_||(name) := MakeMoment(-jm_comp_obj, 0, J, objs[i][frame]);
       # Update the output joint
       J[variables] := [
         op(J[variables]),
@@ -990,8 +1070,8 @@ MakeJoint := proc(
         ];
       J[moments] := [
         op(J[moments]),
-        JM_||(id)||_||(objs[i][name]),
-        JM_||(objs[i][name])||_||(id)
+        JM_||(name)||_||(objs[i][name]),
+        JM_||(objs[i][name])||_||(name)
         ];
     end if;
   end do;
@@ -1002,12 +1082,23 @@ end proc: # MakeJoint
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsJoint := proc(
-  obj, # Object to be checked
-  $)
+  obj::anything, # Object to be checked
+  $)::boolean;
 
-  description "Check if obj is a JOINT object";
+  description "Check if the objecy <obj> is a JOINT object";
 
-  if (obj[type] = JOINT) then
+  if (obj[type] = JOINT) and
+     type(obj, table) and
+     type(obj[constrained_dof], list) and
+     type(obj[coordinates], list) and
+     type(obj[name], string) and
+     type(obj[frame], FRAME) and
+     type(obj[targets], list(string)) and
+     type(obj[variables], list) and
+     type(obj[forces], list) and
+     type(obj[moments], list) and
+     type(obj[constraint_loads], list) and
+     type(obj[constraint_displacements], list) then
     return true;
   else
     return false;
@@ -1017,52 +1108,58 @@ end proc: # IsJoint
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 CleanJoint := proc(
-  obj::{JOINT}, # Object to be cleaned
-  $)
+  obj::JOINT, # Object to be cleaned
+  $)::JOINT;
 
-  description "Clean JOINT object internal variables";
+  description "Clean JOINT object <obj> internal variables";
 
-  # TODO: check if this is necessary
-  #obj[internal_actions] := [];
+  obj[constraint_displacements] := [];
   return obj;
 end proc: # CleanJoint
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeRod := proc(
-  id::{string}, # Object name
-  RF,           # Reference frame
-  ell,          # Length (m)
+  name::string, # Object name
+  RF::FRAME,    # Reference frame
+  ell::scalar,  # Length (m)
   {
-    A               := 0,   # Section area (m^2)
-    mat::{MATERIAL} := NULL # Material
-  },
-  $)
+    area::scalar       := 0,   # Section area (m^2)
+    material::MATERIAL := NULL # Material
+  }, $)::ROD;
 
   description "Create a ROD object with inputs: object name, reference "
   "frame, length, and optional section area and material";
 
   return table({
-    type             = ROD,
-    name             = id,
-    length           = ell,
-    area             = A,
-    material         = mat,
-    frame            = RF,
-    admissible_loads = [1, 0, 0, 0, 0, 0],
-    internal_actions = []
+    parse("type")             = ROD,
+    parse("name")             = name,
+    parse("length")           = ell,
+    parse("area")             = area,
+    parse("material")         = material,
+    parse("frame")            = RF,
+    parse("admissible_loads") = [1, 0, 0, 0, 0, 0],
+    parse("internal_actions") = []
     });
 end proc: # MakeRod
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsRod := proc(
-  obj, # Object to be checked
-  $)
+  obj::anything, # Object to be checked
+  $)::boolean;
 
   description "Check if obj is a ROD object";
 
-  if (obj[type] = ROD) then
+  if (obj[type] = ROD) and
+     type(obj, table) and
+     type(obj[name], string) and
+     type(obj[length], scalar) and
+     type(obj[area], scalar) and
+     type(obj[material], MATERIAL) and
+     type(obj[frame], FRAME) and
+     type(obj[admissible_loads], list) and
+     type(obj[internal_actions], list) then
     return true;
   else
     return false;
@@ -1077,52 +1174,59 @@ CleanRod := proc(
 
   description "Clean ROD object internal variables";
 
-  # TODO: check if this is necessary
-  #obj[internal_actions] := [];
+  obj[internal_actions] := [];
   return obj;
 end proc: # CleanRod
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeBeam := proc(
-  id::{string}, # Object name
-  RF,           # Reference frame
-  ell,          # Length (m)
+  name::string, # Object name
+  RF::FRAME,    # Reference frame
+  ell::scalar,  # Length (m)
   {
-    A               := 0,   # Section area (m^2)
-    I_xx            := 0,   # Section x-axis inertia (m^4)
-    I_yy            := 0,   # Section y-axis inertia (m^4)
-    I_zz            := 0,   # Section z-axis inertia (m^4)
-    mat::{MATERIAL} := NULL # Material object
-  },
-  $)
+    area::scalar       := 0,    # Section area (m^2)
+    material::MATERIAL := NULL, # Material object
+    I_xx::scalar       := 0,    # Section x-axis inertia (m^4)
+    I_yy::scalar       := 0,    # Section y-axis inertia (m^4)
+    I_zz::scalar       := 0     # Section z-axis inertia (m^4)
+  }, $)::BEAM;
 
   description "Create a BEAM object with inputs: object name, reference "
     "frame, length, and optional section area, inertias on x-, y- and z-axis "
     "and material";
 
   return table({
-    type             = BEAM,
-    name             = id,
-    length           = ell,
-    area             = A,
-    inertias         = [I_xx, I_yy, I_zz],
-    material         = mat,
-    frame            = RF,
-    admissible_loads = [1, 1, 1, 1, 1, 1],
-    internal_actions = []
+    parse("type")             = BEAM,
+    parse("name")             = name,
+    parse("length")           = ell,
+    parse("area")             = area,
+    parse("material")         = material,
+    parse("inertias")         = [I_xx, I_yy, I_zz],
+    parse("frame")            = RF,
+    parse("admissible_loads") = [1, 1, 1, 1, 1, 1],
+    parse("internal_actions") = []
     });
 end proc: # MakeBeam
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsBeam := proc(
-  obj, # Object to be checked
-  $)
+  obj::anything, # Object to be checked
+  $)::boolean;
 
-  description "Check if obj is a BEAM object";
+  description "Check if the object <obj> is a BEAM object";
 
-  if (obj[type] = BEAM) then
+  if (obj[type] = BEAM) and
+     type(obj, table) and
+     type(obj[name], string) and
+     type(obj[length], scalar) and
+     type(obj[area], scalar) and
+     type(obj[material], MATERIAL) and
+     type(obj[inertias], list) and
+     type(obj[frame], FRAME) and
+     type(obj[admissible_loads], list) and
+     type(obj[internal_actions], list) then
     return true;
   else
     return false;
@@ -1132,23 +1236,23 @@ end proc: # IsBeam
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 CleanBeam := proc(
-  obj::{BEAM}, # Object to be cleaned
-  $)
+  obj::BEAM, # Object to be cleaned
+  $)::BEAM;
 
   description "Clean BEAM object internal variables";
 
-  # TODO: check if this is necessary
-  #obj[internal_actions] := [];
+  obj[internal_actions] := [];
   return obj;
 end proc: # CleanBeam
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsStructural := proc(
-  obj, # Object to be checked
-  $)
+  obj::anything, # Object to be checked
+  $)::boolean;
 
-  description "Check if obj is a BEAM, ROD, SUPPORT or JOINT object";
+  description "Check if the object <obj> is a BEAM, ROD, SUPPORT or JOINT "
+    "object";
 
   if IsBeam(obj) or IsRod(obj) or IsSupport(obj) or IsJoint(obj) then
     return true;
@@ -1160,10 +1264,10 @@ end proc: # IsStructural
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsConstraint := proc(
-  obj, # Object to be checked
-  $)
+  obj::anything, # Object to be checked
+  $)::boolean;
 
-  description "Check if obj is a SUPPORT or JOINT object";
+  description "Check if the object <obj> is a SUPPORT or JOINT object";
 
   if IsSupport(obj) or IsJoint(obj) then
     return true;
@@ -1175,10 +1279,11 @@ end proc: # IsConstraint
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsLoad := proc(
-  obj, # Object to be checked
-  $)
+  obj::anything, # Object to be checked
+  $)::boolean;
 
-  description "Check if obj is a FORCE, MOMENT, QFORCE or QMOMENT object";
+  description "Check if the object <obj> is a FORCE, MOMENT, QFORCE or QMOMENT "
+    "object";
 
   if IsForce(obj) or IsMoment(obj) or IsQForce(obj) or IsQMoment(obj) then
     return true;
@@ -1190,14 +1295,8 @@ end proc: # IsLoad
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeStructure := proc(
-  objs::{ # Structure objects (BEAM,ROD,SUPPORT,JOINT)
-    list({BEAM, ROD, SUPPORT, JOINT}),
-    set( {BEAM, ROD, SUPPORT, JOINT})
-  },
-  ext::{ # External forces, moments or distributed loads
-    list({FORCE, MOMENT, QFORCE, QMOMENT}),
-    set( {FORCE, MOMENT, QFORCE, QMOMENT})
-  } := [],
+  objs::{list(STRUCTURAL), set(STRUCTURAL)}, # Structural objects
+  ext::{list(LOAD), set(LOAD)} := [],        # Load objects
   {
     hyper_vars::{list ,set} := [],
       # Hyperstatic variables
@@ -1205,8 +1304,7 @@ MakeStructure := proc(
       # Hyperstatic displacements
     dim::{string} := "3D"
       # Structure dimension ("2D" or "3D")
-  },
-  $)
+  }, $)::STRUCTURE;
 
   description "Create a STRUCTURE object with inputs: structure objects, "
     "external forces, moments or distributed loads, hyperstatic variables and "
@@ -1257,24 +1355,24 @@ MakeStructure := proc(
   end if;
 
   return table({
-    type                      = STRUCTURE,
-    objects                   = objs,
-    external_actions          = ext,
-    dof                       = num_dof,
-    hyperstatic_variables     = hyper_vars,
-    hyperstatic_displacements = hyper_disp,
-    dimensions                = dim,
-    support_reactions_solved  = false,
-    internal_actions_solved   = false,
-    displacement_solved       = false
+    parse("type")                      = STRUCTURE,
+    parse("objects")                   = objs,
+    parse("external_actions")          = ext,
+    parse("dof")                       = num_dof,
+    parse("hyperstatic_variables")     = hyper_vars,
+    parse("hyperstatic_displacements") = hyper_disp,
+    parse("dimensions")                = dim,
+    parse("support_reactions_solved")  = false,
+    parse("internal_actions_solved")   = false,
+    parse("displacement_solved")       = false
     });
 end proc: # MakeStructure
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsStructure := proc(
-  obj, # Object to be checked
-  $)
+  obj::anything, # Object to be checked
+  $)::boolean;
 
   description "Check if obj is a STRUCTURE object";
 
@@ -1288,8 +1386,8 @@ end proc: # IsStructure
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 CleanStructure := proc(
-  obj::{STRUCTURE}, # Object to be cleaned
-  $)
+  obj::STRUCTURE, # Object to be cleaned
+  $)::STRUCTURE;
 
   description "Clean STRUCTURE object internal variables";
 
@@ -1311,14 +1409,10 @@ end proc: # CleanStructure
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 ComputeDOF := proc(
-  objs::{ # Structure objects
-    list({BEAM, ROD, SUPPORT, JOINT}),
-    set( {BEAM, ROD, SUPPORT, JOINT})
-  },
+  objs::{list(STRUCTURAL), set(STRUCTURAL)}, # Structure objects
   {
     dim::{string} := "3D" # Structure dimension ("2D" or "3D")
-  },
-  $)
+  }, $)::integer;
 
   description "Compute the degree of freedom of the input structure objects";
 
@@ -1391,17 +1485,13 @@ end proc: # ComputeDOF
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 NewtonEuler := proc(
-  ext::{ # External actions
-    list({FORCE, MOMENT, QFORCE, QMOMENT}),
-    set( {FORCE, MOMENT, QFORCE, QMOMENT})
-  },
-  obj::{BEAM, ROD, SUPPORT, JOINT}, # Object to compute the equilibrium
-  pole,                             # Pole to compute the equilibrium
+  ext::{list(LOAD), set(LOAD)}, # External actions
+  obj::STRUCTURAL,              # Object to compute the equilibrium
+  pole,                         # Pole to compute the equilibrium # TODO: which type is this?
   {
     dim::{string} := "3D", # Structure dimension ("2D" or "3D")
     lim := obj[length]     # Upper limit of the integration
-  },
-  $)
+  }, $)
 
   description "Compute the Newton-Euler static equilibrium equations given a "
     "set of external actions and the axial coordinate of the pole";
@@ -1488,14 +1578,13 @@ end proc: # NewtonEuler
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 SolveStructure := proc(
-  struct::{STRUCTURE}, # Structure object
+  struct::STRUCTURE, # Structure object
   {
     compute_intact::{boolean}     := false, # Internal actions computation flag
     compute_disp::{boolean}       := false, # Displacement computation flag
     shear_contribution::{boolean} := false, # Shear contribution flag
     verbose::{boolean}            := false  # Verbose mode
-  },
-  $)
+  }, $)
 
     description "Solve the static equilibrium of a structure with inputs: the "
       "structure object, the compute internal action enabling flag, the compute "
@@ -1621,17 +1710,11 @@ end proc: # SolveStructure
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 HyperstaticSolver := proc(
-  objs::{ # Structure objects
-    list({BEAM, ROD, SUPPORT, JOINT}),
-    set( {BEAM, ROD, SUPPORT, JOINT})
-  },
-  ext::{ # External actions
-    list({FORCE, MOMENT, QFORCE, QMOMENT}),
-    set( {FORCE, MOMENT, QFORCE, QMOMENT})
-  },
-  vars::{list},                # Variables
-  hyper_vars::{list},          # Hyperstatic variables
-  hyper_disp::{list},          # Hyperstatic displacements
+  objs::{list(STRUCTURAL), set( STRUCTURAL)}, # Structural objects
+  ext::{list(LOAD), set(LOAD)},               # External actions
+  vars::{list},                               # Variables
+  hyper_vars::{list},                         # Hyperstatic variables
+  hyper_disp::{list},                         # Hyperstatic displacements
   {
     dim::{string}            := "3D",  # Dimensions ("2D" or "3D")
     shear_contrib::{boolean} := false, # Shear contribution
@@ -1787,18 +1870,12 @@ end proc: # PotentialEnergy
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsostaticSolver := proc(
-  objs::{ # Strucure objects
-    list({BEAM, ROD, SUPPORT, JOINT}),
-    set( {BEAM, ROD, SUPPORT, JOINT})
-  },
-  ext::{ # External actions
-    list({FORCE, MOMENT, QFORCE, QMOMENT}),
-    set( {FORCE, MOMENT, QFORCE, QMOMENT})
-  },
-  vars::{list},                # Variables to solve
+  objs::{list(STRUCTURAL), set(STRUCTURAL)}, # Strucural objects
+  ext::{list(LOAD), set(LOAD)},              # Load objects
+  vars::list,                                # Variables to solve
   {
-    dim::{string}      := "3D",  # Dimension ("2D" or "3D")
-    verbose::{boolean} := false # Verbose mode
+    dim::string      := "3D", # Dimension ("2D" or "3D")
+    verbose::boolean := false # Verbose mode
   },
   $)
 
@@ -1874,11 +1951,8 @@ ComputeInternalActions := proc(
     list({BEAM, ROD}),
     set( {BEAM, ROD})
   },
-  ext::{ # External actions
-    list({FORCE, MOMENT, QFORCE, QMOMENT}),
-    set( {FORCE, MOMENT, QFORCE, QMOMENT})
-  },
-  sol::{list, set},      # Structure solution
+  ext::{list(LOAD), set(LOAD)}, # Load objects
+  sol::{list, set},             # Structure solution
   {
     dim::{string}      := "3D", # Dimension ("2D" or "3D")
     verbose::{boolean} := false # Verbose mode
@@ -1893,7 +1967,7 @@ ComputeInternalActions := proc(
   # Substitute structure solution into loads
   subs_ext := map2(subs, sol, map(op,ext));
 
-  for i from 1 to nops(objs) do 
+  for i from 1 to nops(objs) do
     # Extract active loads
     active_ext := {};
     for j from 1 to nops(subs_ext) do
