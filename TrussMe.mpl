@@ -16,13 +16,23 @@
 TrussMe := module()
 
 export  Show,
-        MakeFrame,
-        IsFrame,
-        MakePoint,
-        IsPoint,
         Rotate,
         Translate,
         Project,
+        Union,
+        InverseFrame,
+        IsFrame,
+        Origin,
+        Uvec,
+        UvecX,
+        UvecY,
+        UvecZ,
+        DotProd,
+        CrossProd,
+        MakePoint,
+        IsPoint,
+        MakeVector,
+        IsVector,
         MakeMaterial,
         IsMaterial,
         MakeBeam,
@@ -43,7 +53,10 @@ export  Show,
         IsQMoment,
         MakeStructure,
         IsStructure,
-        SolveStructure;
+        SolveStructure,
+        IsStructural,
+        IsLoad,
+        IsConstraint;
 
 global  _gravity,
         ground;
@@ -97,7 +110,7 @@ ModuleLoad := proc()
   # Display module init message
   printf(cat(
     "Module 'TrussMe' version beta-0.0, ",
-    "Copyright (C) M. Larcher & D. Stocco, ",
+    "Copyright (C) 2022-2023, M. Larcher & D. Stocco, ",
     "University of Trento 2022-2023"
     ));
 
@@ -155,18 +168,22 @@ TypeRegister := proc()
   description "Register 'TrussMe' module types";
 
   # Register types
-  TypeTools[AddType](FRAME, {Matrix});
+  TypeTools[AddType](FRAME, IsFrame);
   TypeTools[AddType](EARTH, {table});
-  TypeTools[AddType](BEAM, {table});
-  TypeTools[AddType](ROD, {table});
-  TypeTools[AddType](FORCE, {table});
-  TypeTools[AddType](MOMENT, {table});
-  TypeTools[AddType](QFORCE, {table});
-  TypeTools[AddType](QMOMENT, {table});
-  TypeTools[AddType](SUPPORT, {table});
-  TypeTools[AddType](JOINT, {table});
-  TypeTools[AddType](MATERIAL, {table});
-  TypeTools[AddType](STRUCTURE, {table});
+  TypeTools[AddType](BEAM, IsBeam);
+  TypeTools[AddType](ROD, IsRod);
+  TypeTools[AddType](FORCE, IsForce);
+  TypeTools[AddType](MOMENT, IsMoment);
+  TypeTools[AddType](QFORCE, IsQForce);
+  TypeTools[AddType](QMOMENT, IsQMoment);
+  TypeTools[AddType](SUPPORT, IsSupport);
+  TypeTools[AddType](JOINT, IsJoint);
+  TypeTools[AddType](MATERIAL, IsMaterial);
+  TypeTools[AddType](STRUCTURE, IsStructure);
+  TypeTools[AddType](LOAD, IsLoad);
+  TypeTools[AddType](CONSTRAINT, IsConstraint);
+  TypeTools[AddType](STRUCTURAL, IsStructural);
+  #TypeTools[AddType](TRUSSMEOBJ, {SUPPORT, JOINT, EARTH});
 
 end proc: # TypeRegister
 
@@ -222,7 +239,6 @@ Protect := proc()
   # Protect the types
   protect(
     'FRAME',
-    'POINT',
     'EARTH',
     'BEAM',
     'ROD',
@@ -268,8 +284,24 @@ end proc: # Protect
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+Union := proc(
+  A::{list, set}, # Object A to be united
+  B::{list, set},  # Object B to be united
+  $)
+
+  description "Extension of union operator to list objects";
+
+  if type(A, 'set') and type(B, 'set') then
+    return {op(A), op(B)};
+  else
+    return [op(A), op(B)];
+  end if:
+end proc: # Union
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 Show := proc(
-  tab::{table}, # Table to be shown
+  tab::table, # Table to be shown
   $)
 
   description "Show the content of a table";
@@ -283,7 +315,8 @@ GetNames := proc(
   objs::{ # Structural elements
     list({MATERIAL, BEAM, ROD, SUPPORT, JOINT}),
     set( {MATERIAL, BEAM, ROD, SUPPORT, JOINT})
-  }, $)
+  },
+  $)
 
   description "Get names of a list/set of structural elements";
 
@@ -292,23 +325,18 @@ end proc: # GetNames
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-MakeFrame := proc(
-  T::{list}   := [0, 0, 0],                        # Translation vector
-  R::{Matrix} := LinearAlgebra:-IdentityMatrix(3), # Rotation matrix
+InverseFrame := proc(
+  RF::FRAME, # Reference frame to be inverted
   $)
 
-  description "Create a reference frame";
+  description "Inverse transformation matrix of <RF>";
 
-  if (T = [0, 0, 0]) and (R = LinearAlgebra:-IdentityMatrix(3)) then
-    return EARTH;
+  if IsFrame(RF) then
+    return LinearAlgebra:-Transpose(RF);
   else
-    return table({
-      type        = FRAME,
-      translation = T,
-      rotation    = R
-      });
-  end if;
-end proc: # MakeFrame
+    error "invalid reference frame";
+  end if:
+end proc: # InverseFrame
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -316,9 +344,13 @@ IsFrame := proc(
   obj, # Object to be checked
   $)
 
-  description "Check if obj is a FRAME object";
+  description "Check if the input object is a FRAME object";
 
-  if (obj[type] = FRAME) then
+  # Check if obj represents an affine transformation
+  if (type(obj, 'Matrix')) and
+     (LinearAlgebra:-RowDimension(obj) = 4) and
+     (LinearAlgebra:-ColumnDimension(obj) = 4) and
+     (simplify(combine(LinearAlgebra:-Determinant(obj) = 1))) then
     return true;
   else
     return false;
@@ -327,55 +359,25 @@ end proc: # IsFrame
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-MakePoint := proc(
-  x::{list},            # Point coordinates
-  RF::{list} := ground, # Reference frame
-  $)
-
-  description "Create a point";
-
-  return table({
-    type   = POINT,
-    coords = x
-    frame  = RF
-    });
-end proc: # MakePoint
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-IsPoint := proc(
-  obj, # Object to be checked
-  $)
-
-  description "Check if obj is a POINT object";
-
-  if (obj[type] = POINT) then
-    return true;
-  else
-    return false;
-  end if;
-end proc: # IsPoint
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 Rotate := proc(
-  axis,  # Rotation axis
-  angle, # Rotation angle (rad)
+  axis::symbol,  # Rotation axis
+  angle::scalar, # Rotation angle (rad)
   $)
 
-  description "Rotation around an axis ""X"", ""Y"" or ""Z"" of a given angle";
+  description "Transformation matrix corresponding to the rotation <angle> "
+    "around the given <axis>";
 
-  if (axis = "X") or (axis = 'X') then
+  if (axis = 'X') then
     return <<1, 0,           0,          0>|
             <0, cos(angle),  sin(angle), 0>|
             <0, -sin(angle), cos(angle), 0>|
             <0, 0,           0,          1>>;
-  elif (axis = "Y") or (axis = 'Y') then
+  elif (axis = 'Y') then
     return <<cos(angle), 0, -sin(angle), 0>|
             <0,          1, 0,           0>|
             <sin(angle), 0, cos(angle),  0>|
             <0,          0, 0,           1>>;
-  elif (axis = "Z") or (axis = 'Z') then
+  elif (axis = 'Z') then
     return <<cos(angle),  sin(angle), 0, 0>|
             <-sin(angle), cos(angle), 0, 0>|
             <0,           0,          1, 0>|
@@ -388,12 +390,12 @@ end proc: # Rotate
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 Translate := proc(
-  x, # X-axis translation component
-  y, # Y-axis translation component
-  z, # Z-axis translation component
+  x::scalar, # X-axis translation component
+  y::scalar, # Y-axis translation component
+  z::scalar, # Z-axis translation component
   $)
 
-  description "Translation on x-, y- and z-axis";
+  description "Transformation matrix corresponding to the translation <x,y,z>";
 
   return <<1, 0, 0, 0>|
           <0, 1, 0, 0>|
@@ -403,14 +405,179 @@ end proc: # Translate
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-Project := proc(
-  x,       # Vector/point to be projected
-  RF_from, # Reference frame from which the vector/point is expressed
-  RF_to,   # Reference frame to which the vector/point will be expressed
+Origin := proc(
+  RF::FRAME, # Reference frame
   $)
 
-  description "Project vector <x,y,z,0> or point <x,y,z,1> x from RF_from to "
-    "RF_to";
+  description "Extract the origin of the reference frame <RF>";
+
+  return MakePoint(RF, RF[1,4], RF[2,4], RF[3,4]);
+end proc: # Translate
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Uvec := proc(
+  axis::symbol, # Axis of the unit vector
+  RF::FRAME,    # Reference frame
+  $)
+
+  description "Extract the unit vector of the reference frame <RF>along the "
+    "given <axis>";
+
+  if (axis = 'X') then
+    return MakeVector(RF, RF[1,1], RF[2,1], RF[3,1]);
+  elif (axis = 'Y') then
+    return MakeVector(RF, RF[1,2], RF[2,2], RF[3,2]);
+  elif (axis = 'Z') then
+    return MakeVector(RF, RF[1,3], RF[2,3], RF[3,3]);
+  else
+    error "wrong axis detected";
+  end if:
+end proc: # Uvec
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+UvecX := proc(
+  RF::FRAME, # Reference frame
+  $)
+
+  description "Extract the X-axis unit vector of the reference frame <RF>";
+
+  return MakeVector(RF, RF[1,1], RF[2,1], RF[3,1]);
+end proc: # UvecX
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+UvecY := proc(
+  RF::FRAME, # Reference frame
+  $)
+
+  description "Extract the Y-axis unit vector of the reference frame <RF>";
+
+  return MakeVector(RF, RF[1,2], RF[2,2], RF[3,2]);
+end proc: # UvecY
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+UvecZ := proc(
+  RF::FRAME, # Reference frame
+  $)
+
+  description "Extract the Z-axis unit vector of the reference frame <RF>";
+
+  return MakeVector(RF, RF[1,3], RF[2,3], RF[3,3]);
+end proc: # UvecZ
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+DotProd := proc(
+  V1::VECTOR, # First vector
+  V2::VECTOR, # Second vector
+  $)
+
+  description "Dot product between two vectors <V1> and <V2>";
+  Project(V1, V2);
+  return LinearAlgebra:-DotProduct(V1[comps], V2[comps], conjugate = false);
+end proc: # DotProd
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+CrossProd := proc(
+  V1::VECTOR, # First vector
+  V2::VECTOR, # Second vector
+  $)
+
+  description "Cross product between two vectors <V1> and <V2>";
+
+  LinearAlgebra:-CrossProduct(V1[comps], V2[comps]);
+  return MakeVector(V1[RF], V1[RF][1,1], V1[RF][2,1], V1[RF][3,1]);
+end proc: # CrossProd
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+MakePoint := proc(
+  RF::FRAME, # Reference frame
+  x::scalar, # X-axis coordinate
+  y::scalar, # Y-axis coordinate
+  z::scalar, # Z-axis coordinate
+  $)
+
+  description "Make a POINT with coordinates <x,y,z> in the reference frame <RF>";
+
+  return table(
+    parse("type")   = POINT,
+    parse("coords") = <x, y, z, 1>,
+    parse("frame")  = RF
+  );
+end proc: # MakePoint
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IsPoint := proc(
+  obj, # Object to be checked
+  $)
+
+  description "Check if the input object is a POINT object";
+
+  if (type(obj, 'table')) and
+     (obj[type] = POINT) and
+     (type(obj[coords], 'Matrix')) and
+     (LinearAlgebra:-Dimension(obj[coords]) = 4) and
+     (IsFrame(obj[frame])) then
+    return true;
+  else
+    return false;
+  end if;
+end proc: # IsPoint
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+MakeVector := proc(
+  RF::FRAME, # Reference frame
+  x::scalar, # X-axis coordinate
+  y::scalar, # Y-axis coordinate
+  z::scalar, # Z-axis coordinate
+  $)
+
+  description "Make a VECTOR with coordinates <x,y,z> in the reference frame "
+    "<RF>";
+
+  return table(
+    parse("type")  = VECTOR,
+    parse("comps") = <x, y, z, 0>,
+    parse("frame") = RF
+  );
+end proc: # MakeVector
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IsVector := proc(
+  obj, # Object to be checked
+  $)
+
+  description "Check if the input object is a VECTOR object";
+
+  if (type(obj, 'table')) and
+     (obj[type] = 'VECTOR') and
+     (type(obj[coords], 'Matrix')) and
+     (LinearAlgebra:-Dimension(obj[coords]) = 4) and
+     (IsFrame(obj[frame])) then
+    return true;
+  else
+    return false;
+  end if;
+end proc: # IsVector
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Project := proc(
+  x::{list},        # Vector/point to be projected
+  RF_from::FRAME, # Reference frame from which the vector/point is expressed
+  RF_to::FRAME,   # Reference frame to which the vector/point will be expressed
+  $)
+
+  description "Project <x,y,z>, or vector <x,y,z,0>, or point <x,y,z,1> from "
+    "reference frame <RF_from> to reference frame <RF_to>";
 
   local x_tmp;
 
@@ -429,13 +596,12 @@ end proc: # Project
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-MakeMaterial := proc(
-  id::{string} := "steel", # Name of the material
-  {
-    E   := 210.0E+09,    # Elastic modulus (Pa)
-    nu  := 0.3,          # Poisson modulus (-)
-    G   := E/(2*(1+nu)), # Shear modulus (Pa)
-    rho := 7.4E+03       # Density (kg/m^3)
+MakeMaterial := proc({
+    name::string            := "steel",      # Name of the material
+    elastic_modulus::scalar := 210.0E+09,    # Elastic modulus (Pa)
+    poisson_modulus::scalar := 0.3,          # Poisson modulus (-)
+    shear_modulus::scalar   := E/(2*(1+nu)), # Shear modulus (Pa)
+    density::scalar         := 7.4E+03       # Density (kg/m^3)
   },
   $)
 
@@ -445,12 +611,12 @@ MakeMaterial := proc(
     "7.4E3 kg/m^3)";
 
   return table({
-    type            = MATERIAL,
-    name            = id,
-    elastic_modulus = E,
-    poisson_modulus = nu,
-    shear_modulus   = G,
-    density         = rho
+    parse("type")            = MATERIAL,
+    parse("name")            = name,
+    parse("elastic_modulus") = elastic_modulus,
+    parse("poisson_modulus") = poisson_modulus,
+    parse("shear_modulus")   = shear_modulus,
+    parse("density")         = density
     });
 end proc: # DefineMaterial
 
@@ -1084,6 +1250,51 @@ end proc: # CleanBeam
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+IsStructural := proc(
+  obj, # Object to be checked
+  $)
+
+  description "Check if obj is a BEAM, ROD, SUPPORT or JOINT object";
+
+  if IsBeam(obj) or IsRod(obj) or IsSupport(obj) or IsJoint(obj) then
+    return true;
+  else
+    return false;
+  end if;
+end proc: # IsStructural
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IsConstraint := proc(
+  obj, # Object to be checked
+  $)
+
+  description "Check if obj is a SUPPORT or JOINT object";
+
+  if IsSupport(obj) or IsJoint(obj) then
+    return true;
+  else
+    return false;
+  end if;
+end proc: # IsConstraint
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IsLoad := proc(
+  obj, # Object to be checked
+  $)
+
+  description "Check if obj is a FORCE, MOMENT, QFORCE or QMOMENT object";
+
+  if IsForce(obj) or IsMoment(obj) or IsQForce(obj) or IsQMoment(obj) then
+    return true;
+  else
+    return false;
+  end if;
+end proc: # IsLoad
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 MakeStructure := proc(
   objs::{ # Structure objects (BEAM,ROD,SUPPORT,JOINT)
     list({BEAM, ROD, SUPPORT, JOINT}),
@@ -1303,7 +1514,7 @@ NewtonEuler := proc(
 
   local eq_T, eq_R, i;
 
-    # 2D case
+  # 2D case
   if (dim = "2D") then
 
     eq_T := [0, 0];
@@ -1482,9 +1693,9 @@ SolveStructure := proc(
       printf("DONE\n");
       if (verbose) then
         printf("Message (in SolveStructure) hyperstatic solver solution:\n");
-            print(<sol>);
-        end if;
-      # update support reactions properties
+        print(<sol>);
+      end if;
+      # Update support reactions properties
       printf("Message (in SolveStructure) updating support reactions fields... ");
       for i from 1 to nops(S_support) do
       S_support[i][support_reactions] := [
@@ -1582,7 +1793,7 @@ ComputePotentialEnergy := proc(
   },
   {
     shear_contribution := false # Add shear contribution to the potential energy
-  }, 
+  },
   $)
 
   description "Compute the internal potential energy of the structure";
@@ -1739,7 +1950,7 @@ IsostaticSolver := proc(
 
   # Structure equations check
   A, B    := LinearAlgebra[GenerateMatrix](eq, vars_tmp);
-    rank_eq := LinearAlgebra[Rank](A);
+  rank_eq := LinearAlgebra[Rank](A);
 
   if (verbose) then
     printf("Message (in IsostaticSolver) structure equilibrium equations:\n");
@@ -1909,7 +2120,6 @@ end proc: # InternalActions
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # Compute displacements of the structure
-
 ComputeDisplacements := proc(
   objs::{                       # Structure objects
     list({BEAM, ROD, SUPPORT}),
