@@ -27,12 +27,6 @@ export  Show,
         UvecX,
         UvecY,
         UvecZ,
-        DotProd,
-        CrossProd,
-        MakePoint,
-        IsPoint,
-        MakeVector,
-        IsVector,
         MakeMaterial,
         IsMaterial,
         MakeBeam,
@@ -411,7 +405,7 @@ Origin := proc(
 
   description "Extract the origin of the reference frame <RF>";
 
-  return MakePoint(RF, RF[1,4], RF[2,4], RF[3,4]);
+  return <RF[1,4], RF[2,4], RF[3,4], 1>;
 end proc: # Translate
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -425,11 +419,11 @@ Uvec := proc(
     "given <axis>";
 
   if (axis = 'X') then
-    return MakeVector(RF, RF[1,1], RF[2,1], RF[3,1]);
+    return <RF[1,1], RF[2,1], RF[3,1]>;
   elif (axis = 'Y') then
-    return MakeVector(RF, RF[1,2], RF[2,2], RF[3,2]);
+    return <RF[1,2], RF[2,2], RF[3,2]>;
   elif (axis = 'Z') then
-    return MakeVector(RF, RF[1,3], RF[2,3], RF[3,3]);
+    return <RF[1,3], RF[2,3], RF[3,3]>;
   else
     error "wrong axis detected";
   end if:
@@ -443,7 +437,7 @@ UvecX := proc(
 
   description "Extract the X-axis unit vector of the reference frame <RF>";
 
-  return MakeVector(RF, RF[1,1], RF[2,1], RF[3,1]);
+  return <RF[1,1], RF[2,1], RF[3,1], 0>;
 end proc: # UvecX
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -454,7 +448,7 @@ UvecY := proc(
 
   description "Extract the Y-axis unit vector of the reference frame <RF>";
 
-  return MakeVector(RF, RF[1,2], RF[2,2], RF[3,2]);
+  return <RF[1,2], RF[2,2], RF[3,2], 0>;
 end proc: # UvecY
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -465,115 +459,15 @@ UvecZ := proc(
 
   description "Extract the Z-axis unit vector of the reference frame <RF>";
 
-  return MakeVector(RF, RF[1,3], RF[2,3], RF[3,3]);
+  return <RF[1,3], RF[2,3], RF[3,3], 0>;
 end proc: # UvecZ
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-DotProd := proc(
-  V1::VECTOR, # First vector
-  V2::VECTOR, # Second vector
-  $)
-
-  description "Dot product between two vectors <V1> and <V2>";
-  Project(V1, V2);
-  return LinearAlgebra:-DotProduct(V1[comps], V2[comps], conjugate = false);
-end proc: # DotProd
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-CrossProd := proc(
-  V1::VECTOR, # First vector
-  V2::VECTOR, # Second vector
-  $)
-
-  description "Cross product between two vectors <V1> and <V2>";
-
-  LinearAlgebra:-CrossProduct(V1[comps], V2[comps]);
-  return MakeVector(V1[RF], V1[RF][1,1], V1[RF][2,1], V1[RF][3,1]);
-end proc: # CrossProd
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-MakePoint := proc(
-  RF::FRAME, # Reference frame
-  x::scalar, # X-axis coordinate
-  y::scalar, # Y-axis coordinate
-  z::scalar, # Z-axis coordinate
-  $)
-
-  description "Make a POINT with coordinates <x,y,z> in the reference frame <RF>";
-
-  return table(
-    parse("type")   = POINT,
-    parse("coords") = <x, y, z, 1>,
-    parse("frame")  = RF
-  );
-end proc: # MakePoint
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-IsPoint := proc(
-  obj, # Object to be checked
-  $)
-
-  description "Check if the input object is a POINT object";
-
-  if (type(obj, 'table')) and
-     (obj[type] = POINT) and
-     (type(obj[coords], 'Matrix')) and
-     (LinearAlgebra:-Dimension(obj[coords]) = 4) and
-     (IsFrame(obj[frame])) then
-    return true;
-  else
-    return false;
-  end if;
-end proc: # IsPoint
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-MakeVector := proc(
-  RF::FRAME, # Reference frame
-  x::scalar, # X-axis coordinate
-  y::scalar, # Y-axis coordinate
-  z::scalar, # Z-axis coordinate
-  $)
-
-  description "Make a VECTOR with coordinates <x,y,z> in the reference frame "
-    "<RF>";
-
-  return table(
-    parse("type")  = VECTOR,
-    parse("comps") = <x, y, z, 0>,
-    parse("frame") = RF
-  );
-end proc: # MakeVector
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-IsVector := proc(
-  obj, # Object to be checked
-  $)
-
-  description "Check if the input object is a VECTOR object";
-
-  if (type(obj, 'table')) and
-     (obj[type] = 'VECTOR') and
-     (type(obj[coords], 'Matrix')) and
-     (LinearAlgebra:-Dimension(obj[coords]) = 4) and
-     (IsFrame(obj[frame])) then
-    return true;
-  else
-    return false;
-  end if;
-end proc: # IsVector
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 Project := proc(
-  x::{list},        # Vector/point to be projected
-  RF_from::FRAME, # Reference frame from which the vector/point is expressed
-  RF_to::FRAME,   # Reference frame to which the vector/point will be expressed
+  x::{list, vector}, # Vector/point to be projected
+  RF_from::FRAME,    # Reference frame from which the vector/point is expressed
+  RF_to::FRAME,      # Reference frame to which the vector/point will be expressed
   $)
 
   description "Project <x,y,z>, or vector <x,y,z,0>, or point <x,y,z,1> from "
