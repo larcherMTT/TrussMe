@@ -51,10 +51,7 @@ export  IsEarth,
         IsQMoment,
         MakeStructure,
         IsStructure,
-        SolveStructure,
-        IsStructural,
-        IsLoad,
-        IsConstraint;
+        SolveStructure;
 
 global  _gravity,
         ground;
@@ -167,6 +164,8 @@ TypeRegister := proc()
 
   # Register types
   TypeTools[AddType](FRAME, IsFrame);
+  TypeTools[AddType](VECTOR, IsVector);
+  TypeTools[AddType](POINT, IsPoint);
   TypeTools[AddType](EARTH, IsEarth);
   TypeTools[AddType](BEAM, IsBeam);
   TypeTools[AddType](ROD, IsRod);
@@ -178,10 +177,6 @@ TypeRegister := proc()
   TypeTools[AddType](JOINT, IsJoint);
   TypeTools[AddType](MATERIAL, IsMaterial);
   TypeTools[AddType](STRUCTURE, IsStructure);
-  TypeTools[AddType](LOAD, IsLoad);
-  TypeTools[AddType](CONSTRAINT, IsConstraint);
-  TypeTools[AddType](STRUCTURAL, IsStructural);
-  #TypeTools[AddType](TRUSSMEOBJECT, IsTrussMeObject);
 
 end proc: # TypeRegister
 
@@ -237,6 +232,8 @@ Protect := proc()
   # Protect the types
   protect(
     'FRAME',
+    'VECTOR',
+    'POINT',
     'EARTH',
     'BEAM',
     'ROD',
@@ -311,9 +308,9 @@ end proc: # Show
 
 GetNames := proc(
   objs::{ # Structural elements
-    list({MATERIAL, STRUCTURAL, EARTH}),
-    set( {MATERIAL, STRUCTURAL, EARTH})
-  }, $)::{list(string), set(string)};
+    list({MATERIAL, BEAM, ROD, SUPPORT, JOINT, EARTH}),
+    set( {MATERIAL, BEAM, ROD, SUPPORT, JOINT, EARTH})
+  }, $)::{list({string}), set({string})};
 
   description "Get names of a list/set of objects <objs>";
 
@@ -447,8 +444,8 @@ end proc: # Translate
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 Uvec := proc(
-  axis::symbol, # Axis of the unit vector
-  RF::FRAME,    # Reference frame
+  axis::symbol,        # Axis of the unit vector
+  RF::FRAME := ground, # Reference frame
   $)::vector;
 
   description "Extract the unit vector of the reference frame <RF> along the "
@@ -468,7 +465,7 @@ end proc: # Uvec
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 UvecX := proc(
-  RF::FRAME, # Reference frame
+  RF::FRAME := ground, # Reference frame
   $)::vector;
 
   description "Extract the x-axis unit vector of the reference frame <RF>";
@@ -479,7 +476,7 @@ end proc: # UvecX
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 UvecY := proc(
-  RF::FRAME, # Reference frame
+  RF::FRAME := ground, # Reference frame
   $)::vector;
 
   description "Extract the y-axis unit vector of the reference frame <RF>";
@@ -490,7 +487,7 @@ end proc: # UvecY
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 UvecZ := proc(
-  RF::FRAME, # Reference frame
+  RF::FRAME := ground, # Reference frame
   $)::vector;
 
   description "Extract the z-axis unit vector of the reference frame <RF>";
@@ -552,7 +549,7 @@ end proc: # DefineMaterial
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsMaterial := proc(
-  obj, # Object to be checked
+  obj::anything, # Object to be checked
   $)::boolean;
 
   description "Check if the input object <obj> is a MATERIAL object";
@@ -573,10 +570,10 @@ end proc: # IsMaterial
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeForce := proc(
-  components::list,         # Force components
-  ell::scalar,              # Application point (axial coordinate)
-  obj::{STRUCTURAL, EARTH}, # Target object
-  RF::FRAME := ground,      # Reference frame in which the force is defined
+  components::list,                        # Force components
+  ell::scalar,                             # Axial coordinate
+  obj::{BEAM, ROD, SUPPORT, JOINT, EARTH}, # Target object
+  RF::FRAME := ground,                     # Reference frame
   $)::FORCE;
 
 description "Define a FORCE object with inputs: force components, force "
@@ -614,10 +611,10 @@ end proc: # MakeForce
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsForce := proc(
-  obj, # Object to be checked
+  obj::anything, # Object to be checked
   $)::boolean;
 
-  description "Check if obj is a FORCE object";
+  description "Check if the object <obj> is a FORCE object";
 
   if (obj[parse("type")] = FORCE) and
      type(obj, table) and
@@ -634,9 +631,9 @@ end proc: # IsForce
 
 MakeMoment := proc(
   components::list,                   # Moment components
-  ell::scalar,                        # Application point (axial coordinate)
+  ell::scalar,                        # Axial coordinate
   obj::{BEAM, SUPPORT, JOINT, EARTH}, # Target object
-  RF::FRAME := ground,                # Reference frame in which the moment is defined
+  RF::FRAME := ground,                # Reference frame
   $)::MOMENT;
 
   description "Define a MOMENT object with inputs: moment components, "
@@ -692,10 +689,10 @@ end proc: # IsMoment
 MakeQForce := proc(
   components::list,    # Distributed load components
   obj::{BEAM, ROD},    # Target object
-  RF::FRAME := ground, # Reference frame in which the object is defined
+  RF::FRAME := ground, # Reference frame
   {
-    ell_min::scalar := 0,          # Initial application point (axial coordinate)
-    ell_max::scalar := obj[parse("length")] # Final application point (axial coordinate)
+    ell_min::scalar := 0,                   # Initial axial coordinate
+    ell_max::scalar := obj[parse("length")] # Final axial coordinate
   }, $)::QFORCE;
 
   description "Define a 'QFORCE' object with inputs: distributed load components, "
@@ -731,7 +728,7 @@ IsQForce := proc(
   obj::anything, # Object to be checked
   $)::boolean;
 
-  description "Check if obj is a QFORCE object";
+  description "Check if the object <obj> is a QFORCE object";
 
   if (obj[parse("type")] = QFORCE) and
      type(obj, table) and
@@ -782,7 +779,7 @@ IsQMoment := proc(
   obj::anything, # Object to be checked
   $)::boolean;
 
-  description "Check if obj is a QMOMENT object";
+  description "Check if the object <obj> is a QMOMENT object";
 
   if (obj[parse("type")] = QMOMENT) and
      type(obj, table) and
@@ -801,10 +798,10 @@ MakeSupport := proc(
   name::string,            # Support name
   constrained_dof::list,   # Constrained degree of freedom
   objs::list({BEAM, ROD}), # Target objects
-  ells::list,              # Support locations
+  ells::list({scalar}),    # Support locations
   RF::FRAME := ground,     # Reference frame of the support
   {
-    stiffness::list := [ # Stiffness components [Ktx, Kty, Ktz, Krx, Kry, Krz]
+    stiffness::list({scalar}) := [ # Stiffness components [Ktx, Kty, Ktz, Krx, Kry, Krz]
       infinity, infinity, infinity,
       infinity, infinity, infinity
     ]
@@ -903,7 +900,7 @@ IsSupport := proc(
      type(obj[parse("coordinates")], list) and
      type(obj[parse("name")], string) and
      type(obj[parse("frame")], FRAME) and
-     type(obj[parse("targets")], list(string)) and
+     type(obj[parse("targets")], list({string})) and
      type(obj[parse("variables")], list) and
      type(obj[parse("forces")], list) and
      type(obj[parse("moments")], list) and
@@ -922,15 +919,16 @@ end proc: # IsSupport
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsCompliantSupport := proc(
-  obj, # Object to be checked
-  $)
+  obj::anything, # Object to be checked
+  $)::boolean;
 
-  description "Check if obj is a SUPPORT object with compliant constraints";
+  description "Check if the object <obj> is a SUPPORT object with compliant "
+    "constraints";
 
   local found, i;
 
   if not IsSupport(obj) then
-    error "Object is not a SUPPORT";
+    error "pbject is not a SUPPORT";
     return false;
   end if;
 
@@ -962,12 +960,12 @@ end proc: # CleanSupport
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeJoint := proc(
-  name::string,                    # Joint name
-  constrained_dof::list,           # Constrained degree of freedom
-  objs::list({STRUCTURAL, EARTH}), # Target objects
-  ells::list,                      # Joint locations
-  RF::FRAME := ground,             # Reference frame in which the joint is defined
-  $)
+  name::string,                                   # Joint name
+  constrained_dof::list,                          # Constrained degree of freedom
+  objs::list({BEAM, ROD, SUPPORT, JOINT, EARTH}), # Target objects
+  ells::list({scalar}),                           # Joint locations
+  RF::FRAME := ground,                            # Reference frame
+  $)::JOINT;
 
   description "Make a JOINT object with inputs: joint name, constrained "
     "degrees of freedom, target objects, joint locations, and optional "
@@ -984,7 +982,6 @@ MakeJoint := proc(
       error "ROD objects supports can only have translational constraints";
     end if;
   end do;
-
 
     J := table({
       parse("type")                     = JOINT,
@@ -1105,7 +1102,7 @@ IsJoint := proc(
      type(obj[parse("coordinates")], list) and
      type(obj[parse("name")], string) and
      type(obj[parse("frame")], FRAME) and
-     type(obj[parse("targets")], list(string)) and
+     type(obj[parse("targets")], list({string})) and
      type(obj[parse("variables")], list) and
      type(obj[parse("forces")], list) and
      type(obj[parse("moments")], list) and
@@ -1133,9 +1130,9 @@ end proc: # CleanJoint
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeRod := proc(
-  name::string, # Object name
-  RF::FRAME,    # Reference frame
-  ell::scalar,  # Length (m)
+  name::string,        # Object name
+  ell::scalar,         # Length (m)
+  RF::FRAME := ground, # Reference frame
   {
     area::scalar       := 0,   # Section area (m^2)
     material::MATERIAL := NULL # Material
@@ -1163,7 +1160,7 @@ IsRod := proc(
   obj::anything, # Object to be checked
   $)::boolean;
 
-  description "Check if obj is a ROD object";
+  description "Check if the object <obj> is a ROD object";
 
   if (obj[parse("type")] = ROD) and
      type(obj, table) and
@@ -1184,10 +1181,10 @@ end proc: # IsRod
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 CleanRod := proc(
-  obj::{ROD}, # Object to be cleaned
-  $)
+  obj::ROD, # Object to be cleaned
+  $)::ROD;
 
-  description "Clean ROD object internal variables";
+  description "Clean ROD object <obj> internal variables";
 
   obj[parse("internal_actions")] := [];
   obj[parse("displacements")]    := [];
@@ -1197,9 +1194,9 @@ end proc: # CleanRod
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeBeam := proc(
-  name::string, # Object name
-  RF::FRAME,    # Reference frame
-  ell::scalar,  # Length (m)
+  name::string,        # Object name
+  ell::scalar,         # Length (m)
+  RF::FRAME := ground, # Reference frame
   {
     area::scalar       := 0,    # Section area (m^2)
     material::MATERIAL := NULL, # Material object
@@ -1257,7 +1254,7 @@ CleanBeam := proc(
   obj::BEAM, # Object to be cleaned
   $)::BEAM;
 
-  description "Clean BEAM object internal variables";
+  description "Clean BEAM object <obj> internal variables";
 
   obj[parse("internal_actions")] := [];
   return obj;
@@ -1265,62 +1262,21 @@ end proc: # CleanBeam
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsStructural := proc(
-  obj::anything, # Object to be checked
-  $)::boolean;
-
-  description "Check if the object <obj> is a BEAM, ROD, SUPPORT or JOINT "
-    "object";
-
-  if IsBeam(obj) or IsRod(obj) or IsSupport(obj) or IsJoint(obj) then
-    return true;
-  else
-    return false;
-  end if;
-end proc: # IsStructural
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-IsConstraint := proc(
-  obj::anything, # Object to be checked
-  $)::boolean;
-
-  description "Check if the object <obj> is a SUPPORT or JOINT object";
-
-  if IsSupport(obj) or IsJoint(obj) then
-    return true;
-  else
-    return false;
-  end if;
-end proc: # IsConstraint
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-IsLoad := proc(
-  obj::anything, # Object to be checked
-  $)::boolean;
-
-  description "Check if the object <obj> is a FORCE, MOMENT, QFORCE or QMOMENT "
-    "object";
-
-  if IsForce(obj) or IsMoment(obj) or IsQForce(obj) or IsQMoment(obj) then
-    return true;
-  else
-    return false;
-  end if;
-end proc: # IsLoad
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 MakeStructure := proc(
-  objs::{list(STRUCTURAL), set(STRUCTURAL)}, # Structural objects
-  ext::{list(LOAD), set(LOAD)} := [],        # Load objects
+  objs::{ # Structure objects
+    list({BEAM, ROD, SUPPORT, JOINT}),
+    set( {BEAM, ROD, SUPPORT, JOINT})
+  },
+  exts::{ # External actions
+    list({FORCE, MOMENT, QFORCE, QMOMENT}),
+    set( {FORCE, MOMENT, QFORCE, QMOMENT})
+  } := [],
   {
     hyper_vars::{list ,set} := [],
       # Hyperstatic variables
     hyper_disp::{list, set} := [seq(0, 1..nops(hyper_vars))],
       # Hyperstatic displacements
-    dimensions::{string} := "3D"
+    dimensions::string := "3D"
       # Structure dimension ("2D" or "3D")
   }, $)::STRUCTURE;
 
@@ -1375,7 +1331,7 @@ MakeStructure := proc(
   return table({
     parse("type")                      = STRUCTURE,
     parse("objects")                   = objs,
-    parse("external_actions")          = ext,
+    parse("external_actions")          = exts,
     parse("dof")                       = num_dof,
     parse("hyperstatic_variables")     = hyper_vars,
     parse("hyperstatic_displacements") = hyper_disp,
@@ -1392,7 +1348,7 @@ IsStructure := proc(
   obj::anything, # Object to be checked
   $)::boolean;
 
-  description "Check if obj is a STRUCTURE object";
+  description "Check if the object <obj> is a STRUCTURE object";
 
   if (obj[parse("type")] = STRUCTURE) then
     return true;
@@ -1407,7 +1363,7 @@ CleanStructure := proc(
   obj::STRUCTURE, # Object to be cleaned
   $)::STRUCTURE;
 
-  description "Clean STRUCTURE object internal variables";
+  description "Clean STRUCTURE object <obj> internal variables";
 
   local i;
 
@@ -1427,9 +1383,12 @@ end proc: # CleanStructure
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 ComputeDOF := proc(
-  objs::{list(STRUCTURAL), set(STRUCTURAL)}, # Structure objects
+  objs::{ # Structure objects
+    list({BEAM, ROD, SUPPORT, JOINT}),
+    set( {BEAM, ROD, SUPPORT, JOINT})
+  },
   {
-    dimensions::{string} := "3D" # Structure dimension ("2D" or "3D")
+    dimensions::string := "3D" # Structure dimension ("2D" or "3D")
   }, $)::integer;
 
   description "Compute the degree of freedom of the input structure objects";
@@ -1503,12 +1462,15 @@ end proc: # ComputeDOF
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 NewtonEuler := proc(
-  ext::{list(LOAD), set(LOAD)}, # External actions
-  obj::STRUCTURAL,              # Object to compute the equilibrium
-  pole,                         # Pole to compute the equilibrium # TODO: which type is this?
+  exts::{ # External actions
+    list({FORCE, MOMENT, QFORCE, QMOMENT}),
+    set( {FORCE, MOMENT, QFORCE, QMOMENT})
+  },
+  obj::{BEAM, ROD, SUPPORT, JOINT}, # Object to compute the equilibrium
+  pole,                             # Pole to compute the equilibrium # TODO: which type is this?
   {
-    dimensions::{string} := "3D", # Structure dimension ("2D" or "3D")
-    lim := obj[parse("length")]   # Upper limit of the integration
+    dimensions::string := "3D",                # Structure dimension ("2D" or "3D")
+    lim::scalar        := obj[parse("length")] # Upper limit of the integration
   }, $)
 
   description "Compute the Newton-Euler static equilibrium equations given a "
@@ -1520,32 +1482,32 @@ NewtonEuler := proc(
   if (dimensions = "2D") then
 
     eq_T := [0, 0];
-    for i from 1 to nops(ext) do
-      if (ext[i][parse("target")] = obj[parse("name")]) then
-        if IsForce(ext[i]) then
-          eq_T := eq_T + ext[i][parse("components")][1..2];
-        elif IsQForce(ext[i]) then
-          eq_T := eq_T + map(integrate, ext[i][parse("components")][1..2](x), x = 0..lim);
+    for i from 1 to nops(exts) do
+      if (exts[i][parse("target")] = obj[parse("name")]) then
+        if IsForce(exts[i]) then
+          eq_T := eq_T + exts[i][parse("components")][1..2];
+        elif IsQForce(exts[i]) then
+          eq_T := eq_T + map(integrate, exts[i][parse("components")][1..2](x), x = 0..lim);
         end if;
       else
-        WARNING("Message (in NewtonEuler) %1 is not applied to %2", ext[i], obj);
+        WARNING("Message (in NewtonEuler) %1 is not applied to %2", exts[i], obj);
       end if;
     end do;
 
     eq_R := [0];
-    for i from 1 to nops(ext) do
-      if ext[i][parse("target")] = obj[parse("name")] then
-        if IsMoment(ext[i]) then
-          eq_R := eq_R + ext[i][parse("components")][3];
-        elif IsForce(ext[i]) then
-          eq_R := eq_R + [ext[i][parse("components")][2]] *~ (ext[i][parse("coordinate")] - pole);
-        elif IsQForce(ext[i]) then
-          eq_R := eq_R + map(integrate, [ext[i][parse("components")][2](x)*~(x-pole)], x = 0..lim);
-        elif IsQMoment(ext[i]) then
-          eq_R := eq_R + map(integrate, ext[i][parse("components")][3](x), x = 0..lim);
+    for i from 1 to nops(exts) do
+      if exts[i][parse("target")] = obj[parse("name")] then
+        if IsMoment(exts[i]) then
+          eq_R := eq_R + exts[i][parse("components")][3];
+        elif IsForce(exts[i]) then
+          eq_R := eq_R + [exts[i][parse("components")][2]] *~ (exts[i][parse("coordinate")] - pole);
+        elif IsQForce(exts[i]) then
+          eq_R := eq_R + map(integrate, [exts[i][parse("components")][2](x)*~(x-pole)], x = 0..lim);
+        elif IsQMoment(exts[i]) then
+          eq_R := eq_R + map(integrate, exts[i][parse("components")][3](x), x = 0..lim);
         end if;
       else
-        WARNING("Message (in NewtonEuler) %1 is not applied to %2", ext[i], obj);
+        WARNING("Message (in NewtonEuler) %1 is not applied to %2", exts[i], obj);
       end if;
     end do;
 
@@ -1553,36 +1515,36 @@ NewtonEuler := proc(
   elif (dimensions = "3D") then
 
     eq_T := [0, 0, 0];
-    for i from 1 to nops(ext) do
-      if ext[i][parse("target")] = obj[parse("name")] then
-        if IsForce(ext[i]) then
-          eq_T := eq_T + ext[i][parse("components")];
-        elif IsQForce(ext[i]) then
-          eq_T := eq_T + map(integrate, ext[i][parse("components")](x), x = 0..lim);
+    for i from 1 to nops(exts) do
+      if exts[i][parse("target")] = obj[parse("name")] then
+        if IsForce(exts[i]) then
+          eq_T := eq_T + exts[i][parse("components")];
+        elif IsQForce(exts[i]) then
+          eq_T := eq_T + map(integrate, exts[i][parse("components")](x), x = 0..lim);
         end if;
       else
-        WARNING("Message (in NewtonEuler) %1 is not applied to %2", ext[i], obj);
+        WARNING("Message (in NewtonEuler) %1 is not applied to %2", exts[i], obj);
       end if;
     end do;
 
     eq_R := [0, 0, 0];
-    for i from 1 to nops(ext) do
-      if (ext[i][parse("target")] = obj[parse("name")]) then
-        if IsMoment(ext[i]) then
-          eq_R := eq_R + ext[i][parse("components")];
-        elif IsForce(ext[i]) then
-          eq_R := eq_R + [0, -ext[i][parse("components")][3], ext[i][parse("components")][2]]
-            *~ (ext[i][parse("coordinate")] - pole);
-        elif IsQForce(ext[i]) then
+    for i from 1 to nops(exts) do
+      if (exts[i][parse("target")] = obj[parse("name")]) then
+        if IsMoment(exts[i]) then
+          eq_R := eq_R + exts[i][parse("components")];
+        elif IsForce(exts[i]) then
+          eq_R := eq_R + [0, -exts[i][parse("components")][3], exts[i][parse("components")][2]]
+            *~ (exts[i][parse("coordinate")] - pole);
+        elif IsQForce(exts[i]) then
           eq_R := eq_R + map(integrate,
-            [0, -ext[i][parse("components")][3](x)*~(x-pole), ext[i][parse("components")][2](x)*~(x-pole)],
+            [0, -exts[i][parse("components")][3](x)*~(x-pole), exts[i][parse("components")][2](x)*~(x-pole)],
             x = 0..lim);
         elif IsQMoment(FMQ[i]) then
           eq_R := eq_R + map(integrate,
-            ext[i][parse("components")](x), x=0..lim);
+            exts[i][parse("components")](x), x=0..lim);
         end if;
       else
-        WARNING("Message (in NewtonEuler) %1 is not applied to %2", ext[i], obj);
+        WARNING("Message (in NewtonEuler) %1 is not applied to %2", exts[i], obj);
       end if;
     end do;
 
@@ -1598,10 +1560,10 @@ end proc: # NewtonEuler
 SolveStructure := proc(
   struct::STRUCTURE, # Structure object
   {
-    compute_intact::{boolean}     := false, # Internal actions computation flag
-    compute_disp::{boolean}       := false, # Displacement computation flag
-    shear_contribution::{boolean} := false, # Shear contribution flag
-    verbose::{boolean}            := false  # Verbose mode
+    compute_intact::boolean     := false, # Internal actions computation flag
+    compute_disp::boolean       := false, # Displacement computation flag
+    shear_contribution::boolean := false, # Shear contribution flag
+    verbose::boolean            := false  # Verbose mode
   }, $)
 
     description "Solve the static equilibrium of a structure with inputs: the "
@@ -1739,17 +1701,22 @@ end proc: # SolveStructure
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 HyperstaticSolver := proc(
-  objs::{list(STRUCTURAL), set(STRUCTURAL)}, # Structural objects
-  ext::{list(LOAD), set(LOAD)},              # External actions
-  vars::{list},                              # Variables
-  hyper_vars::{list},                        # Hyperstatic variables
-  hyper_disp::{list},                        # Hyperstatic displacements
-  {
-    dimensions::{string}          := "3D",  # Dimensions ("2D" or "3D")
-    shear_contribution::{boolean} := false, # Shear contribution
-    verbose::{boolean}            := false  # Verbose mode
+  objs::{ # Structural objects
+    list({BEAM, ROD, SUPPORT, JOINT}),
+    set( {BEAM, ROD, SUPPORT, JOINT})
   },
-  $)
+  exts::{ # External actions
+    list({FORCE, MOMENT, QFORCE, QMOMENT}),
+    set( {FORCE, MOMENT, QFORCE, QMOMENT})
+  },
+  vars::list,       # Variables
+  hyper_vars::list, # Hyperstatic variables
+  hyper_disp::list, # Hyperstatic displacements
+  {
+    dimensions::string          := "3D",  # Dimensions ("2D" or "3D")
+    shear_contribution::boolean := false, # Shear contribution
+    verbose::boolean            := false  # Verbose mode
+  }, $)
 
   description "Solve hyperstatic structure with inputs objects, external "
     "actions, variables, hyperstatic variables, hyperstatic displacements, "
@@ -1771,10 +1738,10 @@ HyperstaticSolver := proc(
     `if`(member(vars[i], hyper_vars), NULL, vars[i]),
     i = 1..nops(vars))
     ];
-  iso_sol := IsostaticSolver(objs, ext, iso_vars,  parse("dimensions") = dimensions, parse("verbose") = verbose);
+  iso_sol := IsostaticSolver(objs, exts, iso_vars,  parse("dimensions") = dimensions, parse("verbose") = verbose);
 
   # Compute internal actions
-  ComputeInternalActions(S_obj, ext, iso_sol, parse("dimensions") = dimensions, parse("verbose") = verbose);
+  ComputeInternalActions(S_obj, exts, iso_sol, parse("dimensions") = dimensions, parse("verbose") = verbose);
 
   # Compute structure internal energy
   P := ComputePotentialEnergy(objs, parse("shear_contribution") = shear_contribution);
@@ -1794,13 +1761,12 @@ end proc: # HyperstaticSolver
 
 ComputePotentialEnergy := proc(
   objs::{ # Structure objects
-    list({STRUCTURAL}),
-    set( {STRUCTURAL})
+    list({BEAM, ROD, SUPPORT, JOINT}),
+    set( {BEAM, ROD, SUPPORT, JOINT})
   },
   {
     shear_contribution := false # Add shear contribution to the potential energy
-  },
-  $)
+  }, $)
 
   description "Compute the internal potential energy of the structure";
 
@@ -1899,14 +1865,19 @@ end proc: # PotentialEnergy
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsostaticSolver := proc(
-  objs::{list(STRUCTURAL), set(STRUCTURAL)}, # Strucural objects
-  ext::{list(LOAD), set(LOAD)},              # Load objects
-  vars::list,                                # Variables to solve
+  objs::{ # Structural objects
+    list({BEAM, ROD, SUPPORT, JOINT}),
+    set( {BEAM, ROD, SUPPORT, JOINT})
+  },
+  exts::{ # External actions
+    list({FORCE, MOMENT, QFORCE, QMOMENT}),
+    set( {FORCE, MOMENT, QFORCE, QMOMENT})
+  },
+  vars::list, # Variables to solve
   {
     dimensions::string := "3D", # Dimension ("2D" or "3D")
     verbose::boolean   := false # Verbose mode
-  },
-  $)
+  }, $)
 
   description "Solve the isostatic structure equilibrium equation system given "
     "the structure objects, the external actions and the variables to solve";
@@ -1919,9 +1890,9 @@ IsostaticSolver := proc(
   eq := [];
     for i from 1 to nops(objs) do
     active_ext := {};
-    for j from 1 to nops(ext) do
-      if (ext[j][parse("target")] = objs[i][parse("name")]) then
-        active_ext := {op(active_ext), ext[j]};
+    for j from 1 to nops(exts) do
+      if (exts[j][parse("target")] = objs[i][parse("name")]) then
+        active_ext := {op(active_ext), exts[j]};
             end if;
         end do;
     eq := [op(eq), op(NewtonEuler(active_ext, objs[i], 0, parse("dimensions") = dimensions))];
@@ -1980,13 +1951,15 @@ ComputeInternalActions := proc(
     list({BEAM, ROD}),
     set( {BEAM, ROD})
   },
-  ext::{list(LOAD), set(LOAD)}, # Load objects
-  sol::{list, set},             # Structure solution
-  {
-    dimensions::{string} := "3D", # Dimension ("2D" or "3D")
-    verbose::{boolean}   := false # Verbose mode
+  exts::{ # External actions
+    list({FORCE, MOMENT, QFORCE, QMOMENT}),
+    set( {FORCE, MOMENT, QFORCE, QMOMENT})
   },
-  $)
+  sol::{list, set}, # Structure solution
+  {
+    dimensions::string := "3D", # Dimension ("2D" or "3D")
+    verbose::boolean   := false # Verbose mode
+  }, $)
 
   description "Programmatic computation of internal actions for structure"
     "objects with given external actions and structure solution";
@@ -1994,7 +1967,7 @@ ComputeInternalActions := proc(
   local i, j, active_ext, subs_ext;
 
   # Substitute structure solution into loads
-  subs_ext := map2(subs, sol, map(op,ext));
+  subs_ext := map2(subs, sol, map(op,exts));
 
   for i from 1 to nops(objs) do
     # Extract active loads
@@ -2012,12 +1985,14 @@ end proc: # ComputeInternalActions
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 InternalActions := proc(
-  obj::{BEAM, ROD},                 # Structure object
-  ext::{list({LOAD}), set({LOAD})}, # External actions
-  {
-    dimensions::{string} := "3D" # Dimension ("2D" or "3D")
+  obj::{BEAM, ROD}, # Structure object
+  exts::{ # External actions
+    list({FORCE, MOMENT, QFORCE, QMOMENT}),
+    set( {FORCE, MOMENT, QFORCE, QMOMENT})
   },
-  $)
+  {
+    dimensions::string := "3D" # Dimension ("2D" or "3D")
+  }, $)
 
   description "Programmatic computation of internal actions for structure "
     "object with given external actions, it returns the internal actions as "
@@ -2033,19 +2008,19 @@ InternalActions := proc(
   Mz_sol := 0;
 
   # Compute internal actions for concentrated loads as effect overlay
-  for i from 1 to nops(ext) do
-    if IsForce(ext[i]) then
-      N_sol  := `simplify/piecewise`(N_sol  - piecewise(x >= ext[i][parse("coordinate")] and x <= obj[parse("length")], ext[i][parse("components")][1]), x);
-      Ty_sol := `simplify/piecewise`(Ty_sol + piecewise(x >= ext[i][parse("coordinate")] and x <= obj[parse("length")], ext[i][parse("components")][2]), x);
-      Mz_sol := `simplify/piecewise`(Mz_sol + integrate(piecewise(x >= ext[i][parse("coordinate")] and x <= obj[parse("length")], ext[i][parse("components")][2]), x = 0..x), x);
-    elif IsMoment(ext[i]) then
-      Mz_sol := `simplify/piecewise`(Mz_sol - piecewise(x >= ext[i][parse("coordinate")] and x <= obj[parse("length")], ext[i][parse("components")][3]), x);
-    elif IsQForce(ext[i]) then
-      N_sol  := `simplify/piecewise`(N_sol  - integrate(ext[i][parse("components")][1](x), x = 0..x), x);
-      Ty_sol := `simplify/piecewise`(Ty_sol + integrate(ext[i][parse("components")][2](x), x = 0..x), x);
-      Mz_sol := `simplify/piecewise`(Mz_sol + integrate(integrate(ext[i][parse("components")][2](x), x = 0..x), x = 0..x), x);
+  for i from 1 to nops(exts) do
+    if IsForce(exts[i]) then
+      N_sol  := `simplify/piecewise`(N_sol  - piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][1]), x);
+      Ty_sol := `simplify/piecewise`(Ty_sol + piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][2]), x);
+      Mz_sol := `simplify/piecewise`(Mz_sol + integrate(piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][2]), x = 0..x), x);
+    elif IsMoment(exts[i]) then
+      Mz_sol := `simplify/piecewise`(Mz_sol - piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][3]), x);
+    elif IsQForce(exts[i]) then
+      N_sol  := `simplify/piecewise`(N_sol  - integrate(exts[i][parse("components")][1](x), x = 0..x), x);
+      Ty_sol := `simplify/piecewise`(Ty_sol + integrate(exts[i][parse("components")][2](x), x = 0..x), x);
+      Mz_sol := `simplify/piecewise`(Mz_sol + integrate(integrate(exts[i][parse("components")][2](x), x = 0..x), x = 0..x), x);
     elif IsQMoment(FMQ[i]) then
-      Mz_sol := `simplify/piecewise`(Mz_sol - integrate(ext[i][parse("components")][3](x), x = 0..x), x);
+      Mz_sol := `simplify/piecewise`(Mz_sol - integrate(exts[i][parse("components")][3](x), x = 0..x), x);
     end if;
     end do;
 
@@ -2064,27 +2039,27 @@ InternalActions := proc(
     Mz_sol := 0;
 
     # Compute internal actions for concentrated loads as effect overlay
-    for i from 1 to nops(ext) do
-      if IsForce(ext[i]) then
-        N_sol  := `simplify/piecewise`(N_sol  - piecewise(x >= ext[i][parse("coordinate")] and x <= obj[parse("length")], ext[i][parse("components")][1]), x);
-        Ty_sol := `simplify/piecewise`(Ty_sol + piecewise(x >= ext[i][parse("coordinate")] and x <= obj[parse("length")], ext[i][parse("components")][2]), x);
-        Tz_sol := `simplify/piecewise`(Tz_sol + piecewise(x >= ext[i][parse("coordinate")] and x <= obj[parse("length")], ext[i][parse("components")][3]), x);
-        My_sol := `simplify/piecewise`(My_sol + integrate(piecewise(x >= ext[i][parse("coordinate")] and x <= obj[parse("length")], ext[i][parse("components")][3]), x = 0..x), x);
-        Mz_sol := `simplify/piecewise`(Mz_sol + integrate(piecewise(x >= ext[i][parse("coordinate")] and x <= obj[parse("length")], ext[i][parse("components")][2]), x = 0..x), x);
-      elif IsMoment(ext[i]) then
-        Mx_sol := `simplify/piecewise`(Mx_sol - piecewise(x >= ext[i][parse("coordinate")] and x <= obj[parse("length")], ext[i][parse("components")][1]), x);
-        My_sol := `simplify/piecewise`(My_sol + piecewise(x >= ext[i][parse("coordinate")] and x <= obj[parse("length")], ext[i][parse("components")][2]), x);
-        Mz_sol := `simplify/piecewise`(Mz_sol - piecewise(x >= ext[i][parse("coordinate")] and x <= obj[parse("length")], ext[i][parse("components")][3]), x);
-      elif IsQForce(ext[i]) then
-        N_sol  := `simplify/piecewise`(N_sol  - integrate(ext[i][parse("components")][1](x), x = 0..x), x);
-        Ty_sol := `simplify/piecewise`(Ty_sol + integrate(ext[i][parse("components")][2](x), x = 0..x), x);
-        Tz_sol := `simplify/piecewise`(Tz_sol + integrate(ext[i][parse("components")][3](x), x = 0..x), x);
-        My_sol := `simplify/piecewise`(My_sol + integrate(integrate(ext[i][parse("components")][3](x), x = 0..x), x = 0..x), x);
-        Mz_sol := `simplify/piecewise`(Mz_sol + integrate(integrate(ext[i][parse("components")][2](x), x = 0..x), x = 0..x), x);
+    for i from 1 to nops(exts) do
+      if IsForce(exts[i]) then
+        N_sol  := `simplify/piecewise`(N_sol  - piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][1]), x);
+        Ty_sol := `simplify/piecewise`(Ty_sol + piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][2]), x);
+        Tz_sol := `simplify/piecewise`(Tz_sol + piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][3]), x);
+        My_sol := `simplify/piecewise`(My_sol + integrate(piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][3]), x = 0..x), x);
+        Mz_sol := `simplify/piecewise`(Mz_sol + integrate(piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][2]), x = 0..x), x);
+      elif IsMoment(exts[i]) then
+        Mx_sol := `simplify/piecewise`(Mx_sol - piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][1]), x);
+        My_sol := `simplify/piecewise`(My_sol + piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][2]), x);
+        Mz_sol := `simplify/piecewise`(Mz_sol - piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][3]), x);
+      elif IsQForce(exts[i]) then
+        N_sol  := `simplify/piecewise`(N_sol  - integrate(exts[i][parse("components")][1](x), x = 0..x), x);
+        Ty_sol := `simplify/piecewise`(Ty_sol + integrate(exts[i][parse("components")][2](x), x = 0..x), x);
+        Tz_sol := `simplify/piecewise`(Tz_sol + integrate(exts[i][parse("components")][3](x), x = 0..x), x);
+        My_sol := `simplify/piecewise`(My_sol + integrate(integrate(exts[i][parse("components")][3](x), x = 0..x), x = 0..x), x);
+        Mz_sol := `simplify/piecewise`(Mz_sol + integrate(integrate(exts[i][parse("components")][2](x), x = 0..x), x = 0..x), x);
       elif IsQMoment(FMQ[i]) then
-        Mx_sol := `simplify/piecewise`(Mx_sol - integrate(ext[i][parse("components")][1](x), x = 0..x), x);
-        My_sol := `simplify/piecewise`(My_sol + integrate(ext[i][parse("components")][2](x), x = 0..x), x);
-        Mz_sol := `simplify/piecewise`(Mz_sol - integrate(ext[i][parse("components")][3](x), x = 0..x), x);
+        Mx_sol := `simplify/piecewise`(Mx_sol - integrate(exts[i][parse("components")][1](x), x = 0..x), x);
+        My_sol := `simplify/piecewise`(My_sol + integrate(exts[i][parse("components")][2](x), x = 0..x), x);
+        Mz_sol := `simplify/piecewise`(Mz_sol - integrate(exts[i][parse("components")][3](x), x = 0..x), x);
       end if;
     end do;
 
@@ -2114,14 +2089,19 @@ end proc: # InternalActions
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 ComputeDisplacements := proc(
-  objs::{list(STRUCTURAL), set(STRUCTURAL)}, # Structural objects
-  ext::{list(LOAD), set(LOAD)},              # Load objects
-  sol::{list, set},                          # Solution of the structure
-  {
-    dimensions::{string}          := "3D", # Dimension ("2D" or "3D")
-    shear_contribution::{boolean} := false # Add shear contribution to the potential energy
+  objs::{ # Structural objects
+    list({BEAM, ROD, SUPPORT, JOINT}),
+    set( {BEAM, ROD, SUPPORT, JOINT})
   },
-  $)
+  exts::{ # External loads
+    list({FORCE, MOMENT, QFORCE, QMOMENT}),
+    set( {FORCE, MOMENT, QFORCE, QMOMENT})
+  },
+  sol::{list, set}, # Solution of the structure
+  {
+    dimensions::string          := "3D", # Dimension ("2D" or "3D")
+    shear_contribution::boolean := false # Add shear contribution to the potential energy
+  }, $)
 
   description "Compute the Structure displacements";
 
@@ -2135,7 +2115,7 @@ ComputeDisplacements := proc(
 
     # Beam
     if IsBeam(obj_copy) then
-      # Create dummy loads 
+      # Create dummy loads
       dummy_Fx := MakeForce(['dFx',0,0], 'x', {obj_copy}, obj_copy[parse("frame")]);
       dummy_Fy := MakeForce([0,'dFy',0], 'x', {obj_copy}, obj_copy[parse("frame")]);
       dummy_Fz := MakeForce([0,0,'dFz'], 'x', {obj_copy}, obj_copy[parse("frame")]);
@@ -2146,7 +2126,7 @@ ComputeDisplacements := proc(
       dummy_loads := {dummy_Fx, dummy_Fy, dummy_Fz, dummy_Mx, dummy_My, dummy_Mz};
 
       # Compute internal actions of the object copy
-      ComputeInternalActions(obj_copy, ext union dummy_loads, sol, parse("dimensions") = dimensions, parse("verbose") = verbose);
+      ComputeInternalActions(obj_copy, exts union dummy_loads, sol, parse("dimensions") = dimensions, parse("verbose") = verbose);
 
       # Compute object potential energy
       P := ComputePotentialEnergy(obj_copy, parse("shear_contribution") = shear_contribution);
@@ -2170,7 +2150,7 @@ ComputeDisplacements := proc(
       dummy_loads := {dummy_Fx};
 
       # Compute internal actions of the object copy
-      ComputeInternalActions(obj_copy, ext union dummy_loads, sol, parse("dimensions") = dimensions, parse("verbose") = verbose);
+      ComputeInternalActions(obj_copy, exts union dummy_loads, sol, parse("dimensions") = dimensions, parse("verbose") = verbose);
 
       # Compute object potential energy
       P := ComputePotentialEnergy(obj_copy, parse("shear_contribution") = shear_contribution);
@@ -2182,25 +2162,25 @@ ComputeDisplacements := proc(
       objs[i][displacement][1] := subs(subs_null_dummy, diff(P, dFx));
 
     # Support
-    elif IsSupport(obj_copy) then 
+    elif IsSupport(obj_copy) then
       # Create dummy loads on constrained directions and add to support reactions
       if (obj_copy[constrained_dof][1] <> 0) then
-        obj_copy[parse("support_reactions")][1] := obj_copy[parse("support_reactions")][1] + 'dFx'; 
+        obj_copy[parse("support_reactions")][1] := obj_copy[parse("support_reactions")][1] + 'dFx';
       end if;
       if (obj_copy[constrained_dof][2] <> 0) then
-        obj_copy[parse("support_reactions")][2] := obj_copy[parse("support_reactions")][2] + 'dFy'; 
+        obj_copy[parse("support_reactions")][2] := obj_copy[parse("support_reactions")][2] + 'dFy';
       end if;
       if (obj_copy[constrained_dof][3] <> 0) then
-        obj_copy[parse("support_reactions")][3] := obj_copy[parse("support_reactions")][3] + 'dFz'; 
+        obj_copy[parse("support_reactions")][3] := obj_copy[parse("support_reactions")][3] + 'dFz';
       end if;
       if (obj_copy[constrained_dof][4] <> 0) then
-        obj_copy[parse("support_reactions")][4] := obj_copy[parse("support_reactions")][4] + 'dMx'; 
+        obj_copy[parse("support_reactions")][4] := obj_copy[parse("support_reactions")][4] + 'dMx';
       end if;
       if (obj_copy[constrained_dof][5] <> 0) then
-        obj_copy[parse("support_reactions")][5] := obj_copy[parse("support_reactions")][5] + 'dMy'; 
+        obj_copy[parse("support_reactions")][5] := obj_copy[parse("support_reactions")][5] + 'dMy';
       end if;
       if (obj_copy[constrained_dof][6] <> 0) then
-        obj_copy[parse("support_reactions")][6] := obj_copy[parse("support_reactions")][6] + 'dMz'; 
+        obj_copy[parse("support_reactions")][6] := obj_copy[parse("support_reactions")][6] + 'dMz';
       end if;
 
       # Compute potential energy of the object copy
