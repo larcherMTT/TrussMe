@@ -2137,12 +2137,12 @@ ComputeDisplacements := proc(
       subs_null_dummy := ['dFx', 'dFy', 'dFz', 'dMx', 'dMy', 'dMz'] =~ [0,0,0,0,0,0];
 
       # Compute displacements
-      objs[i][displacement][1] := subs(subs_null_dummy, diff(P, dFx));
-      objs[i][displacement][2] := subs(subs_null_dummy, diff(P, dFy));
-      objs[i][displacement][3] := subs(subs_null_dummy, diff(P, dFz));
-      objs[i][displacement][4] := subs(subs_null_dummy, diff(P, dMx));
-      objs[i][displacement][5] := subs(subs_null_dummy, diff(P, dMy));
-      objs[i][displacement][6] := subs(subs_null_dummy, diff(P, dMz));
+      objs[i][displacement][1] := tx = unapply(subs(subs_null_dummy, diff(P, dFx)),'x');
+      objs[i][displacement][2] := ty = unapply(subs(subs_null_dummy, diff(P, dFy)),'x');
+      objs[i][displacement][3] := tz = unapply(subs(subs_null_dummy, diff(P, dFz)),'x');
+      objs[i][displacement][4] := rx = unapply(subs(subs_null_dummy, diff(P, dMx)),'x');
+      objs[i][displacement][5] := ry = unapply(subs(subs_null_dummy, diff(P, dMy)),'x');
+      objs[i][displacement][6] := rz = unapply(subs(subs_null_dummy, diff(P, dMz)),'x');
 
     # Rod
     elif IsRod(obj_copy) then
@@ -2161,7 +2161,7 @@ ComputeDisplacements := proc(
       subs_null_dummy := ['dFx'] =~ [0];
 
       # Compute displacements
-      objs[i][displacement][1] := subs(subs_null_dummy, diff(P, dFx));
+      objs[i][displacement][1] := tx = unapply(subs(subs_null_dummy, diff(P, dFx)),'x');
 
     # Support
     elif IsSupport(obj_copy) then
@@ -2192,12 +2192,12 @@ ComputeDisplacements := proc(
       subs_null_dummy := ['dFx', 'dFy', 'dFz', 'dMx', 'dMy', 'dMz'] =~ [0,0,0,0,0,0];
 
       # Compute displacements
-      objs[i][displacement][1] := subs(subs_null_dummy, diff(P, dFx));
-      objs[i][displacement][2] := subs(subs_null_dummy, diff(P, dFy));
-      objs[i][displacement][3] := subs(subs_null_dummy, diff(P, dFz));
-      objs[i][displacement][4] := subs(subs_null_dummy, diff(P, dMx));
-      objs[i][displacement][5] := subs(subs_null_dummy, diff(P, dMy));
-      objs[i][displacement][6] := subs(subs_null_dummy, diff(P, dMz));
+      objs[i][displacement][1] := tx = unapply(subs(subs_null_dummy, diff(P, dFx)),'x');
+      objs[i][displacement][2] := ty = unapply(subs(subs_null_dummy, diff(P, dFy)),'x');
+      objs[i][displacement][3] := tz = unapply(subs(subs_null_dummy, diff(P, dFz)),'x');
+      objs[i][displacement][4] := rx = unapply(subs(subs_null_dummy, diff(P, dMx)),'x');
+      objs[i][displacement][5] := ry = unapply(subs(subs_null_dummy, diff(P, dMy)),'x');
+      objs[i][displacement][6] := rz = unapply(subs(subs_null_dummy, diff(P, dMz)),'x');
     end if;
   end do;
 
