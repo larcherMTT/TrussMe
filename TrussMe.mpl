@@ -588,7 +588,7 @@ description "Define a FORCE object with inputs: force components, force "
     end if;
   end if;
 
-  proj_components := Project([op(components), 0], RF, obj[parse("frame")])[1..3];
+  proj_components := Project(components, RF, obj[parse("frame")]);
   if IsRod(obj) then
     if (proj_components[2] <> 0) or (proj_components[3] <> 0) then
       error "only axial forces are accepted in ROD objects";
@@ -649,7 +649,7 @@ MakeMoment := proc(
     end if;
   end if;
 
-  proj_components := Project([op(components), 0], RF, obj[parse("frame")])[1..3];
+  proj_components := Project(components, RF, obj[parse("frame")]);
   if IsSupport(obj) or IsJoint(obj) then
     if (evalf(ell) <> 0) then
       error "only null axial coordinate is accepted for SUPPORT and JOINT "
@@ -702,7 +702,7 @@ MakeQForce := proc(
 
   local proj_components, q_x, q_y, q_z;
 
-  proj_components := Project([op(components), 0], RF, obj[parse("frame")])[1..3];
+  proj_components := Project(components, RF, obj[parse("frame")]);
 
   if IsRod(obj) then
     if (proj_components[2] <> 0) or (proj_components[3] <> 0) then
@@ -759,7 +759,7 @@ MakeQMoment := proc(
 
   local proj_components, q_x, q_y, q_z;
 
-  proj_components := Project([op(components), 0], RF, obj[parse("frame")])[1..3];
+  proj_components := Project(components, RF, obj[parse("frame")]);
 
   q_x := (x) -> piecewise((x >= ell_min) and (x <= ell_max), proj_components[1], 0);
   q_y := (x) -> piecewise((x >= ell_min) and (x <= ell_max), proj_components[2], 0);
@@ -928,7 +928,7 @@ IsCompliantSupport := proc(
   local found, i;
 
   if not IsSupport(obj) then
-    error "pbject is not a SUPPORT";
+    error "object is not a SUPPORT";
     return false;
   end if;
 
@@ -954,6 +954,7 @@ CleanSupport := proc(
   obj[parse("constraint_loads")]         := [];
   obj[parse("constraint_displacements")] := [];
   obj[parse("support_reactions")]        := [];
+  obj[parse("displacements")]            := [];
   return obj;
 end proc: # CleanSupport
 
@@ -1257,6 +1258,7 @@ CleanBeam := proc(
   description "Clean BEAM object <obj> internal variables";
 
   obj[parse("internal_actions")] := [];
+  obj[parse("displacements")]    := [];
   return obj;
 end proc: # CleanBeam
 
@@ -1292,7 +1294,7 @@ MakeStructure := proc(
     if member(objs[i][parse("name")], names) then
       error "duplicate names found on structure objects";
     end if;
-    names := [op(names), objs[i][parse("name")]];
+    names := names Union [objs[i][parse("name")]];
   end do;
 
   num_dof := ComputeDOF(objs, parse("dimensions") = dimensions);
@@ -1396,13 +1398,13 @@ ComputeDOF := proc(
   local dof, objs_tmp, i, j, k, vertex, G;
 
   dof      := 0;
-  objs_tmp := [op(objs), EARTH];
+  objs_tmp := objs Union [EARTH];
 
   # Built connections graph
   vertex := [];
   printf("Message (in ComputeDOF) checking structure connections... ");
   for i from 1 to nops(objs_tmp) do
-    vertex := [op(vertex), objs_tmp[i][parse("name")]];
+    vertex := vertex Union [objs_tmp[i][parse("name")]];
     end do;
   G := GraphTheory[Graph](vertex);
   for i from 1 to nops(objs_tmp) do
@@ -1552,7 +1554,7 @@ NewtonEuler := proc(
     error("invalid dimension detected");
   end if;
 
-  return [op(eq_T), op(eq_R)];
+  return eq_T Union eq_R;
 end proc: # NewtonEuler
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1584,17 +1586,17 @@ SolveStructure := proc(
     for i from 1 to nops(struct[parse("objects")]) do
       obj := struct[parse("objects")][i];
       if IsBeam(obj) or IsRod(obj) then
-        S_obj := {op(S_obj), obj};
+        S_obj := S_obj Union {obj};
         end if;
       if IsSupport(obj) then
-        S_support    := {op(S_support), obj};
-        S_con_forces := {op(S_con_forces), op(obj[parse("forces")]), op(obj[parse("moments")])};
-        vars         := [op(vars), op(obj[parse("variables")])];
+        S_support    := S_support Union {obj};
+        S_con_forces := S_con_forces Union obj[parse("forces")] Union obj[parse("moments")];
+        vars         := vars Union obj[parse("variables")];
         end if;
       if IsJoint(obj) then
-        S_joint      := {op(S_joint), obj};
-        S_con_forces := {op(S_con_forces), op(obj[parse("forces")]), op(obj[parse("moments")])};
-        vars         := [op(vars), op(obj[parse("variables")])];
+        S_joint      := S_joint Union {obj};
+        S_con_forces := S_con_forces Union obj[parse("forces")] Union obj[parse("moments")];
+        vars         := vars Union obj[parse("variables")];
         end if;
         unassign('obj');
     end do;
@@ -1609,7 +1611,7 @@ SolveStructure := proc(
               _gravity *~ S_obj[i][parse("area")] *~ S_obj[i][parse("material")][parse("density")],
               S_obj[i],ground
               );
-            S_ext := {op(S_ext),g_load||(S_obj[i][parse("name")])};
+            S_ext := S_ext Union {g_load||(S_obj[i][parse("name")])};
           end if;
         end do;
     end if;
@@ -1618,8 +1620,8 @@ SolveStructure := proc(
       # Solve isostatic structure
       printf("Message (in SolveStructure) solving the isostatic structure...\n");
       sol := IsostaticSolver(
-        {op(S_obj), op(S_joint), op(S_support)},
-        {op(S_ext), op(S_con_forces)},
+        S_obj Union S_joint Union S_support,
+        S_ext Union S_con_forces,
         vars, struct[parse("dimensions")], parse("verbose") = verbose
         );
       printf("DONE\n");
@@ -1644,8 +1646,8 @@ SolveStructure := proc(
       end if;
       printf("Message (in SolveStructure) solving the hyperstatic structure\n");
       sol := HyperstaticSolver(
-        {op(S_obj), op(S_joint), op(S_support)},
-        {op(S_ext), op(S_con_forces)},
+        S_obj Union S_joint Union S_support,
+        S_ext Union S_con_forces,
         vars,
         struct[parse("hyperstatic_variables")],
         struct[parse("hyperstatic_displacements")],
@@ -1677,7 +1679,7 @@ SolveStructure := proc(
   # Compute displacements
   if (compute_disp) and not struct[displacements_computed] then
     ComputeDisplacements(
-      S_obj, {op(S_ext), op(S_con_forces)}, sol, struct[parse("dimensions")],
+      S_obj, S_ext Union S_con_forces, sol, struct[parse("dimensions")],
       parse("verbose") = verbose
       );
     # Set displacements computed flag
@@ -1688,7 +1690,7 @@ SolveStructure := proc(
   if (compute_intact) and not struct[internal_actions_computed] then
     # FIXME: in case of Hyperstatic Structure, the internal actions are already computed
     ComputeInternalActions(
-      S_obj, {op(S_ext), op(S_con_forces)}, sol, struct[parse("dimensions")],
+      S_obj, S_ext Union S_con_forces, sol, struct[parse("dimensions")],
       parse("verbose") = verbose
       );
     # Set internal actions computed flag
@@ -1728,7 +1730,7 @@ HyperstaticSolver := proc(
     S_obj := {};
     for i from 1 to nops(objs) do
       if IsBeam(objs[i]) or IsRod(objs[i]) then
-        S_obj := {op(S_obj), objs[i]};
+        S_obj := S_obj Union {objs[i]};
       end if;
     end do;
 
@@ -1749,12 +1751,12 @@ HyperstaticSolver := proc(
   # Solve hyperstatic equations
   hyper_eq := [];
   for i from 1 to nops(hyper_vars) do
-    hyper_eq := [op(hyper_eq), diff(P, hyper_vars[i]) = hyper_disp[i]]
+    hyper_eq := hyper_eq Union [diff(P, hyper_vars[i]) = hyper_disp[i]]
   end do;
   hyper_sol := op(solve(hyper_eq, hyper_vars));
   printf("DONE\n");
 
-  return [op(hyper_sol), op(subs(hyper_sol, iso_sol))];
+  return hyper_sol Union subs(hyper_sol, iso_sol);
 end proc: # HyperstaticSolver
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1892,13 +1894,13 @@ IsostaticSolver := proc(
     active_ext := {};
     for j from 1 to nops(exts) do
       if (exts[j][parse("target")] = objs[i][parse("name")]) then
-        active_ext := {op(active_ext), exts[j]};
+        active_ext := active_ext Union {exts[j]};
             end if;
         end do;
-    eq := [op(eq), op(NewtonEuler(active_ext, objs[i], 0, parse("dimensions") = dimensions))];
+    eq := eq Union NewtonEuler(active_ext, objs[i], 0, parse("dimensions") = dimensions);
     # Add joints and supports constraint equations
     if IsSupport(objs[i]) or IsJoint(objs[i]) then
-      eq := [op(eq), op(objs[i][parse("constraint_loads")])];
+      eq := eq Union objs[i][parse("constraint_loads")];
         end if;
     end do;
 
@@ -1974,7 +1976,7 @@ ComputeInternalActions := proc(
     active_ext := {};
     for j from 1 to nops(subs_ext) do
       if (subs_ext[j][parse("target")] = objs[i][parse("name")]) then
-        active_ext := {op(active_ext), subs_ext[j]};
+        active_ext := active_ext Union {subs_ext[j]};
       end if;
     end do;
     # Compute internal actions
@@ -2126,7 +2128,7 @@ ComputeDisplacements := proc(
       dummy_loads := {dummy_Fx, dummy_Fy, dummy_Fz, dummy_Mx, dummy_My, dummy_Mz};
 
       # Compute internal actions of the object copy
-      ComputeInternalActions(obj_copy, exts union dummy_loads, sol, parse("dimensions") = dimensions, parse("verbose") = verbose);
+      ComputeInternalActions(obj_copy, exts Union dummy_loads, sol, parse("dimensions") = dimensions, parse("verbose") = verbose);
 
       # Compute object potential energy
       P := ComputePotentialEnergy(obj_copy, parse("shear_contribution") = shear_contribution);
@@ -2150,7 +2152,7 @@ ComputeDisplacements := proc(
       dummy_loads := {dummy_Fx};
 
       # Compute internal actions of the object copy
-      ComputeInternalActions(obj_copy, exts union dummy_loads, sol, parse("dimensions") = dimensions, parse("verbose") = verbose);
+      ComputeInternalActions(obj_copy, exts  dummy_loads, sol, parse("dimensions") = dimensions, parse("verbose") = verbose);
 
       # Compute object potential energy
       P := ComputePotentialEnergy(obj_copy, parse("shear_contribution") = shear_contribution);
