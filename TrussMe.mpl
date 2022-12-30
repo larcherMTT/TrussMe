@@ -387,8 +387,8 @@ end proc: # IsPoint
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 Rotate := proc(
-  axis::symbol,  # Rotation axis
-  angle::scalar, # Rotation angle (rad)
+  axis::symbol,     # Rotation axis
+  angle::algebraic, # Rotation angle (rad)
   $)::FRAME;
 
   description "Transformation matrix corresponding to the rotation <angle> "
@@ -417,9 +417,9 @@ end proc: # Rotate
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 Translate := proc(
-  x::scalar, # X-axis translation component
-  y::scalar, # Y-axis translation component
-  z::scalar, # Z-axis translation component
+  x::algebraic, # X-axis translation component
+  y::algebraic, # Y-axis translation component
+  z::algebraic, # Z-axis translation component
   $)::FRAME;
 
   description "Transformation matrix corresponding to the translation <x,y,z>";
@@ -524,11 +524,11 @@ end proc: # Project
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeMaterial := proc({
-    name::string            := "steel",   # Name of the material
-    elastic_modulus::scalar := 210.0E+09, # Elastic modulus (Pa)
-    poisson_modulus::scalar := 0.3,       # Poisson modulus (-)
-    shear_modulus::scalar   := 77.0E+09,  # Shear modulus (Pa)
-    density::scalar         := 7.4E+03    # Density (kg/m^3)
+    name::string            := "steel",      # Name of the material
+    elastic_modulus::algebraic := 210.0E+09, # Elastic modulus (Pa)
+    poisson_modulus::algebraic := 0.3,       # Poisson modulus (-)
+    shear_modulus::algebraic   := 77.0E+09,  # Shear modulus (Pa)
+    density::algebraic         := 7.4E+03    # Density (kg/m^3)
   }, $)::MATERIAL;
 
   description "Define a MATERIAL object with inputs: name of the material, "
@@ -557,10 +557,10 @@ IsMaterial := proc(
   if (obj[parse("type")] = MATERIAL) and
      type(obj, table) and
      type(obj[parse("name")], string) and
-     type(obj[parse("elastic_modulus")], scalar) and
-     type(obj[parse("poisson_modulus")], scalar) and
-     type(obj[parse("shear_modulus")], scalar) and
-     type(obj[parse("density")], scalar) then
+     type(obj[parse("elastic_modulus")], algebraic) and
+     type(obj[parse("poisson_modulus")], algebraic) and
+     type(obj[parse("shear_modulus")], algebraic) and
+     type(obj[parse("density")], algebraic) then
     return true;
   else
     return false;
@@ -571,7 +571,7 @@ end proc: # IsMaterial
 
 MakeForce := proc(
   components::list,                        # Force components
-  ell::scalar,                             # Axial coordinate
+  ell::algebraic,                          # Axial coordinate
   obj::{BEAM, ROD, SUPPORT, JOINT, EARTH}, # Target object
   RF::FRAME := ground,                     # Reference frame
   $)::FORCE;
@@ -619,7 +619,7 @@ IsForce := proc(
   if (obj[parse("type")] = FORCE) and
      type(obj, table) and
      type(obj[parse("components")], list) and
-     type(obj[parse("coordinate")], scalar) and
+     type(obj[parse("coordinate")], algebraic) and
      type(obj[parse("target")], string) then
     return true;
   else
@@ -631,7 +631,7 @@ end proc: # IsForce
 
 MakeMoment := proc(
   components::list,                   # Moment components
-  ell::scalar,                        # Axial coordinate
+  ell::algebraic,                     # Axial coordinate
   obj::{BEAM, SUPPORT, JOINT, EARTH}, # Target object
   RF::FRAME := ground,                # Reference frame
   $)::MOMENT;
@@ -676,7 +676,7 @@ IsMoment := proc(
   if (obj[parse("type")] = MOMENT) and
      type(obj, table) and
      type(obj[parse("components")], list) and
-     type(obj[parse("coordinate")], scalar) and
+     type(obj[parse("coordinate")], algebraic) and
      type(obj[parse("target")], string) then
     return true;
   else
@@ -691,8 +691,8 @@ MakeQForce := proc(
   obj::{BEAM, ROD},    # Target object
   RF::FRAME := ground, # Reference frame
   {
-    ell_min::scalar := 0,                   # Initial axial coordinate
-    ell_max::scalar := obj[parse("length")] # Final axial coordinate
+    ell_min::algebraic := 0,                   # Initial axial coordinate
+    ell_max::algebraic := obj[parse("length")] # Final axial coordinate
   }, $)::QFORCE;
 
   description "Define a 'QFORCE' object with inputs: distributed load components, "
@@ -748,8 +748,8 @@ MakeQMoment := proc(
   obj::BEAM,           # Target object
   RF::FRAME := ground, # Reference frame in which the moment is defined
   {
-    ell_min::scalar := 0,           # Initial application point (axial coordinate)
-    ell_max::scalar := obj[parse("length")]  # Final application point (axial coordinate)
+    ell_min::algebraic := 0,                    # Initial application point (axial coordinate)
+    ell_max::algebraic := obj[parse("length")]  # Final application point (axial coordinate)
   }, $)::QMOMENT;
 
   description "Define a QMOMENT object with inputs: distributed torque components, "
@@ -798,10 +798,10 @@ MakeSupport := proc(
   name::string,            # Support name
   constrained_dof::list,   # Constrained degree of freedom
   objs::list({BEAM, ROD}), # Target objects
-  ells::list({scalar}),    # Support locations
+  ells::list({algebraic}), # Support locations
   RF::FRAME := ground,     # Reference frame of the support
   {
-    stiffness::list({scalar}) := [ # Stiffness components [Ktx, Kty, Ktz, Krx, Kry, Krz]
+    stiffness::list({algebraic}) := [ # Stiffness components [Ktx, Kty, Ktz, Krx, Kry, Krz]
       infinity, infinity, infinity,
       infinity, infinity, infinity
     ]
@@ -964,7 +964,7 @@ MakeJoint := proc(
   name::string,                                   # Joint name
   constrained_dof::list,                          # Constrained degree of freedom
   objs::list({BEAM, ROD, SUPPORT, JOINT, EARTH}), # Target objects
-  ells::list({scalar}),                           # Joint locations
+  ells::list({algebraic}),                        # Joint locations
   RF::FRAME := ground,                            # Reference frame
   $)::JOINT;
 
@@ -1132,11 +1132,11 @@ end proc: # CleanJoint
 
 MakeRod := proc(
   name::string,        # Object name
-  ell::scalar,         # Length (m)
+  ell::algebraic,      # Length (m)
   RF::FRAME := ground, # Reference frame
   {
-    area::scalar       := 0,   # Section area (m^2)
-    material::MATERIAL := NULL # Material
+    area::algebraic       := 0, # Section area (m^2)
+    material::MATERIAL := NULL  # Material
   }, $)::ROD;
 
   description "Create a ROD object with inputs: object name, reference "
@@ -1166,8 +1166,8 @@ IsRod := proc(
   if (obj[parse("type")] = ROD) and
      type(obj, table) and
      type(obj[parse("name")], string) and
-     type(obj[parse("length")], scalar) and
-     type(obj[parse("area")], scalar) and
+     type(obj[parse("length")], algebraic) and
+     type(obj[parse("area")], algebraic) and
      type(obj[parse("material")], MATERIAL) and
      type(obj[parse("frame")], FRAME) and
      type(obj[parse("admissible_loads")], list) and
@@ -1196,14 +1196,14 @@ end proc: # CleanRod
 
 MakeBeam := proc(
   name::string,        # Object name
-  ell::scalar,         # Length (m)
+  ell::algebraic,      # Length (m)
   RF::FRAME := ground, # Reference frame
   {
-    area::scalar       := 0,    # Section area (m^2)
+    area::algebraic       := 0, # Section area (m^2)
     material::MATERIAL := NULL, # Material object
-    I_xx::scalar       := 0,    # Section x-axis inertia (m^4)
-    I_yy::scalar       := 0,    # Section y-axis inertia (m^4)
-    I_zz::scalar       := 0     # Section z-axis inertia (m^4)
+    I_xx::algebraic       := 0, # Section x-axis inertia (m^4)
+    I_yy::algebraic       := 0, # Section y-axis inertia (m^4)
+    I_zz::algebraic       := 0  # Section z-axis inertia (m^4)
   }, $)::BEAM;
 
   description "Create a BEAM object with inputs: object name, reference "
@@ -1235,8 +1235,8 @@ IsBeam := proc(
   if (obj[parse("type")] = BEAM) and
      type(obj, table) and
      type(obj[parse("name")], string) and
-     type(obj[parse("length")], scalar) and
-     type(obj[parse("area")], scalar) and
+     type(obj[parse("length")], algebraic) and
+     type(obj[parse("area")], algebraic) and
      type(obj[parse("material")], MATERIAL) and
      type(obj[parse("inertias")], list) and
      type(obj[parse("frame")], FRAME) and
@@ -1471,8 +1471,8 @@ NewtonEuler := proc(
   obj::{BEAM, ROD, SUPPORT, JOINT}, # Object to compute the equilibrium
   pole,                             # Pole to compute the equilibrium # TODO: which type is this?
   {
-    dimensions::string := "3D",                # Structure dimension ("2D" or "3D")
-    lim::scalar        := obj[parse("length")] # Upper limit of the integration
+    dimensions::string := "3D",                   # Structure dimension ("2D" or "3D")
+    lim::algebraic        := obj[parse("length")] # Upper limit of the integration
   }, $)
 
   description "Compute the Newton-Euler static equilibrium equations given a "
