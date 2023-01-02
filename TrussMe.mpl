@@ -208,11 +208,11 @@ InitTrussMe := proc()
   _gravity := [0, 0, 0]:
 
   EARTH := table({
-    type             = EARTH,
-    name             = "earth",
-    length           = 0,
-    frame            = ground,
-    admissible_loads = [1, 1, 1, 1, 1, 1]
+    parse("type")             = EARTH,
+    parse("name")             = "earth",
+    parse("length")           = 0,
+    parse("frame")            = ground,
+    parse("admissible_loads") = [1, 1, 1, 1, 1, 1]
     }):
 
 end proc: # InitTrussMe
@@ -1298,7 +1298,7 @@ ComputeSpringDisplacement := proc(
   local disp;
 
   disp := RealDomain[solve](spring_load = integrate(stiffness, x = 0..Dx), Dx);
-  
+
   return disp;
 end proc: # ComputeSpringDisplacement
 
@@ -2336,7 +2336,108 @@ ComputeDisplacements := proc(
   end do;
 
   return ``;
-end proc; # ComputeDisplacements
+end proc: # ComputeDisplacements
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+PlotBeam := proc(
+  obj::BEAM, # Beam to be plot
+  $)
+
+  description "Plot a the SUPPORT object <obj>";
+
+  local P1, P2;
+
+  P1 := Origin(obj[parse("frame")]);
+  P2 := Origin(obj[parse("frame")].Translate(0, 0, obj[parse("length")]));
+
+  return plots:-display(
+    plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list)),
+    linestyle = solid, color = "SteelBlue");
+end proc:
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+PlotRod := proc(
+  obj::ROD, # Rod to be plot
+  $)
+
+  description "Plot a the ROD object <obj>";
+
+  local P1, P2;
+
+  P1 := Origin(obj[parse("frame")]);
+  P2 := Origin(obj[parse("frame")].Translate(0, 0, obj[parse("length")]));
+
+  return plots:-display(
+    plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list)),
+    linestyle = dash, color = "Niagara DarkOrchid");
+end proc:
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+PlotJoint := proc(
+  obj::JOINT,            # Joint to be plot
+  dim::algebraic := 0.1, # Dimensions
+  $)
+
+  description "Plot a the JOINT object <obj>";
+
+  local O;
+
+  O := Origin(
+    parse(obj[parse("targets")][1])[parse("frame")].
+    Translate(0,0,obj[parse("coordinates")][1])
+    );
+
+  return plots:-display(
+    plottools:-sphere(convert(O[1..3], list), dim),
+    linestyle = solid, color = "SteelBlue");
+end proc:
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+PlotSupport := proc(
+  obj::SUPPORT,          # Joint to be plot
+  dim::algebraic := 0.1, # Dimensions
+  $)
+
+  local O;
+
+  O := Origin(
+    parse(obj[parse("targets")][2])[parse("frame")].
+    Translate(0, 0, obj[parse("coordinates")][2])
+    );
+
+  return plots:-display(
+    plottools:-sphere(convert(O[1..3], list), dim),
+    linestyle = solid, color = "Niagara DarkOrchid");
+end proc:
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+PlotStructure := proc(
+  obj::STRUCTURE, # Structure to be plot
+  $)
+
+  description "Plot a the STRUCTURE object <obj>";
+
+  local plt, i;
+
+  plt := []:
+  for i from 1 to nops(obj[parse("objects")]) do
+    if (obj[parse("objects")][i][parse("type")] = BEAM) then
+      plt := [op(plt), PlotBeam(obj[parse("objects")][i])];
+    elif (obj[parse("objects")][i][parse("type")] = ROD) then
+      plt := [op(plt), PlotRod(obj[parse("objects")][i])];
+    elif (obj[parse("objects")][i][parse("type")] = SUPPORT) then
+      plt := [op(plt), PlotSupport(obj[parse("objects")][i])];
+    elif (obj[parse("objects")][i][parse("type")] = JOINT) then
+      plt := [op(plt), PlotJoint(obj[parse("objects")][i])];
+    end if;
+  end do;
+  return plt;
+end proc:
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
