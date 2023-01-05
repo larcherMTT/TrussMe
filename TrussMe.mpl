@@ -613,8 +613,10 @@ description "Define a FORCE object with inputs: force components, force "
   local proj_components;
 
   if IsBeam(obj) or IsRod(obj) then
-    if (evalf(ell) < 0) or (evalf(ell) > evalf(obj[parse("length")])) then
-      error "force application point must be in [0,L] range";
+    if (not type(indets(ell),set(symbol))) then
+      if (evalf(ell) < 0) or (evalf(ell) > evalf(obj[parse("length")])) then
+        error "force application point must be in [0,L] range";
+      end if;
     end if;
   end if;
 
@@ -674,8 +676,10 @@ MakeMoment := proc(
 
   # FIXME: consider the case of symbolic length or ell
   if IsBeam(obj) then
-    if (evalf(ell) < 0) or (evalf(ell) > evalf(obj[parse("length")])) then
-      error "moment application point must be in [0,L] range";
+    if (not type(indets(ell),set(symbol))) then
+      if (evalf(ell) < 0) or (evalf(ell) > evalf(obj[parse("length")])) then
+        error "moment application point must be in [0,L] range";
+      end if;
     end if;
   end if;
 
@@ -834,7 +838,7 @@ MakeSupport := proc(
     stiffness::{procedure,list(algebraic)} := [ # Stiffness components (default = infinite)
       infinity, infinity, infinity,
       infinity, infinity, infinity
-    ]
+    ] *~ constrained_dof
   }, $)::SUPPORT;
 
   description "Define a SUPPORT object with inputs: support name, constrained "
@@ -853,13 +857,15 @@ MakeSupport := proc(
   end do;
 
   if type(stiffness, procedure) then
-    S_stiffness := unapply(stiffness(x)*~constrained_dof, x);
+    S_stiffness := unapply(stiffness(x) *~ constrained_dof, x);
+    if (S_stiffness(x) <> stiffness(x)) then
+      WARNING("stiffness components not corresponding to constrained_dof are ignored");
+    end if;
   else
-    S_stiffness := (x) -> stiffness*~constrained_dof;
-  end if;
-
-  if (S_stiffness(x) <> stiffness(x)) then
-    WARNING("stiffness components not corresponding to constrained_dof are ignored");
+    S_stiffness := (x) -> stiffness *~ constrained_dof;
+    if (S_stiffness(x) <> stiffness) then
+      WARNING("stiffness components not corresponding to constrained_dof are ignored");
+    end if;
   end if;
 
   S := table({
@@ -971,7 +977,7 @@ IsCompliantSupport := proc(
 
   found := false;
   for i from 1 to nops(obj[parse("stiffness")]) do
-    if not (obj[parse("stiffness")][i] = infinity) then
+    if (obj[parse("stiffness")][i] <> infinity) and (obj[parse("constrained_dof")][i] = 1) then
       found := true;
       break;
     end if;
@@ -1240,23 +1246,30 @@ MakeBeam := proc(
   ell::algebraic,      # Length (m)
   RF::FRAME := ground, # Reference frame
   {
-    area::{algebraic, procedure} := 0,    # Section area (m^2)
-    material::MATERIAL           := NULL, # Material object
-    I_xx::{algebraic, procedure} := 0,    # Section x-axis inertia (m^4)
-    I_yy::{algebraic, procedure} := 0,    # Section y-axis inertia (m^4)
-    I_zz::{algebraic, procedure} := 0     # Section z-axis inertia (m^4)
+    area::{algebraic, procedure}                     := 0,      # Section area (m^2)
+    shear_stiff_factor::{list(algebraic), procedure} := [0, 0], # Shear stiffness factor
+    material::MATERIAL                               := NULL,   # Material object
+    I_xx::{algebraic, procedure}                     := 0,      # Section x-axis inertia (m^4)
+    I_yy::{algebraic, procedure}                     := 0,      # Section y-axis inertia (m^4)
+    I_zz::{algebraic, procedure}                     := 0       # Section z-axis inertia (m^4)
   }, $)::BEAM;
 
   description "Create a BEAM object with inputs: object name, reference "
     "frame, length, and optional section area, inertias on x-, y- and z-axis "
     "and material";
 
-  local area_proc, I_xx_proc, I_yy_proc, I_zz_proc;
+  local area_proc, shear_stiff_factor_proc, I_xx_proc, I_yy_proc, I_zz_proc;
 
   if type(area, procedure) then
     area_proc := area;
   else
     area_proc := (x) -> piecewise((x >= 0) and (x <= ell), area, 0);
+  end if;
+
+  if type(shear_stiff_factor, procedure) then
+    shear_stiff_factor_proc := shear_stiff_factor;
+  else
+    shear_stiff_factor_proc := (x) -> piecewise((x >= 0) and (x <= ell), shear_stiff_factor, [0, 0]);
   end if;
 
   if type(I_xx, procedure) then
@@ -1278,16 +1291,17 @@ MakeBeam := proc(
   end if;
 
   return table({
-    parse("type")             = BEAM,
-    parse("name")             = name,
-    parse("length")           = ell,
-    parse("area")             = area_proc,
-    parse("material")         = material,
-    parse("inertias")         = [I_xx_proc, I_yy_proc, I_zz_proc],
-    parse("frame")            = RF,
-    parse("admissible_loads") = [1, 1, 1, 1, 1, 1],
-    parse("internal_actions") = [],
-    parse("displacements")    = []
+    parse("type")               = BEAM,
+    parse("name")               = name,
+    parse("length")             = ell,
+    parse("area")               = area_proc,
+    parse("shear_stiff_factor") = shear_stiff_factor_proc,
+    parse("material")           = material,
+    parse("inertias")           = [I_xx_proc, I_yy_proc, I_zz_proc],
+    parse("frame")              = RF,
+    parse("admissible_loads")   = [1, 1, 1, 1, 1, 1],
+    parse("internal_actions")   = [],
+    parse("displacements")      = []
     });
 end proc: # MakeBeam
 
@@ -1304,6 +1318,7 @@ IsBeam := proc(
      type(obj[parse("name")], string) and
      type(obj[parse("length")], algebraic) and
      type(obj[parse("area")], procedure) and
+     type(obj[parse("shear_stiff_factor")], procedure) and
      type(obj[parse("material")], MATERIAL) and
      type(obj[parse("inertias")], list(procedure)) and
      type(obj[parse("frame")], FRAME) and
@@ -2003,7 +2018,7 @@ ComputePotentialEnergy := proc(
             (subs(obj[parse("internal_actions")](x), Ty(x)) <> 0) then
           P := P + integrate(
             subs(obj[parse("internal_actions")](x),
-              obj[shear_stiff_factor][1]*Ty(x)^2/(2*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x))
+              obj[parse("shear_stiff_factor")](x)[1]*Ty(x)^2/(2*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x))
             ), x = 0..obj[parse("length")]);
         end if;
         # Shear action Tz contribution
@@ -2011,7 +2026,7 @@ ComputePotentialEnergy := proc(
             (subs(obj[parse("internal_actions")](x), Tz(x)) <> 0) then
           P := P + integrate(
             subs(obj[parse("internal_actions")](x),
-              obj[shear_stiff_factor][2]*Tz(x)^2/(2*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x))
+              obj[parse("shear_stiff_factor")](x)[2]*Tz(x)^2/(2*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x))
             ), x = 0..obj[parse("length")]);
         end if;
       end if;
@@ -2322,7 +2337,7 @@ ComputeDisplacements := proc(
 
   local dummy_Fx, dummy_Fy, dummy_Fz, dummy_Mx, dummy_My, dummy_Mz, obj,
         obj_copy, dummy_loads, subs_null_dummy, P, x, dFx, dFy, dFz, dMx, dMy, 
-        dMz;
+        dMz, disp;
 
   # Cicle on the structure objects
   for obj in objs do
@@ -2332,50 +2347,54 @@ ComputeDisplacements := proc(
     # Beam
     if IsBeam(obj_copy) then
       # Create dummy loads
-      dummy_Fx := MakeForce([dFx,0,0], x, {obj_copy}, obj_copy[parse("frame")]);
-      dummy_Fy := MakeForce([0,dFy,0], x, {obj_copy}, obj_copy[parse("frame")]);
-      dummy_Fz := MakeForce([0,0,dFz], x, {obj_copy}, obj_copy[parse("frame")]);
-      dummy_Mx := MakeMoment([dMx,0,0], x, {obj_copy}, obj_copy[parse("frame")]);
-      dummy_My := MakeMoment([0,dMy,0], x, {obj_copy}, obj_copy[parse("frame")]);
-      dummy_Mz := MakeMoment([0,0,dMz], x, {obj_copy}, obj_copy[parse("frame")]);
+      dummy_Fx := MakeForce([dFx,0,0], x, obj_copy, obj_copy[parse("frame")]);
+      dummy_Fy := MakeForce([0,dFy,0], x, obj_copy, obj_copy[parse("frame")]);
+      dummy_Fz := MakeForce([0,0,dFz], x, obj_copy, obj_copy[parse("frame")]);
+      dummy_Mx := MakeMoment([dMx,0,0], x, obj_copy, obj_copy[parse("frame")]);
+      dummy_My := MakeMoment([0,dMy,0], x, obj_copy, obj_copy[parse("frame")]);
+      dummy_Mz := MakeMoment([0,0,dMz], x, obj_copy, obj_copy[parse("frame")]);
 
       dummy_loads := {dummy_Fx, dummy_Fy, dummy_Fz, dummy_Mx, dummy_My, dummy_Mz};
 
       # Compute internal actions of the object copy
-      ComputeInternalActions(obj_copy, exts union dummy_loads, sol, parse("dimensions") = dimensions, parse("verbose") = verbose);
+      ComputeInternalActions({obj_copy}, exts union dummy_loads, sol, parse("dimensions") = dimensions, parse("verbose") = verbose);
 
       # Compute object potential energy
-      P := ComputePotentialEnergy(obj_copy, parse("shear_contribution") = shear_contribution);
+      P := ComputePotentialEnergy({obj_copy}, parse("shear_contribution") = shear_contribution);
 
       # null dummy loads substitution list
       subs_null_dummy := [dFx, dFy, dFz, dMx, dMy, dMz] =~ [0,0,0,0,0,0];
 
       # Compute displacements
-      obj[displacement][1] := tx = unapply(subs(subs_null_dummy, diff(P, dFx)),x);
-      obj[displacement][2] := ty = unapply(subs(subs_null_dummy, diff(P, dFy)),x);
-      obj[displacement][3] := tz = unapply(subs(subs_null_dummy, diff(P, dFz)),x);
-      obj[displacement][4] := rx = unapply(subs(subs_null_dummy, diff(P, dMx)),x);
-      obj[displacement][5] := ry = unapply(subs(subs_null_dummy, diff(P, dMy)),x);
-      obj[displacement][6] := rz = unapply(subs(subs_null_dummy, diff(P, dMz)),x);
+      disp := [0,0,0,0,0,0];
+      disp[1] := tx = unapply(subs(subs_null_dummy, diff(P, dFx)),x);
+      disp[2] := ty = unapply(subs(subs_null_dummy, diff(P, dFy)),x);
+      disp[3] := tz = unapply(subs(subs_null_dummy, diff(P, dFz)),x);
+      disp[4] := rx = unapply(subs(subs_null_dummy, diff(P, dMx)),x);
+      disp[5] := ry = unapply(subs(subs_null_dummy, diff(P, dMy)),x);
+      disp[6] := rz = unapply(subs(subs_null_dummy, diff(P, dMz)),x);
+
+      # Update object displacements
+      obj[parse("displacements")] := disp;
 
     # Rod
     elif IsRod(obj_copy) then
       # Create dummy loads
-      dummy_Fx := MakeForce([dFx,0,0], x, {obj_copy}, obj_copy[parse("frame")]);
+      dummy_Fx := MakeForce([dFx,0,0], x, obj_copy, obj_copy[parse("frame")]);
 
       dummy_loads := {dummy_Fx};
 
       # Compute internal actions of the object copy
-      ComputeInternalActions(obj_copy, exts, dummy_loads, sol, parse("dimensions") = dimensions, parse("verbose") = verbose);
+      ComputeInternalActions({obj_copy}, exts union dummy_loads, sol, parse("dimensions") = dimensions, parse("verbose") = verbose);
 
       # Compute object potential energy
-      P := ComputePotentialEnergy(obj_copy, parse("shear_contribution") = shear_contribution);
+      P := ComputePotentialEnergy({obj_copy}, parse("shear_contribution") = shear_contribution);
 
       # null dummy loads substitution list
       subs_null_dummy := [dFx] =~ [0];
 
       # Compute displacements
-      obj[displacement][1] := tx = unapply(subs(subs_null_dummy, diff(P, dFx)),x);
+      obj[parse("displacements")] := [tx = unapply(subs(subs_null_dummy, diff(P, dFx)),x)];
 
     # Support
     elif IsSupport(obj_copy) then
