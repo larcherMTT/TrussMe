@@ -86,7 +86,9 @@ local   ModuleLoad,
         PlotRod,
         PlotJoint,
         PlotSupport,
-        lib_base_path;
+        lib_base_path,
+        print_indent,
+        print_increment;
 
 option  package,
         load   = ModuleLoad,
@@ -211,6 +213,9 @@ InitTrussMe := proc()
              <0, 0, 0, 1>>:
 
   _gravity := [0, 0, 0]:
+
+  print_indent := 0:
+  print_increment := 4:
 
   EARTH := table({
     parse("type")             = EARTH,
@@ -1432,6 +1437,9 @@ ComputeSupportDisplacements := proc(
 
   local sup_disp, disp_vec, i, disp, x;
 
+  # Increase printf indentation
+  print_indent := print_indent + print_increment;
+
   sup_disp := [];
   disp_vec := [tx, ty, tz, rx, ry, rz];
 
@@ -1444,11 +1452,14 @@ ComputeSupportDisplacements := proc(
   end do;
 
   printf(
-    "Message (in ComputeSupportDisplacements) updating %s %s's displacements... ",
-    obj[parse("type")], obj[parse("name")]
+    "%*sMessage (in ComputeSupportDisplacements) updating %s %s's displacements...\n",
+    print_indent, "", obj[parse("type")], obj[parse("name")]
     );
   obj[parse("displacements")] := sup_disp;
-  printf("DONE\n");
+  printf("%*sDONE\n", print_indent, "");
+
+  # Decrease printf indentation
+  print_indent := print_indent - print_increment;
 
   return ``;
 end proc: # ComputeSupportDisplacements
@@ -1469,8 +1480,10 @@ MakeStructure := proc(
       # Hyperstatic variables
     hyper_disp::{list, set} := [seq(0, 1..nops(hyper_vars))],
       # Hyperstatic displacements
-    dimensions::string := "3D"
+    dimensions::string := "3D",
       # Structure dimension ("2D" or "3D")
+    verbose::boolean := false
+      # Verbose mode
   }, $)::STRUCTURE;
 
   description "Create a STRUCTURE object with inputs: structure objects, "
@@ -1478,6 +1491,9 @@ MakeStructure := proc(
     "displacements and structure dimension (""2D"" or ""3D"")";
 
   local num_dof, i, names, candidate_hyp_vars;
+
+  # Increase printf indentation
+  print_indent := print_indent + print_increment;
 
   # Check for duplicate names
   names := [];
@@ -1488,7 +1504,7 @@ MakeStructure := proc(
     names := names union [objs[i][parse("name")]];
   end do;
 
-  num_dof := ComputeDOF(objs, parse("dimensions") = dimensions);
+  num_dof := ComputeDOF(objs, parse("dimensions") = dimensions, parse("verbose") = verbose);
 
   if (num_dof < 0) then
     if (nops(hyper_vars) <> -num_dof) then
@@ -1511,15 +1527,18 @@ MakeStructure := proc(
       abs(num_dof), candidate_hyp_vars
       );
     else
-      printf("Message (in MakeStructure) "
+      printf("%*sMessage (in MakeStructure) "
         "hyperstatic structure detected with %d overconstrained directions\n",
-        abs(num_dof));
+        print_indent, "", abs(num_dof));
     end if;
   elif (num_dof > 0) then
     error "not enough constraints in the structure";
   else
-    printf("Message (in MakeStructure) isostatic structure detected");
+    printf("%*sMessage (in MakeStructure) isostatic structure detected\n", print_indent, "");
   end if;
+
+  # Decrease printf indentation
+  print_indent := print_indent - print_increment;
 
   return table({
     parse("type")                      = STRUCTURE,
@@ -1581,19 +1600,23 @@ ComputeDOF := proc(
     set( {BEAM, ROD, SUPPORT, JOINT})
   },
   {
-    dimensions::string := "3D" # Structure dimension ("2D" or "3D")
+    dimensions::string := "3D", # Structure dimension ("2D" or "3D")
+    verbose::boolean   := false # Verbose mode
   }, $)::integer;
 
   description "Compute the degree of freedom of the input structure objects";
 
   local dof, objs_tmp, i, j, k, vertex, G;
 
+  # Increase printf indentation
+  print_indent := print_indent + print_increment;
+
   dof      := 0;
   objs_tmp := objs union [EARTH];
 
   # Built connections graph
   vertex := [];
-  printf("Message (in ComputeDOF) checking structure connections... ");
+  printf("%*sMessage (in ComputeDOF) checking structure connections...\n", print_indent, "");
   for i from 1 to nops(objs_tmp) do
     vertex := vertex union [objs_tmp[i][parse("name")]];
     end do;
@@ -1610,12 +1633,12 @@ ComputeDOF := proc(
 
   # Check graph connections
   if GraphTheory[IsConnected](G) then
-    printf("DONE\n");
+    printf("%*sDONE\n", print_indent, "");
   else
     error "unconnected elements detected in the structure";
   end if;
 
-printf("Message (in ComputeDOF) computing degrees of freedom... ");
+printf("%*sMessage (in ComputeDOF) computing degrees of freedom...\n", print_indent, "");
 for i from 1 to nops(objs_tmp) do
   if IsBeam(objs_tmp[i]) then
       if (dimensions = "2D") then
@@ -1643,12 +1666,18 @@ for i from 1 to nops(objs_tmp) do
       end if;
     end if;
   end do;
-  printf("DONE\n");
-  printf("Message (in ComputeDOF) display degrees of freedom... DOF = %d\n", dof);
+  printf("%*sDONE\n", print_indent, "");
+  printf("%*sMessage (in ComputeDOF) display degrees of freedom... DOF = %d\n",print_indent, "", dof);
 
   # Display graph
-  print(GraphTheory[DrawGraph](G));
+  if (verbose) then
+    printf("%*sMessage (in ComputeDOF) display connections graph...\n", print_indent, "");
+    print(GraphTheory[DrawGraph](G));
+  end if;
 
+  # Decrease printf indentation
+  print_indent := print_indent - print_increment;
+  
   return dof;
 end proc: # ComputeDOF
 
@@ -1670,6 +1699,9 @@ NewtonEuler := proc(
     "set of external actions and the axial coordinate of the pole";
 
   local eq_T, eq_R, i, x;
+
+  # Increase printf indentation
+  print_indent := print_indent + print_increment;
 
   # 2D case
   if (dimensions = "2D") then
@@ -1745,6 +1777,9 @@ NewtonEuler := proc(
     error("invalid dimension detected");
   end if;
 
+  # Decrease printf indentation
+  print_indent := print_indent - print_increment;
+
   return eq_T union eq_R;
 end proc: # NewtonEuler
 
@@ -1766,6 +1801,9 @@ SolveStructure := proc(
 
     local i, g_load, S_obj, S_ext, S_support, S_joint, S_con_forces, vars, sol,
       obj, x;
+
+  # Increase printf indentation
+  print_indent := print_indent + print_increment;
 
     # Parsing inputs
     S_obj        := {};
@@ -1809,33 +1847,33 @@ SolveStructure := proc(
 
     if (struct[dof] = 0) then
       # Solve isostatic structure
-      printf("Message (in SolveStructure) solving the isostatic structure...\n");
+      printf("%*sMessage (in SolveStructure) solving the isostatic structure...\n", print_indent, "");
       sol := IsostaticSolver(
         S_obj union S_joint union S_support,
         S_ext union S_con_forces,
         vars, struct[parse("dimensions")], parse("verbose") = verbose
         );
-      printf("DONE\n");
+      printf("%*sDONE\n", print_indent, "");
       if (verbose) then
         printf("Message (in SolveStructure) solutions:\n");
         print(<sol>);
       end if;
       # Update support reactions properties
-      printf("Message (in SolveStructure) updating support reactions fields... ");
+      printf("%*sMessage (in SolveStructure) updating support reactions fields...\n", print_indent, "");
         for i from 1 to nops(S_support) do
           S_support[i][parse("support_reactions")] := [
             seq(lhs(S_support[i][parse("support_reactions")][j]) = subs(sol, rhs(S_support[i][parse("support_reactions")][j])),
             j = 1..nops(S_support[i][parse("support_reactions")]))
           ];
         end do;
-      printf("DONE\n");
+      printf("%*sDONE\n", print_indent, "");
     elif (struct[dof] < 0) then
       # Solve hyperstatic structure
       if (nops(struct[parse("hyperstatic_variables")]) <> -struct[dof]) then
         error "mismatch in the structure degrees of freedom, check the hyper"
           "static variables of the structure and update the structure object";
       end if;
-      printf("Message (in SolveStructure) solving the hyperstatic structure\n");
+      printf("%*sMessage (in SolveStructure) solving the hyperstatic structure\n", print_indent, "");
       sol := HyperstaticSolver(
         S_obj union S_joint union S_support,
         S_ext union S_con_forces,
@@ -1846,9 +1884,9 @@ SolveStructure := proc(
         parse("verbose")            = verbose,
         parse("shear_contribution") = shear_contribution
         );
-      printf("DONE\n");
+      printf("%*sDONE\n", print_indent, "");
       if (verbose) then
-        printf("Message (in SolveStructure) hyperstatic solver solution:\n");
+        printf("%*sMessage (in SolveStructure) hyperstatic solver solution:\n", print_indent, "");
         print(<sol>);
       end if;
       # Update objects internal actions
@@ -1858,14 +1896,14 @@ SolveStructure := proc(
       # Set internal actions computed flag
       struct[parse("internal_actions_solved")] := true; 
       # Update support reactions properties
-      printf("Message (in SolveStructure) updating support reactions fields... ");
+      printf("%*sMessage (in SolveStructure) updating support reactions fields...\n", print_indent, "");
       for i from 1 to nops(S_support) do
       S_support[i][parse("support_reactions")] := [
         seq(lhs(S_support[i][parse("support_reactions")][j]) = subs(sol,rhs(S_support[i][parse("support_reactions")][j])),
         j = 1..nops(S_support[i][parse("support_reactions")]))
         ];
       end do;
-      printf("DONE\n");
+      printf("%*sDONE\n", print_indent, "");
     end if;
 
   # Set support reactions solved flag
@@ -1891,6 +1929,9 @@ SolveStructure := proc(
     # Set internal actions computed flag
     struct[parse("internal_actions_solved")] := true;
   end if;
+
+  # Decrease printf indentation
+  print_indent := print_indent - print_increment;
 
   return struct;
 end proc: # SolveStructure
@@ -1922,6 +1963,9 @@ HyperstaticSolver := proc(
   local hyper_eq, hyper_load, hyper_comps, hyper_compliant_disp, hyper_support, i, obj,
         iso_vars, iso_sol, hyper_sol, sol, P, S_obj;
 
+  # Increase printf indentation
+  print_indent := print_indent + print_increment;
+
   # Parse input objects and find objects with internal actions property
     S_obj := {};
     for i from 1 to nops(objs) do
@@ -1930,7 +1974,7 @@ HyperstaticSolver := proc(
       end if;
     end do;
 
-  printf("Message (in HyperstaticSolver) solving the hyperstatic variables... ");
+  printf("%*sMessage (in HyperstaticSolver) solving the hyperstatic variables...\n", print_indent, "");
   # Create a solution as function of the hyperstatic variables
   iso_vars := [seq(
     `if`(member(vars[i], hyper_vars), NULL, vars[i]),
@@ -1981,7 +2025,10 @@ HyperstaticSolver := proc(
 
   # Solve hyperstatic equations
   hyper_sol := op(solve(hyper_eq, hyper_vars));
-  printf("DONE\n");
+  printf("%*sDONE\n", print_indent, "");
+
+  # Decrease printf indentation
+  print_indent := print_indent - print_increment;
 
   return hyper_sol union subs(hyper_sol, iso_sol);
 end proc: # HyperstaticSolver
@@ -2000,6 +2047,9 @@ ComputePotentialEnergy := proc(
   description "Compute the internal potential energy of the structure";
 
   local obj, P, x;
+
+  # Increase printf indentation
+  print_indent := print_indent + print_increment;
 
   P := 0;
   for obj in objs do
@@ -2088,6 +2138,9 @@ ComputePotentialEnergy := proc(
     end if;
   end do;
 
+  # Decrease printf indentation
+  print_indent := print_indent - print_increment;
+
   return P;
 end proc: # PotentialEnergy
 
@@ -2113,9 +2166,12 @@ IsostaticSolver := proc(
 
   local eq, i, j, active_ext, sol, A, B, rank_eq, vars_tmp;
 
+  # Increase printf indentation
+  print_indent := print_indent + print_increment;
+
   # Compute structure equations
-  printf("Message (in IsostaticSolver) computing the equilibrium equation for "
-    "the isostatic structure...");
+  printf("%*sMessage (in IsostaticSolver) computing the equilibrium equation for "
+    "the isostatic structure...\n", print_indent, "");
   eq := [];
     for i from 1 to nops(objs) do
     active_ext := {};
@@ -2146,16 +2202,16 @@ IsostaticSolver := proc(
         );
         end if;
     end do;
-  printf("DONE\n");
+  printf("%*sDONE\n", print_indent, "");
 
   # Structure equations check
   A, B    := LinearAlgebra[GenerateMatrix](eq, vars_tmp);
   rank_eq := LinearAlgebra[Rank](A);
 
   if (verbose) then
-    printf("Message (in IsostaticSolver) structure equilibrium equations:\n");
+    printf("%*sMessage (in IsostaticSolver) structure equilibrium equations:\n", print_indent, "");
         print(<op(eq)>);
-    printf("Message (in IsostaticSolver) structure unknown variables:\n");
+    printf("%*sMessage (in IsostaticSolver) structure unknown variables:\n", print_indent, "");
     print(vars_tmp);
     end if;
 
@@ -2166,9 +2222,9 @@ IsostaticSolver := proc(
   end if;
 
   # Solve structure equations
-  printf("Message (in IsostaticSolver) computing the structure reaction forces... ");
+  printf("%*sMessage (in IsostaticSolver) computing the structure reaction forces...\n", print_indent, "");
   sol := simplify(op(solve(eq, vars_tmp)));
-  printf("DONE\n");
+  printf("%*sDONE\n", print_indent, "");
 
   return sol;
 end proc: # IsostaticSolver
@@ -2195,6 +2251,9 @@ ComputeInternalActions := proc(
 
   local i, j, active_ext, subs_ext;
 
+  # Increase printf indentation
+  print_indent := print_indent + print_increment;
+
   # Substitute structure solution into loads
   subs_ext := map2(subs, sol, map(op,exts));
 
@@ -2209,6 +2268,10 @@ ComputeInternalActions := proc(
     # Compute internal actions
     InternalActions(objs[i], active_ext, parse("dimensions") = dimensions);
   end do;
+
+  # Decrease printf indentation
+  print_indent := print_indent - print_increment;
+
 end proc: # ComputeInternalActions
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -2228,6 +2291,9 @@ InternalActions := proc(
     "function of the axial variable 'x'";
 
   local i, ia, N_sol, Ty_sol, Tz_sol, Mx_sol, My_sol, Mz_sol, x;
+
+  # Increase printf indentation
+  print_indent := print_indent + print_increment;
 
   # 2D case
   if (dimensions = "2D") then
@@ -2306,11 +2372,14 @@ InternalActions := proc(
   end if;
 
   printf(
-    "Message (in InternalActions) updating %s %s's internal actions... ",
-    obj[parse("type")], obj[parse("name")]
+    "%*sMessage (in InternalActions) updating %s %s's internal actions...\n",
+    print_indent, "", obj[parse("type")], obj[parse("name")]
     );
   obj[parse("internal_actions")] := ia;
-  printf("DONE\n");
+  printf("%*sDONE\n", print_indent, "");
+
+  # Decrease printf indentation
+  print_indent := print_indent - print_increment;
 
   return ``;
 end proc: # InternalActions
@@ -2338,6 +2407,9 @@ ComputeDisplacements := proc(
   local dummy_Fx, dummy_Fy, dummy_Fz, dummy_Mx, dummy_My, dummy_Mz, obj,
         obj_copy, dummy_loads, subs_null_dummy, P, x, dFx, dFy, dFz, dMx, dMy, 
         dMz, disp;
+
+  # Increase printf indentation
+  print_indent := print_indent + print_increment;
 
   # Cicle on the structure objects
   for obj in objs do
@@ -2402,6 +2474,9 @@ ComputeDisplacements := proc(
       ComputeSupportDisplacements(obj);
     end if;
   end do;
+
+  # Decrease printf indentation
+  print_indent := print_indent - print_increment;
 
   return ``;
 end proc: # ComputeDisplacements
