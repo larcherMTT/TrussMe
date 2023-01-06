@@ -744,7 +744,7 @@ MakeQForce := proc(
   if type(components, procedure) then
     proj_components := unapply(Project(components(x), RF, obj[parse("frame")]),x);
   else
-    proj_components := (x) -> piecewise((x >= ell_min) and (x <= ell_max), Project(components, RF, obj[parse("frame")]), 0);
+    proj_components := (x) -> Project(components, RF, obj[parse("frame")]);
   end if;
 
   if IsRod(obj) then
@@ -801,7 +801,7 @@ MakeQMoment := proc(
   if type(components, procedure) then
     proj_components := unapply(Project(components(x), RF, obj[parse("frame")]),x);
   else
-    proj_components := (x) -> piecewise((x >= ell_min) and (x <= ell_max), Project(components, RF, obj[parse("frame")]), 0);
+    proj_components := (x) -> Project(components, RF, obj[parse("frame")]);
   end if;
 
   return table({
@@ -1179,8 +1179,8 @@ MakeRod := proc(
   ell::algebraic,      # Length (m)
   RF::FRAME := ground, # Reference frame
   {
-    area::{algebraic, procedure} := 0,   # Section area (m^2)
-    material::MATERIAL           := NULL # Material
+    area::{algebraic, procedure} := infinity, # Section area (m^2)
+    material::MATERIAL           := NULL      # Material
   }, $)::ROD;
 
   description "Create a ROD object with inputs: object name, reference "
@@ -1191,7 +1191,7 @@ MakeRod := proc(
   if type(area, procedure) then
     area_proc := area;
   else
-    area_proc := (x) -> piecewise((x >= 0) and (x <= ell), area, 0);
+    area_proc := (x) -> area;
   end if;
 
   return table({
@@ -1251,12 +1251,12 @@ MakeBeam := proc(
   ell::algebraic,      # Length (m)
   RF::FRAME := ground, # Reference frame
   {
-    area::{algebraic, procedure}                     := 0,      # Section area (m^2)
-    shear_stiff_factor::{list(algebraic), procedure} := [0, 0], # Shear stiffness factor
-    material::MATERIAL                               := NULL,   # Material object
-    I_xx::{algebraic, procedure}                     := 0,      # Section x-axis inertia (m^4)
-    I_yy::{algebraic, procedure}                     := 0,      # Section y-axis inertia (m^4)
-    I_zz::{algebraic, procedure}                     := 0       # Section z-axis inertia (m^4)
+    area::{algebraic, procedure}                     := infinity, # Section area (m^2)
+    shear_stiff_factor::{list(algebraic), procedure} := [0, 0],   # Shear stiffness factor
+    material::MATERIAL                               := NULL,     # Material object
+    I_xx::{algebraic, procedure}                     := infinity, # Section x-axis inertia (m^4)
+    I_yy::{algebraic, procedure}                     := infinity, # Section y-axis inertia (m^4)
+    I_zz::{algebraic, procedure}                     := infinity  # Section z-axis inertia (m^4)
   }, $)::BEAM;
 
   description "Create a BEAM object with inputs: object name, reference "
@@ -1268,31 +1268,31 @@ MakeBeam := proc(
   if type(area, procedure) then
     area_proc := area;
   else
-    area_proc := (x) -> piecewise((x >= 0) and (x <= ell), area, 0);
+    area_proc := (x) -> area;
   end if;
 
   if type(shear_stiff_factor, procedure) then
     shear_stiff_factor_proc := shear_stiff_factor;
   else
-    shear_stiff_factor_proc := (x) -> piecewise((x >= 0) and (x <= ell), shear_stiff_factor, [0, 0]);
+    shear_stiff_factor_proc := (x) -> shear_stiff_factor;
   end if;
 
   if type(I_xx, procedure) then
     I_xx_proc := I_xx;
   else
-    I_xx_proc := (x) -> piecewise((x >= 0) and (x <= ell), I_xx, 0);
+    I_xx_proc := (x) -> I_xx;
   end if;
 
   if type(I_yy, procedure) then
     I_yy_proc := I_yy;
   else
-    I_yy_proc := (x) -> piecewise((x >= 0) and (x <= ell), I_yy, 0);
+    I_yy_proc := (x) -> I_yy;
   end if;
 
   if type(I_zz, procedure) then
     I_zz_proc := I_zz;
   else
-    I_zz_proc := (x) -> piecewise((x >= 0) and (x <= ell), I_zz, 0);
+    I_zz_proc := (x) -> I_zz;
   end if;
 
   return table({
@@ -1851,7 +1851,9 @@ SolveStructure := proc(
       sol := IsostaticSolver(
         S_obj union S_joint union S_support,
         S_ext union S_con_forces,
-        vars, struct[parse("dimensions")], parse("verbose") = verbose
+        vars, 
+        parse("dimensions") = struct[parse("dimensions")], 
+        parse("verbose") = verbose
         );
       printf("%*sDONE\n", print_indent, "");
       if (verbose) then
@@ -2225,6 +2227,9 @@ IsostaticSolver := proc(
   printf("%*sMessage (in IsostaticSolver) computing the structure reaction forces...\n", print_indent, "");
   sol := simplify(op(solve(eq, vars_tmp)));
   printf("%*sDONE\n", print_indent, "");
+
+  # Decrease printf indentation
+  print_indent := print_indent - print_increment;
 
   return sol;
 end proc: # IsostaticSolver
