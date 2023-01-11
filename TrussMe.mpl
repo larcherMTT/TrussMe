@@ -20,6 +20,7 @@ export  `union`,
         PrintStartProc,
         PrintEndProc,
         IsEarth,
+        SetGravity,
         Show,
         Rotate,
         Translate,
@@ -55,12 +56,12 @@ export  `union`,
         SolveStructure,
         PlotStructure;
 
-global  _gravity,
-        ground;
+global  ground;
 
 local   ModuleLoad,
         ModuleUnload,
         earth,
+        gravity,
         GetNames,
         CleanJoint,
         CleanSupport,
@@ -143,6 +144,9 @@ ModuleLoad := proc()
   # Protect Module Keywords
   Protect();
 
+  # Hide tilda '~' in variable assumptions
+  interface(showassumed=0);
+
   NULL;
 end proc: # ModuleLoad
 
@@ -159,6 +163,10 @@ end proc: # ModuleLoad
 ModuleUnload := proc()
   description "Module 'TrussMe' module unload procedure";
   printf("Unloading 'TrussMe'\n");
+
+  # Restore interface
+  interface(showassumed=0);
+
 end proc: # ModuleUnload
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -212,7 +220,7 @@ InitTrussMe := proc()
              <0, 0, 1, 0>|
              <0, 0, 0, 1>>;
 
-  _gravity := [0, 0, 0];
+  gravity := [0, 0, 0];
 
   verbose_mode    := 1;
   print_indent    := 0;
@@ -320,7 +328,7 @@ SetVerboseMode := proc(
   else
     verbose_mode := mode;
   end if;
-
+  NULL;
 end proc: # PrintStartProc
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -383,6 +391,25 @@ IsEarth := proc(
   PrintEndProc(procname);
   return out;
 end proc: # IsEarth
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+SetGravity := proc(
+  obj::list, # Gravity vector
+  $)::nothing;
+
+  description "Set gravity vector with [x, y, z] components of <obj>";
+
+  PrintStartProc(procname);
+  # Set gravity local variable
+  if (nops(obj) = 3) then
+    gravity := obj;
+  else
+    error "invalid gravity vector detected";
+  end if:
+  PrintEndProc(procname);
+  NULL;
+end proc: # SetGravity
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -1118,7 +1145,7 @@ IsSupport := proc(
      type(obj[parse("moments")], list) and
      type(obj[parse("constraint_loads")], list) and
      type(obj[parse("support_reactions")], list) and
-     type(obj[parse("stiffness")], procedure) and 
+     type(obj[parse("stiffness")], procedure) and
      type(obj[parse("displacements")], list) then
     out := true;
   else
@@ -1292,7 +1319,7 @@ MakeJoint := proc(
     # Extract the survived components
     jm_indets := indets(jm_comp);
     # Check if there are reactions
-    if (jm_comp_obj <> [0, 0, 0]) then
+    if not ((add(jm_comp_obj) = 0) or (add(jm_comp_obj) = 0.)) then
       # Create the reaction force between joint and obj
       JM_||(name)||_||(objs[i][parse("name")]) := MakeMoment(
         jm_comp_obj, ells[i], objs[i], objs[i][parse("frame")]
@@ -1452,12 +1479,12 @@ MakeBeam := proc(
   ell::algebraic,      # Length (m)
   RF::FRAME := ground, # Reference frame
   {
-    area::{algebraic, procedure}                     := infinity, # Section area (m^2)
-    shear_stiff_factor::{list(algebraic), procedure} := [0, 0],   # Shear stiffness factor
-    material::MATERIAL                               := NULL,     # Material object
-    I_xx::{algebraic, procedure}                     := infinity, # Section x-axis inertia (m^4)
-    I_yy::{algebraic, procedure}                     := infinity, # Section y-axis inertia (m^4)
-    I_zz::{algebraic, procedure}                     := infinity  # Section z-axis inertia (m^4)
+    area::{algebraic, procedure}                   := infinity,   # Section area (m^2)
+    timo_shear_coeff::{list(algebraic), procedure} := [5/6, 5/6], # Timoshenko shear coefficient
+    material::MATERIAL                             := NULL,       # Material object
+    I_xx::{algebraic, procedure}                   := infinity,   # Section x-axis inertia (m^4)
+    I_yy::{algebraic, procedure}                   := infinity,   # Section y-axis inertia (m^4)
+    I_zz::{algebraic, procedure}                   := infinity    # Section z-axis inertia (m^4)
   }, $)::BEAM;
 
   description "Create a BEAM object with inputs: object name <name>, reference "
@@ -1465,7 +1492,7 @@ MakeBeam := proc(
     "optional section area <area> and material type <material> and inertias on "
     "x- <I_xx>, y- <I_yy>, and z-axis <I_zz>";
 
-  local area_proc, shear_stiff_factor_proc, I_xx_proc, I_yy_proc, I_zz_proc, out;
+  local area_proc, timo_shear_coeff_proc, I_xx_proc, I_yy_proc, I_zz_proc, out;
   PrintStartProc(procname);
 
   if type(area, procedure) then
@@ -1474,10 +1501,10 @@ MakeBeam := proc(
     area_proc := (x) -> area;
   end if;
 
-  if type(shear_stiff_factor, procedure) then
-    shear_stiff_factor_proc := shear_stiff_factor;
+  if type(timo_shear_coeff, procedure) then
+    timo_shear_coeff_proc := timo_shear_coeff;
   else
-    shear_stiff_factor_proc := (x) -> shear_stiff_factor;
+    timo_shear_coeff_proc := (x) -> timo_shear_coeff;
   end if;
 
   if type(I_xx, procedure) then
@@ -1499,17 +1526,17 @@ MakeBeam := proc(
   end if;
 
   out := table({
-    parse("type")               = BEAM,
-    parse("name")               = name,
-    parse("length")             = ell,
-    parse("area")               = area_proc,
-    parse("shear_stiff_factor") = shear_stiff_factor_proc,
-    parse("material")           = material,
-    parse("inertias")           = [I_xx_proc, I_yy_proc, I_zz_proc],
-    parse("frame")              = RF,
-    parse("admissible_loads")   = [1, 1, 1, 1, 1, 1],
-    parse("internal_actions")   = [],
-    parse("displacements")      = []
+    parse("type")             = BEAM,
+    parse("name")             = name,
+    parse("length")           = ell,
+    parse("area")             = area_proc,
+    parse("timo_shear_coeff") = timo_shear_coeff_proc,
+    parse("material")         = material,
+    parse("inertias")         = [I_xx_proc, I_yy_proc, I_zz_proc],
+    parse("frame")            = RF,
+    parse("admissible_loads") = [1, 1, 1, 1, 1, 1],
+    parse("internal_actions") = [],
+    parse("displacements")    = []
     });
 
   PrintEndProc(procname);
@@ -1532,7 +1559,7 @@ IsBeam := proc(
      type(obj[parse("name")], string) and
      type(obj[parse("length")], algebraic) and
      type(obj[parse("area")], procedure) and
-     type(obj[parse("shear_stiff_factor")], procedure) and
+     type(obj[parse("timo_shear_coeff")], procedure) and
      type(obj[parse("material")], MATERIAL) and
      type(obj[parse("inertias")], list(procedure)) and
      type(obj[parse("frame")], FRAME) and
@@ -1832,9 +1859,6 @@ ComputeDOF := proc(
   local dof, objs_tmp, i, j, k, vertex, G;
   PrintStartProc(procname);
 
-  # Increase printf indentation
-  print_indent := print_indent + print_increment;
-
   dof      := 0;
   objs_tmp := objs union [earth];
 
@@ -1886,7 +1910,9 @@ ComputeDOF := proc(
     printf("%*sDONE\n", print_indent, "");
     printf("%*sMessage (in ComputeDOF) display degrees of freedom... DOF = %d\n",print_indent, "", dof);
     printf("%*sMessage (in ComputeDOF) display connections graph...\n", print_indent, "");
-    print(GraphTheory[DrawGraph](G));
+    if (verbose_mode > 1) then
+      print(GraphTheory[DrawGraph](G));
+    end if;
   end if;
 
   PrintEndProc(procname);
@@ -1961,20 +1987,25 @@ end proc: # NewtonEuler
 SolveStructure := proc(
   struct::STRUCTURE, # Structure object
   {
-    compute_intact::boolean     := false, # Internal actions computation flag
-    compute_disp::boolean       := false, # Displacement computation flag
-    shear_contribution::boolean := false  # Shear contribution flag
+    compute_intact::boolean  := false, # Internal actions computation flag
+    compute_disp::boolean    := false, # Displacement computation flag
+    timoshenko_beam::boolean := false  # Timoshenko beam flag
   }, $)
 
   description "Solve the static equilibrium of a structure with inputs: "
     "structure <struct>, optional compute internal action enabling flag "
     "<compute_intact>, optional compute displacement enabling flag "
-    "<compute_disp>, optional shear contribution flag <shear_contribution>";
+    "<compute_disp>, optional Timoshenko beam flag <timoshenko_beam>";
 
   local i, g_load, S_obj, S_ext, S_support, S_joint, S_con_forces, vars, sol,
     obj, x;
 
   PrintStartProc(procname);
+
+  # Clear structure computed flags
+  struct[parse("support_reactions_solved")] := false;
+  struct[parse("internal_actions_solved")]  := false;
+  struct[parse("displacement_solved")]      := false;
 
   # Parsing inputs
   S_obj        := {};
@@ -2004,11 +2035,11 @@ SolveStructure := proc(
   S_ext := struct[parse("external_actions")];
 
   # Add gravity distributed load
-  if (_gravity <> [0, 0, 0]) then
+  if (gravity <> [0, 0, 0]) then
       for i from 1 to nops(S_obj) do
         if IsBeam(S_obj[i]) then
           g_load||(S_obj[i][parse("name")]) := MakeQForce(
-            (x -> _gravity *~ S_obj[i][parse("area")](x) *~ S_obj[i][parse("material")][parse("density")]),
+            (x -> gravity *~ S_obj[i][parse("area")](x) *~ S_obj[i][parse("material")][parse("density")]),
             S_obj[i],ground
             );
           S_ext := S_ext union {g_load||(S_obj[i][parse("name")])};
@@ -2029,9 +2060,11 @@ SolveStructure := proc(
       );
     if (verbose_mode > 0) then
       printf("%*sDONE\n", print_indent, "");
-      printf("Message (in SolveStructure) solutions:\n");
-      print(<sol>);
-      printf("%*sMessage (in SolveStructure) updating support reactions fields...\n", print_indent, "");
+      if (verbose_mode > 1) then
+        printf("Message (in SolveStructure) solutions:\n");
+        print(<sol>);
+        printf("%*sMessage (in SolveStructure) updating support reactions fields...\n", print_indent, "");
+      end if;
     end if;
     # Update support reactions properties
     for i from 1 to nops(S_support) do
@@ -2060,12 +2093,14 @@ SolveStructure := proc(
       vars,
       struct[parse("hyperstatic_variables")],
       struct[parse("hyperstatic_displacements")],
-      parse("shear_contribution") = shear_contribution
+      parse("timoshenko_beam") = timoshenko_beam
       );
     if (verbose_mode > 0) then
       printf("%*sDONE\n", print_indent, "");
-      printf("%*sMessage (in SolveStructure) hyperstatic solver solution:\n", print_indent, "");
-      print(<sol>);
+      if (verbose_mode > 1) then
+        printf("%*sMessage (in SolveStructure) hyperstatic solver solution:\n", print_indent, "");
+        print(<sol>);
+      end if;
     end if;
     # Update objects internal actions
     for obj in S_obj do
@@ -2091,6 +2126,15 @@ SolveStructure := proc(
   # Set support reactions solved flag
   struct[parse("support_reactions_solved")] := true;
 
+  # Compute internal actions
+  if ((compute_intact) or (compute_disp)) and not struct[parse("internal_actions_solved")] then
+    ComputeInternalActions(
+      S_obj, S_ext union S_con_forces, sol
+      );
+    # Set internal actions computed flag
+    struct[parse("internal_actions_solved")] := true;
+  end if;
+
   # Compute displacements
   if (compute_disp) and not struct[parse("displacement_solved")] then
     ComputeDisplacements(
@@ -2098,16 +2142,6 @@ SolveStructure := proc(
       );
     # Set displacements computed flag
     struct[parse("displacement_solved")] := true;
-  end if;
-
-  # Compute internal actions
-  if (compute_intact) and not struct[parse("internal_actions_solved")] then
-    # FIXME: in case of Hyperstatic Structure, the internal actions are already computed
-    ComputeInternalActions(
-      S_obj, S_ext union S_con_forces, sol
-      );
-    # Set internal actions computed flag
-    struct[parse("internal_actions_solved")] := true;
   end if;
 
   PrintEndProc(procname);
@@ -2129,13 +2163,13 @@ HyperstaticSolver := proc(
   hyper_vars::list, # Hyperstatic variables
   hyper_disp::list, # Hyperstatic displacements
   {
-    shear_contribution::boolean := false # Shear contribution
+    timoshenko_beam::boolean := false # Timoshenko beam flag
   }, $)
 
   description "Solve hyperstatic structure with inputs objects <objs>, external "
     "actions <exts>, variables <vars>, hyperstatic variables <hyper_vars>, "
-    "hyperstatic displacements <hyper_disp> and optional shear contribution flag "
-    "<shear_contribution>";
+    "hyperstatic displacements <hyper_disp> and optional Timoshenko beam flag "
+    "<timoshenko_beam>";
 
   local hyper_eq, hyper_load, hyper_comps, hyper_compliant_disp, hyper_support, i, obj,
         iso_vars, iso_sol, hyper_sol, sol, P, S_obj, out;
@@ -2164,7 +2198,7 @@ HyperstaticSolver := proc(
   ComputeInternalActions(S_obj, exts, iso_sol);
 
   # Compute structure internal energy
-  P := ComputePotentialEnergy(objs, parse("shear_contribution") = shear_contribution);
+  P := ComputePotentialEnergy(objs, parse("timoshenko_beam") = timoshenko_beam);
 
   hyper_eq := [];
 
@@ -2176,10 +2210,10 @@ HyperstaticSolver := proc(
         if (IsCompliantSupport(hyper_support)) then
           # Get the support loads related to the hyperstatic variable
           for hyper_load in hyper_support[parse("forces")] union hyper_support[parse("moments")] do
-            if (hyper_load[parse("target")] =  hyper_support[parse("name")]) and 
+            if (hyper_load[parse("target")] =  hyper_support[parse("name")]) and
                 (has(hyper_load[parse("components")], hyper_vars[i])) then
               hyper_comps := eval(hyper_load[parse("components")] *~ map(has, hyper_load[parse("components")], hyper_vars[i]), [true=1,false=0]);
-              # Create temporary load keeping only the components 
+              # Create temporary load keeping only the components
               # related to the hyperstatic variable
               if (IsForce(hyper_load)) then
                 hyper_load := MakeForce(hyper_comps,0,hyper_support,hyper_support[parse("frame")]);
@@ -2222,11 +2256,11 @@ ComputePotentialEnergy := proc(
     set( {BEAM, ROD, SUPPORT, JOINT})
   },
   {
-    shear_contribution := false # Add shear contribution to the potential energy
+    timoshenko_beam := false # Timoshenko beam flag
   }, $)
 
   description "Compute the internal potential energy of the structure given the "
-    "objects <objs> and optional shear contribution flag <shear_contribution>";
+    "objects <objs> and optional Timoshenko beam flag <timoshenko_beam>";
 
   local obj, P, x;
   PrintStartProc(procname);
@@ -2242,13 +2276,13 @@ ComputePotentialEnergy := proc(
             N(x)^2/(2*obj[parse("material")][parse("elastic_modulus")]*obj[parse("area")](x))
           ), x = 0..obj[parse("length")]);
       end if;
-      if shear_contribution then
+      if timoshenko_beam then
         # Shear action Ty contribution
         if (member(Ty, map(lhs, obj[parse("internal_actions")]))) and
             (subs(obj[parse("internal_actions")](x), Ty(x)) <> 0) then
           P := P + integrate(
             subs(obj[parse("internal_actions")](x),
-              obj[parse("shear_stiff_factor")](x)[1]*Ty(x)^2/(2*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x))
+              Ty(x)^2/(2*obj[parse("timo_shear_coeff")](x)[1]*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x))
             ), x = 0..obj[parse("length")]);
         end if;
         # Shear action Tz contribution
@@ -2256,7 +2290,7 @@ ComputePotentialEnergy := proc(
             (subs(obj[parse("internal_actions")](x), Tz(x)) <> 0) then
           P := P + integrate(
             subs(obj[parse("internal_actions")](x),
-              obj[parse("shear_stiff_factor")](x)[2]*Tz(x)^2/(2*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x))
+              Tz(x)^2/(2*obj[parse("timo_shear_coeff")](x)[2]*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x))
             ), x = 0..obj[parse("length")]);
         end if;
       end if;
@@ -2341,6 +2375,7 @@ IsostaticSolver := proc(
     "<vars> to solve";
 
   local eq, i, j, active_ext, sol, A, B, rank_eq, vars_tmp;
+  PrintStartProc(procname);
 
   # Compute structure equations
   if (verbose_mode > 1) then
@@ -2388,7 +2423,7 @@ IsostaticSolver := proc(
 
   if (verbose_mode > 1) then
     printf("%*sMessage (in IsostaticSolver) structure equilibrium equations:\n", print_indent, "");
-        print(<op(eq)>);
+    print(<op(eq)>);
     printf("%*sMessage (in IsostaticSolver) structure unknown variables:\n", print_indent, "");
     print(vars_tmp);
   end if;
@@ -2410,6 +2445,7 @@ IsostaticSolver := proc(
     printf("%*sDONE\n", print_indent, "");
   end if;
 
+  PrintEndProc(procname);
   return sol;
 end proc: # IsostaticSolver
 
@@ -2468,15 +2504,17 @@ InternalActions := proc(
   local i, ia, N_sol, Ty_sol, Tz_sol, Mx_sol, My_sol, Mz_sol, x;
   PrintStartProc(procname);
 
-  # Increase printf indentation
-  print_indent := print_indent + print_increment;
-
   N_sol  := 0;
   Ty_sol := 0;
   Tz_sol := 0;
   Mx_sol := 0;
   My_sol := 0;
   Mz_sol := 0;
+
+  # Assumptions
+  # NOTE: assumptions higly help readability of the solution and improve
+  # computation, but results must be considered valid only in the assumed range
+  assume(x >= 0, x <= obj[parse("length")]);
 
   # Compute internal actions for concentrated loads as effect overlay
   for i from 1 to nops(exts) do
@@ -2541,85 +2579,50 @@ ComputeDisplacements := proc(
   },
   sol::{list, set}, # Solution of the structure
   {
-    shear_contribution::boolean := false # Add shear contribution to the potential energy
+    timoshenko_beam::boolean := false # Timoshenko beam flag
   }, $)::nothing;
 
   description "Compute the Structure displacements";
 
-  local dummy_Fx, dummy_Fy, dummy_Fz, dummy_Mx, dummy_My, dummy_Mz, obj,
-        obj_copy, dummy_loads, subs_null_dummy, P, x, dFx, dFy, dFz, dMx, dMy, 
-        dMz, disp;
+  local obj, x, X, disp, rx_sol, ry_sol, rz_sol, ux_sol, uy_sol, uz_sol;
   PrintStartProc(procname);
 
   # Cicle on the structure objects
   for obj in objs do
-    # Create a copy of the object
-    obj_copy := copy(obj);
-
     # Beam
-    if IsBeam(obj_copy) then
-      # Create dummy loads
-      dummy_Fx := MakeForce( [dFx, 0, 0], x, obj_copy, obj_copy[parse("frame")]);
-      dummy_Fy := MakeForce( [0, dFy, 0], x, obj_copy, obj_copy[parse("frame")]);
-      dummy_Fz := MakeForce( [0, 0, dFz], x, obj_copy, obj_copy[parse("frame")]);
-      dummy_Mx := MakeMoment([dMx, 0, 0], x, obj_copy, obj_copy[parse("frame")]);
-      dummy_My := MakeMoment([0, dMy, 0], x, obj_copy, obj_copy[parse("frame")]);
-      dummy_Mz := MakeMoment([0, 0, dMz], x, obj_copy, obj_copy[parse("frame")]);
-
-      dummy_loads := {dummy_Fx, dummy_Fy, dummy_Fz, dummy_Mx, dummy_My, dummy_Mz};
-
-      # Compute internal actions of the object copy
-      ComputeInternalActions(
-        {obj_copy}, exts union dummy_loads, sol
-        );
-
-      # Compute object potential energy
-      P := ComputePotentialEnergy(
-        {obj_copy}, parse("shear_contribution") = shear_contribution
-        );
-
-      # null dummy loads substitution list
-      subs_null_dummy := [dFx, dFy, dFz, dMx, dMy, dMz] =~ [0, 0, 0, 0, 0, 0];
-
+    if IsBeam(obj) then
       # Compute displacements
-      disp    := [0, 0, 0, 0, 0, 0];
-      disp[1] := tx = unapply(subs(subs_null_dummy, diff(P, dFx)),x);
-      disp[2] := ty = unapply(subs(subs_null_dummy, diff(P, dFy)),x);
-      disp[3] := tz = unapply(subs(subs_null_dummy, diff(P, dFz)),x);
-      disp[4] := rx = unapply(subs(subs_null_dummy, diff(P, dMx)),x);
-      disp[5] := ry = unapply(subs(subs_null_dummy, diff(P, dMy)),x);
-      disp[6] := rz = unapply(subs(subs_null_dummy, diff(P, dMz)),x);
+      rx_sol := integrate(subs(obj[parse("internal_actions")](x), Mx(x)/(obj[parse("material")][parse("shear_modulus")]*obj[parse("inertias")][1](x))), x = 0..X);
+      ry_sol := integrate(subs(obj[parse("internal_actions")](x), My(x)/(obj[parse("material")][parse("elastic_modulus")]*obj[parse("inertias")][2](x))), x = 0..X);
+      rz_sol := integrate(subs(obj[parse("internal_actions")](x), Mz(x)/(obj[parse("material")][parse("elastic_modulus")]*obj[parse("inertias")][3](x))), x = 0..X);
+      ux_sol := integrate(subs(obj[parse("internal_actions")](x), N(x)/(obj[parse("material")][parse("elastic_modulus")]*obj[parse("area")](x))), x = 0..X);
+      uy_sol := integrate(eval(ry_sol, X = x), x = 0..X);
+      uz_sol := integrate(eval(rz_sol, X = x), x = 0..X);
+      if timoshenko_beam then
+        uy_sol := ty_sol + integrate(subs(obj[parse("internal_actions")](x), Ty(x)/(obj[parse("timo_shear_coeff")](x)[1]*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x))), x = 0..X);
+        uz_sol := tz_sol + integrate(subs(obj[parse("internal_actions")](x), Tz(x)/(obj[parse("timo_shear_coeff")](x)[2]*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x))), x = 0..X);
+      end if;
+      disp := [
+        rx = unapply(rx_sol, X), ry = unapply(ry_sol, X), rz = unapply(rz_sol, X),
+        ux = unapply(ux_sol, X), uy = unapply(uy_sol, X), uz = unapply(uz_sol, X)
+      ];
 
       # Update object displacements
       obj[parse("displacements")] := disp;
 
     # Rod
-    elif IsRod(obj_copy) then
-      # Create dummy loads
-      dummy_Fx := MakeForce([dFx, 0, 0], x, obj_copy, obj_copy[parse("frame")]);
-
-      dummy_loads := {dummy_Fx};
-
-      # Compute internal actions of the object copy
-      ComputeInternalActions(
-        {obj_copy}, exts union dummy_loads, sol
-        );
-
-      # Compute object potential energy
-      P := ComputePotentialEnergy(
-        {obj_copy}, parse("shear_contribution") = shear_contribution
-        );
-
-      # null dummy loads substitution list
-      subs_null_dummy := [dFx] =~ [0];
-
+    elif IsRod(obj) then
       # Compute displacements
-      obj[parse("displacements")] := [
-        tx = unapply(subs(subs_null_dummy, diff(P, dFx)),x)
+      ux_sol := integrate(subs(obj[parse("internal_actions")](x), N(x)/(obj[parse("material")][parse("elastic_modulus")]*obj[parse("area")](x))), x = 0..X);
+      disp := [
+        ux = unapply(ux_sol, X)
       ];
 
+      # Update object displacements
+      obj[parse("displacements")] := disp;
+
     # Support
-    elif IsSupport(obj_copy) then
+    elif IsSupport(obj) then
       # Compute displacements
       ComputeSupportDisplacements(obj);
     end if;
@@ -2632,6 +2635,9 @@ end proc: # ComputeDisplacements
 
 PlotBeam := proc(
   obj::BEAM, # Beam to be plot
+  {
+    data::{list(`=`),set(`=`)} := [] # Substitutions
+  },
   $)::procedure;
 
   description "Plot a the SUPPORT object <obj>";
@@ -2639,11 +2645,11 @@ PlotBeam := proc(
   local P1, P2, out;
   PrintStartProc(procname);
 
-  P1 := Origin(obj[parse("frame")]);
-  P2 := Origin(obj[parse("frame")].Translate(0, 0, obj[parse("length")]));
+  P1 := subs(data, Origin(obj[parse("frame")]));
+  P2 := subs(data, Origin(obj[parse("frame")].Translate(obj[parse("length")], 0, 0)));
 
   out := plots:-display(
-    plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list)),
+    plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 4),
     linestyle = solid, color = "SteelBlue");
 
   PrintEndProc(procname);
@@ -2654,6 +2660,9 @@ end proc:
 
 PlotRod := proc(
   obj::ROD, # Rod to be plot
+  {
+    data::{list(`=`),set(`=`)} := [] # Substitutions
+  },
   $)::procedure;
 
   description "Plot a the ROD object <obj>";
@@ -2661,11 +2670,11 @@ PlotRod := proc(
   local P1, P2, out;
   PrintStartProc(procname);
 
-  P1 := Origin(obj[parse("frame")]);
-  P2 := Origin(obj[parse("frame")].Translate(0, 0, obj[parse("length")]));
+  P1 := subs(data, Origin(obj[parse("frame")]));
+  P2 := subs(data, Origin(obj[parse("frame")].Translate(obj[parse("length")], 0, 0)));
 
   out := plots:-display(
-    plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list)),
+    plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 3),
     linestyle = dash, color = "Niagara DarkOrchid");
 
   PrintEndProc(procname);
@@ -2676,7 +2685,10 @@ end proc:
 
 PlotJoint := proc(
   obj::JOINT,            # Joint to be plot
-  dim::algebraic := 0.1, # Dimensions
+  {
+    dim::algebraic := 0.1,           # Dimensions
+    data::{list(`=`),set(`=`)} := [] # Substitutions
+  },
   $)::procedure;
 
   description "Plot a the JOINT object <obj>";
@@ -2684,10 +2696,10 @@ PlotJoint := proc(
   local O, out;
   PrintStartProc(procname);
 
-  O := Origin(
+  O := subs(data, Origin(
     parse(obj[parse("targets")][1])[parse("frame")].
-    Translate(0, 0, obj[parse("coordinates")][1])
-    );
+    Translate(obj[parse("coordinates")][1], 0, 0)
+    ));
 
   out := plots:-display(
     plottools:-sphere(convert(O[1..3], list), dim),
@@ -2700,17 +2712,20 @@ end proc:
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PlotSupport := proc(
-  obj::SUPPORT,          # Joint to be plot
-  dim::algebraic := 0.1, # Dimensions
+  obj::SUPPORT, # Joint to be plot
+  {
+    dim::algebraic := 0.1,           # Dimensions
+    data::{list(`=`),set(`=`)} := [] # Substitutions
+  },
   $)::procedure;
 
   local O, out;
   PrintStartProc(procname);
 
-  O := Origin(
+  O := subs(data, Origin(
     parse(obj[parse("targets")][2])[parse("frame")].
-    Translate(0, 0, obj[parse("coordinates")][2])
-    );
+    Translate(obj[parse("coordinates")][2], 0, 0)
+    ));
 
   out := plots:-display(
     plottools:-sphere(convert(O[1..3], list), dim),
@@ -2723,24 +2738,25 @@ end proc:
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PlotStructure := proc(
-  obj::STRUCTURE, # Structure to be plot
+  str::STRUCTURE,                   # Structure to be plot
+  data::{list(`=`),set(`=`)} := [], # Substitutions
   $)::list(procedure);
 
   description "Plot a the STRUCTURE object <obj>";
 
-  local out, i;
+  local out, obj;
   PrintStartProc(procname);
 
   out := []:
-  for i from 1 to nops(obj[parse("objects")]) do
-    if (obj[parse("objects")][i][parse("type")] = BEAM) then
-      out := [op(out), PlotBeam(obj[parse("objects")][i])];
-    elif (obj[parse("objects")][i][parse("type")] = ROD) then
-      out := [op(out), PlotRod(obj[parse("objects")][i])];
-    elif (obj[parse("objects")][i][parse("type")] = SUPPORT) then
-      out := [op(out), PlotSupport(obj[parse("objects")][i])];
-    elif (obj[parse("objects")][i][parse("type")] = JOINT) then
-      out := [op(out), PlotJoint(obj[parse("objects")][i])];
+  for obj in str[parse("objects")] do
+    if IsBeam(obj) then
+      out := [op(out), PlotBeam(obj, parse("data") = data)];
+    elif IsRod(obj) then
+      out := [op(out), PlotRod(obj, parse("data") = data)];
+    elif IsSupport(obj) then
+      out := [op(out), PlotSupport(obj, parse("data") = data)];
+    elif IsJoint(obj) then
+      out := [op(out), PlotJoint(obj, parse("data") = data)];
     end if;
   end do;
 
