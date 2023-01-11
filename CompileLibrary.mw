@@ -4,7 +4,7 @@
 <Label-Scheme value="2" prefix=""/>
 <View-Properties presentation="false" autoexpanding_sections="true" UserProfileName="Maple Default Profile" NumericFormat-ApplyInteger="true" NumericFormat-ApplyRational="true" NumericFormat-ApplyExponent="false" editable="true">
 </View-Properties>
-<MapleNet-Properties prettyprint="3" warnlevel="3" compactdisplay="false" preplot="" helpbrowser="standard" displayprecision="10" echo="1" unitattributes="&quot;fontweight&quot; = &quot;bold&quot;" imaginaryunit="I" longdelim="true" elisiontermsthreshold="10000" elisiondigitsafter="100" elisiondigitsbefore="100" plotdevice="inline" errorbreak="1" plotoptions="" plotdriver="opengl" quiet="false" elisiontermsbefore="100" elisiontermsafter="100" historytimestamp="false" screenwidth="79" indentamount="4" plotoutput="terminal" screenpixelheight="1080" rtablesize="[10, 10]" useclientjvm="true" labelwidth="20" postplot="" typesetting="extended" ansi="false" ansicolor="[]" elisiondigitsthreshold="10000" showassumed="1" ansilprint="false" trailingsemicolon="true" errorcursor="false" labelling="true" screenheight="25" prompt="&gt; " verboseproc="1" latexwidth="8.0" ShowLabels="true"/>
+<MapleNet-Properties prettyprint="3" warnlevel="3" compactdisplay="false" preplot="" helpbrowser="standard" displayprecision="-1" echo="1" unitattributes="&quot;fontweight&quot; = &quot;bold&quot;" imaginaryunit="I" longdelim="true" elisiontermsthreshold="10000" elisiondigitsafter="100" elisiondigitsbefore="100" plotdevice="inline" errorbreak="1" plotoptions="" plotdriver="opengl" quiet="false" elisiontermsbefore="100" elisiontermsafter="100" historytimestamp="false" screenwidth="79" indentamount="4" plotoutput="terminal" screenpixelheight="960" rtablesize="[10, 10]" useclientjvm="true" labelwidth="20" postplot="" typesetting="extended" ansi="false" ansicolor="[]" elisiondigitsthreshold="10000" showassumed="1" ansilprint="false" trailingsemicolon="true" errorcursor="false" labelling="true" screenheight="25" prompt="&gt; " verboseproc="1" latexwidth="8.0" ShowLabels="true"/>
 <Styles>
 <Font name="Heading 1" background="[255,255,255]" bold="true" executable="false" family="Century Gothic" foreground="[195,69,11]" italic="false" opaque="false" readonly="false" size="20" subscript="false" superscript="false" underline="false" placeholder="false"/>
 <Font name="Warning" background="[255,255,255]" bold="false" executable="false" family="Courier New" foreground="[255,0,255]" italic="false" opaque="false" readonly="true" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
@@ -128,7 +128,7 @@ currentdir();</Text-field>
 <Output><Text-field style="Line Printed Output" layout="Line Printed Output">Unloading 'TrussMe'
 </Text-field>
 </Output>
-<Output><Text-field style="2D Output" layout="Maple Output"><Equation executable="false" style="2D Output" display="LUkjbXNHNiMvSSttb2R1bGVuYW1lRzYiSSxUeXBlc2V0dGluZ0dJKF9zeXNsaWJHRic2I1FGL1VzZXJzL21hdHRlb2xhcmNoZXIvR0lUX3JlcG8vVHJ1c3NNZUYn">UUYvVXNlcnMvbWF0dGVvbGFyY2hlci9HSVRfcmVwby9UcnVzc01lNiI=</Equation></Text-field>
+<Output><Text-field style="2D Output" layout="Maple Output"><Equation executable="false" style="2D Output" display="LUkjbXNHNiMvSSttb2R1bGVuYW1lRzYiSSxUeXBlc2V0dGluZ0dJKF9zeXNsaWJHRic2I1FEL1VzZXJzL2RhdmlkZS9Eb2N1bWVudHMvR2l0L1RydXNzTWVGJw==">UUQvVXNlcnMvZGF2aWRlL0RvY3VtZW50cy9HaXQvVHJ1c3NNZTYi</Equation></Text-field>
 </Output>
 </Group>
 <Group labelreference="L256584" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
@@ -154,7 +154,7 @@ end proc:</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Nor
 </Input>
 <Output><Text-field style="2D Output" layout="Maple Output"><Equation executable="false" style="2D Output" display="LUklbXJvd0c2Iy9JK21vZHVsZW5hbWVHNiJJLFR5cGVzZXR0aW5nR0koX3N5c2xpYkdGJzYmLUkjbWlHRiQ2JVEsTGlicmFyeU5hbWVGJy8lJ2l0YWxpY0dRJXRydWVGJy8lLG1hdGh2YXJpYW50R1EnaXRhbGljRictSSNtb0dGJDYtUSkmQXNzaWduO0YnL0YzUSdub3JtYWxGJy8lJmZlbmNlR1EmZmFsc2VGJy8lKnNlcGFyYXRvckdGPS8lKXN0cmV0Y2h5R0Y9LyUqc3ltbWV0cmljR0Y9LyUobGFyZ2VvcEdGPS8lLm1vdmFibGVsaW1pdHNHRj0vJSdhY2NlbnRHRj0vJSdsc3BhY2VHUSwwLjI3Nzc3NzhlbUYnLyUncnNwYWNlR0ZMLUkjbXNHRiQ2I1EoVHJ1c3NNZUYnRjk=">LV9JLFR5cGVzZXR0aW5nRzYkJSpwcm90ZWN0ZWRHSShfc3lzbGliRzYiSSxtcHJpbnRzbGFzaEdGKDYkNyM+SSxMaWJyYXJ5TmFtZUdGKFEoVHJ1c3NNZUYoNyNGLg==</Equation></Text-field>
 </Output>
-<Output><Text-field style="2D Output" layout="Maple Output"><Equation executable="false" style="2D Output" display="LUklbXJvd0c2Iy9JK21vZHVsZW5hbWVHNiJJLFR5cGVzZXR0aW5nR0koX3N5c2xpYkdGJzYmLUkjbWlHRiQ2JVEkRElSRicvJSdpdGFsaWNHUSV0cnVlRicvJSxtYXRodmFyaWFudEdRJ2l0YWxpY0YnLUkjbW9HRiQ2LVEpJkFzc2lnbjtGJy9GM1Enbm9ybWFsRicvJSZmZW5jZUdRJmZhbHNlRicvJSpzZXBhcmF0b3JHRj0vJSlzdHJldGNoeUdGPS8lKnN5bW1ldHJpY0dGPS8lKGxhcmdlb3BHRj0vJS5tb3ZhYmxlbGltaXRzR0Y9LyUnYWNjZW50R0Y9LyUnbHNwYWNlR1EsMC4yNzc3Nzc4ZW1GJy8lJ3JzcGFjZUdGTC1JI21zR0YkNiNRVy9Vc2Vycy9tYXR0ZW9sYXJjaGVyL0dJVF9yZXBvL1RydXNzTWUvbGliL1RydXNzTWUvbGliL0YnRjk=">LV9JLFR5cGVzZXR0aW5nRzYkJSpwcm90ZWN0ZWRHSShfc3lzbGliRzYiSSxtcHJpbnRzbGFzaEdGKDYkNyM+SSRESVJHRihRVy9Vc2Vycy9tYXR0ZW9sYXJjaGVyL0dJVF9yZXBvL1RydXNzTWUvbGliL1RydXNzTWUvbGliL0YoNyNGLg==</Equation></Text-field>
+<Output><Text-field style="2D Output" layout="Maple Output"><Equation executable="false" style="2D Output" display="LUklbXJvd0c2Iy9JK21vZHVsZW5hbWVHNiJJLFR5cGVzZXR0aW5nR0koX3N5c2xpYkdGJzYmLUkjbWlHRiQ2JVEkRElSRicvJSdpdGFsaWNHUSV0cnVlRicvJSxtYXRodmFyaWFudEdRJ2l0YWxpY0YnLUkjbW9HRiQ2LVEpJkFzc2lnbjtGJy9GM1Enbm9ybWFsRicvJSZmZW5jZUdRJmZhbHNlRicvJSpzZXBhcmF0b3JHRj0vJSlzdHJldGNoeUdGPS8lKnN5bW1ldHJpY0dGPS8lKGxhcmdlb3BHRj0vJS5tb3ZhYmxlbGltaXRzR0Y9LyUnYWNjZW50R0Y9LyUnbHNwYWNlR1EsMC4yNzc3Nzc4ZW1GJy8lJ3JzcGFjZUdGTC1JI21zR0YkNiNRVS9Vc2Vycy9kYXZpZGUvRG9jdW1lbnRzL0dpdC9UcnVzc01lL2xpYi9UcnVzc01lL2xpYi9GJ0Y5">LV9JLFR5cGVzZXR0aW5nRzYkJSpwcm90ZWN0ZWRHSShfc3lzbGliRzYiSSxtcHJpbnRzbGFzaEdGKDYkNyM+SSRESVJHRihRVS9Vc2Vycy9kYXZpZGUvRG9jdW1lbnRzL0dpdC9UcnVzc01lL2xpYi9UcnVzc01lL2xpYi9GKDcjRi4=</Equation></Text-field>
 </Output>
 </Group>
 <Group labelreference="L256589" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
@@ -184,7 +184,7 @@ Unloading 'TrussMe'
 </Input>
 <Output><Text-field style="Line Printed Output" layout="Line Printed Output">Module 'TrussMe' version beta-0.0, Copyright (C) 2022-2023, M. Larcher &amp; D. Stocco, University of Trento 2022-2023</Text-field>
 </Output>
-<Output><Text-field style="2D Output" layout="Maple Output"><Equation executable="false" style="2D Output" display="LUkobWZlbmNlZEc2Iy9JK21vZHVsZW5hbWVHNiJJLFR5cGVzZXR0aW5nR0koX3N5c2xpYkdGJzYmLUklbXJvd0dGJDZqby1JI21pR0YkNiVRLUludmVyc2VGcmFtZUYnLyUnaXRhbGljR1EldHJ1ZUYnLyUsbWF0aHZhcmlhbnRHUSdpdGFsaWNGJy1JI21vR0YkNi1RIixGJy9GNlEnbm9ybWFsRicvJSZmZW5jZUdRJmZhbHNlRicvJSpzZXBhcmF0b3JHRjQvJSlzdHJldGNoeUdGQC8lKnN5bW1ldHJpY0dGQC8lKGxhcmdlb3BHRkAvJS5tb3ZhYmxlbGltaXRzR0ZALyUnYWNjZW50R0ZALyUnbHNwYWNlR1EmMC4wZW1GJy8lJ3JzcGFjZUdRLDAuMzMzMzMzM2VtRictRi82JVEnSXNCZWFtRidGMkY1RjgtRi82JVEzSXNDb21wbGlhbnRTdXBwb3J0RidGMkY1RjgtRi82JVEoSXNFYXJ0aEYnRjJGNUY4LUYvNiVRKElzRm9yY2VGJ0YyRjVGOC1GLzYlUShJc0ZyYW1lRidGMkY1RjgtRi82JVEoSXNKb2ludEYnRjJGNUY4LUYvNiVRK0lzTWF0ZXJpYWxGJ0YyRjVGOC1GLzYlUSlJc01vbWVudEYnRjJGNUY4LUYvNiVRKElzUG9pbnRGJ0YyRjVGOC1GLzYlUSlJc1FGb3JjZUYnRjJGNUY4LUYvNiVRKklzUU1vbWVudEYnRjJGNUY4LUYvNiVRJklzUm9kRidGMkY1RjgtRi82JVEsSXNTdHJ1Y3R1cmVGJ0YyRjVGOC1GLzYlUSpJc1N1cHBvcnRGJ0YyRjVGOC1GLzYlUSlJc1ZlY3RvckYnRjJGNUY4LUYvNiVRKU1ha2VCZWFtRidGMkY1RjgtRi82JVEqTWFrZUZvcmNlRidGMkY1RjgtRi82JVEqTWFrZUpvaW50RidGMkY1RjgtRi82JVEtTWFrZU1hdGVyaWFsRidGMkY1RjgtRi82JVErTWFrZU1vbWVudEYnRjJGNUY4LUYvNiVRK01ha2VRRm9yY2VGJ0YyRjVGOC1GLzYlUSxNYWtlUU1vbWVudEYnRjJGNUY4LUYvNiVRKE1ha2VSb2RGJ0YyRjVGOC1GLzYlUS5NYWtlU3RydWN0dXJlRidGMkY1RjgtRi82JVEsTWFrZVN1cHBvcnRGJ0YyRjVGOC1GLzYlUSdPcmlnaW5GJ0YyRjVGOC1GLzYlUS5QbG90U3RydWN0dXJlRidGMkY1RjgtRi82JVEoUHJvamVjdEYnRjJGNUY4LUYvNiVRJ1JvdGF0ZUYnRjJGNUY4LUYvNiVRJVNob3dGJ0YyRjVGOC1GLzYlUS9Tb2x2ZVN0cnVjdHVyZUYnRjJGNUY4LUYvNiVRKlRyYW5zbGF0ZUYnRjJGNUY4LUYvNiVRJVV2ZWNGJ0YyRjVGOC1GLzYlUSZVdmVjWEYnRjJGNUY4LUYvNiVRJlV2ZWNZRidGMkY1RjgtRi82JVEmVXZlY1pGJ0YyRjVGOC1GLzYlUSZ1bmlvbkYnRjJGNS8lK2ZvcmVncm91bmRHUShbMCwwLDBdRicvJSlyZWFkb25seUdGQEY8RjwvJSVvcGVuR1EnJmxzcWI7RicvJSZjbG9zZUdRJyZyc3FiO0Yn">N0hJLUludmVyc2VGcmFtZUc2IkknSXNCZWFtR0YkSTNJc0NvbXBsaWFudFN1cHBvcnRHRiRJKElzRWFydGhHRiRJKElzRm9yY2VHRiRJKElzRnJhbWVHRiRJKElzSm9pbnRHRiRJK0lzTWF0ZXJpYWxHRiRJKUlzTW9tZW50R0YkSShJc1BvaW50R0YkSSlJc1FGb3JjZUdGJEkqSXNRTW9tZW50R0YkSSZJc1JvZEdGJEksSXNTdHJ1Y3R1cmVHRiRJKklzU3VwcG9ydEdGJEkpSXNWZWN0b3JHRiRJKU1ha2VCZWFtR0YkSSpNYWtlRm9yY2VHRiRJKk1ha2VKb2ludEdGJEktTWFrZU1hdGVyaWFsR0YkSStNYWtlTW9tZW50R0YkSStNYWtlUUZvcmNlR0YkSSxNYWtlUU1vbWVudEdGJEkoTWFrZVJvZEdGJEkuTWFrZVN0cnVjdHVyZUdGJEksTWFrZVN1cHBvcnRHRiRJJ09yaWdpbkdGJEkuUGxvdFN0cnVjdHVyZUdGJEkoUHJvamVjdEdGJEknUm90YXRlR0YkSSVTaG93R0YkSS9Tb2x2ZVN0cnVjdHVyZUdGJEkqVHJhbnNsYXRlR0YkSSVVdmVjR0YkSSZVdmVjWEdGJEkmVXZlY1lHRiRJJlV2ZWNaR0YkSSZ1bmlvbkclKnByb3RlY3RlZEc=</Equation></Text-field>
+<Output><Text-field style="2D Output" layout="Maple Output"><Equation executable="false" style="2D Output" display="LUkobWZlbmNlZEc2Iy9JK21vZHVsZW5hbWVHNiJJLFR5cGVzZXR0aW5nR0koX3N5c2xpYkdGJzYmLUklbXJvd0dGJDZccC1JI21pR0YkNiVRLUludmVyc2VGcmFtZUYnLyUnaXRhbGljR1EldHJ1ZUYnLyUsbWF0aHZhcmlhbnRHUSdpdGFsaWNGJy1JI21vR0YkNi1RIixGJy9GNlEnbm9ybWFsRicvJSZmZW5jZUdRJmZhbHNlRicvJSpzZXBhcmF0b3JHRjQvJSlzdHJldGNoeUdGQC8lKnN5bW1ldHJpY0dGQC8lKGxhcmdlb3BHRkAvJS5tb3ZhYmxlbGltaXRzR0ZALyUnYWNjZW50R0ZALyUnbHNwYWNlR1EmMC4wZW1GJy8lJ3JzcGFjZUdRLDAuMzMzMzMzM2VtRictRi82JVEnSXNCZWFtRidGMkY1RjgtRi82JVEzSXNDb21wbGlhbnRTdXBwb3J0RidGMkY1RjgtRi82JVEoSXNFYXJ0aEYnRjJGNUY4LUYvNiVRKElzRm9yY2VGJ0YyRjVGOC1GLzYlUShJc0ZyYW1lRidGMkY1RjgtRi82JVEoSXNKb2ludEYnRjJGNUY4LUYvNiVRK0lzTWF0ZXJpYWxGJ0YyRjVGOC1GLzYlUSlJc01vbWVudEYnRjJGNUY4LUYvNiVRKUlzUUZvcmNlRidGMkY1RjgtRi82JVEqSXNRTW9tZW50RidGMkY1RjgtRi82JVEmSXNSb2RGJ0YyRjVGOC1GLzYlUSxJc1N0cnVjdHVyZUYnRjJGNUY4LUYvNiVRKklzU3VwcG9ydEYnRjJGNUY4LUYvNiVRKU1ha2VCZWFtRidGMkY1RjgtRi82JVEqTWFrZUZvcmNlRidGMkY1RjgtRi82JVEqTWFrZUpvaW50RidGMkY1RjgtRi82JVEtTWFrZU1hdGVyaWFsRidGMkY1RjgtRi82JVErTWFrZU1vbWVudEYnRjJGNUY4LUYvNiVRK01ha2VRRm9yY2VGJ0YyRjVGOC1GLzYlUSxNYWtlUU1vbWVudEYnRjJGNUY4LUYvNiVRKE1ha2VSb2RGJ0YyRjVGOC1GLzYlUS5NYWtlU3RydWN0dXJlRidGMkY1RjgtRi82JVEsTWFrZVN1cHBvcnRGJ0YyRjVGOC1GLzYlUSdPcmlnaW5GJ0YyRjVGOC1GLzYlUS5QbG90U3RydWN0dXJlRidGMkY1RjgtRi82JVEtUHJpbnRFbmRQcm9jRidGMkY1RjgtRi82JVEvUHJpbnRTdGFydFByb2NGJ0YyRjVGOC1GLzYlUShQcm9qZWN0RidGMkY1RjgtRi82JVEnUm90YXRlRidGMkY1RjgtRi82JVEvU2V0VmVyYm9zZU1vZGVGJ0YyRjVGOC1GLzYlUSVTaG93RidGMkY1RjgtRi82JVEvU29sdmVTdHJ1Y3R1cmVGJ0YyRjVGOC1GLzYlUSpUcmFuc2xhdGVGJ0YyRjVGOC1GLzYlUSVVdmVjRidGMkY1RjgtRi82JVEmVXZlY1hGJ0YyRjVGOC1GLzYlUSZVdmVjWUYnRjJGNUY4LUYvNiVRJlV2ZWNaRidGMkY1RjgtRi82JVEmdW5pb25GJ0YyRjUvJStmb3JlZ3JvdW5kR1EoWzAsMCwwXUYnLyUpcmVhZG9ubHlHRkBGPEY8LyUlb3BlbkdRJyZsc3FiO0YnLyUmY2xvc2VHUScmcnNxYjtGJw==">N0lJLUludmVyc2VGcmFtZUc2IkknSXNCZWFtR0YkSTNJc0NvbXBsaWFudFN1cHBvcnRHRiRJKElzRWFydGhHRiRJKElzRm9yY2VHRiRJKElzRnJhbWVHRiRJKElzSm9pbnRHRiRJK0lzTWF0ZXJpYWxHRiRJKUlzTW9tZW50R0YkSSlJc1FGb3JjZUdGJEkqSXNRTW9tZW50R0YkSSZJc1JvZEdGJEksSXNTdHJ1Y3R1cmVHRiRJKklzU3VwcG9ydEdGJEkpTWFrZUJlYW1HRiRJKk1ha2VGb3JjZUdGJEkqTWFrZUpvaW50R0YkSS1NYWtlTWF0ZXJpYWxHRiRJK01ha2VNb21lbnRHRiRJK01ha2VRRm9yY2VHRiRJLE1ha2VRTW9tZW50R0YkSShNYWtlUm9kR0YkSS5NYWtlU3RydWN0dXJlR0YkSSxNYWtlU3VwcG9ydEdGJEknT3JpZ2luR0YkSS5QbG90U3RydWN0dXJlR0YkSS1QcmludEVuZFByb2NHRiRJL1ByaW50U3RhcnRQcm9jR0YkSShQcm9qZWN0R0YkSSdSb3RhdGVHRiRJL1NldFZlcmJvc2VNb2RlR0YkSSVTaG93R0YkSS9Tb2x2ZVN0cnVjdHVyZUdGJEkqVHJhbnNsYXRlR0YkSSVVdmVjR0YkSSZVdmVjWEdGJEkmVXZlY1lHRiRJJlV2ZWNaR0YkSSZ1bmlvbkclKnByb3RlY3RlZEc=</Equation></Text-field>
 </Output>
 </Group>
 <Group labelreference="L256597" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
@@ -195,7 +195,17 @@ Unloading 'TrussMe'
 module TrussMe:
 
     # Extension of union operator to list objects &lt;A&gt; and &lt;B&gt;
-    union( A::{list, set}, B::{list, set}, $ )
+    union( A::{list, set}, B::{list, set}, 
+           { verbose::boolean := false }, $ )
+
+    # Set verbose mode &lt;mode&gt; between 0, 1, 2
+    SetVerboseMode( mode::integer, $ ) :: nothing
+
+    # Print the start message of a procedure with name &lt;proc_name&gt;
+    PrintStartProc( proc_name::procedure, $ ) :: nothing
+
+    # Print the end message of a procedure with name &lt;proc_name&gt;
+    PrintEndProc( proc_name::procedure, $ ) :: nothing
 
     # Test if an object &lt;obj&gt; is the EARTH object
     IsEarth( obj::anything, $ ) :: boolean
@@ -215,17 +225,11 @@ module TrussMe:
     Project( x::{list, vector}, RF_ini::FRAME, RF_end::FRAME, $ )
            :: {list, vector}
 
-    # Inverse transformation matrix of &lt;RF&gt;
+    # Inverse transformation matrix of an affine transformation &lt;RF&gt;
     InverseFrame( RF::FRAME, $ ) :: FRAME
 
     # Check if the input object &lt;obj&gt; is a FRAME object
     IsFrame( obj::anything, $ ) :: boolean
-
-    # Check if the input object &lt;obj&gt; is a vector
-    IsVector( obj::anything, $ ) :: boolean
-
-    # Check if the input object &lt;obj&gt; is a point
-    IsPoint( obj::anything, $ ) :: boolean
 
     # Extract the origin of the reference frame &lt;RF&gt;
     Origin( RF::FRAME, $ ) :: vector
@@ -244,8 +248,9 @@ module TrussMe:
     UvecZ( RF::FRAME := ground, $ ) :: vector
 
     # Define a MATERIAL object with inputs: name of the material, elastic 
-    # modulus (default = 210.0E9 Pa), Poisson modulus (default = 0.3), shear 
-    # modulus (default = E/(2*(1+nu))), density (default = 7.4E3 kg/m^3)
+    # modulus &lt;elastic_modulus&gt; (default = 210.0E9 Pa), Poisson modulus 
+    # &lt;poisson_modulus&gt; (default = 0.3), shear modulus &lt;shear_modulus&gt; (default 
+    # = E/(2*(1+nu))), density &lt;density&gt; (default = 7.4E3 kg/m^3)
     MakeMaterial( { density::algebraic := .74e4, 
                     elastic_modulus::algebraic := .2100e12, 
                     name::string := &quot;steel&quot;, poisson_modulus::algebraic := .3, 
@@ -254,8 +259,10 @@ module TrussMe:
     # Check if the input object &lt;obj&gt; is a MATERIAL object
     IsMaterial( obj::anything, $ ) :: boolean
 
-    # Create a BEAM object with inputs: object name, reference frame, length, 
-    # and optional section area, inertias on x-, y- and z-axis and material
+    # Create a BEAM object with inputs: object name &lt;name&gt;, reference length 
+    # &lt;ell&gt;, optional reference frame &lt;RF&gt; in which the rod is defined, and 
+    # optional section area &lt;area&gt; and material type &lt;material&gt; and inertias on 
+    # x- &lt;I_xx&gt;, y- &lt;I_yy&gt;, and z-axis &lt;I_zz&gt;
     MakeBeam( name::string, ell::algebraic, RF::FRAME := ground, 
               { I_xx::{algebraic, procedure} := infinity, 
                 I_yy::{algebraic, procedure} := infinity, 
@@ -268,8 +275,9 @@ module TrussMe:
     # Check if the object &lt;obj&gt; is a BEAM object
     IsBeam( obj::anything, $ ) :: boolean
 
-    # Create a ROD object with inputs: object name, reference frame, length, 
-    # and optional section area and material
+    # Create a ROD object with inputs: object name &lt;name&gt;, reference length 
+    # &lt;ell&gt;, optional reference frame &lt;RF&gt; in which the rod is defined, and 
+    # optional section area &lt;area&gt; and material type &lt;material&gt;
     MakeRod( name::string, ell::algebraic, RF::FRAME := ground, 
              { area::{algebraic, procedure} := infinity, 
                material::MATERIAL := NULL }, $ ) :: ROD
@@ -277,9 +285,10 @@ module TrussMe:
     # Check if the object &lt;obj&gt; is a ROD object
     IsRod( obj::anything, $ ) :: boolean
 
-    # Make a JOINT object with inputs: joint name, constrained degrees of 
-    # freedom, target objects, joint locations, and optional reference frame in 
-    # which the joint is defined (default = ground)
+    # Make a JOINT object with inputs: joint name &lt;name&gt;, constrained degrees 
+    # of freedom &lt;constrained_dof&gt;, target objects &lt;objs&gt;, joint locations 
+    # &lt;ells&gt; (axial coordinales), and optional reference frame &lt;RF&gt; in which 
+    # the joint is defined (default = ground)
     MakeJoint( name::string, constrained_dof::list, 
                objs::list({BEAM, JOINT, ROD, SUPPORT, _EARTH}), 
                ells::list(algebraic), RF::FRAME := ground, $ ) :: JOINT
@@ -287,9 +296,10 @@ module TrussMe:
     # Check if the objecy &lt;obj&gt; is a JOINT object
     IsJoint( obj::anything, $ ) :: boolean
 
-    # Define a SUPPORT object with inputs: support name, constrained degree of 
-    # freedom, target objects, list of support locations, optional reference 
-    # frame in which the support is defined (default = ground)
+    # Make a SUPPORT object with inputs: support name &lt;name&gt;, constrained 
+    # degrees of freedom &lt;constrained_dof&gt;, target objects &lt;objs&gt;, support 
+    # locations &lt;ells&gt; (axial coordinales), and optional reference frame &lt;RF&gt; 
+    # in which the support is defined (default = ground)
     MakeSupport( name::string, constrained_dof::list, objs::list({BEAM, ROD}), 
                  ells::list(algebraic), RF::FRAME := ground, 
                  { stiffness::{procedure, list(algebraic)} := [infinity, 
@@ -303,9 +313,10 @@ module TrussMe:
     # Check if the object &lt;obj&gt; is a SUPPORT object with compliant constraints
     IsCompliantSupport( obj::anything, $ ) :: boolean
 
-    # Define a FORCE object with inputs: force components, force application 
-    # axial coordinate &lt;ell&gt; in [0,L], target object &lt;obj&gt;, optional reference 
-    # frame &lt;RF&gt; in which the force is defined (default = ground)
+    # Define a FORCE object with inputs: force components &lt;components&gt;, force 
+    # application axial coordinate &lt;ell&gt; in [0,L], target object &lt;obj&gt;, 
+    # andoptional reference frame &lt;RF&gt; in which the force is defined (default = 
+    # ground)
     MakeForce( components::list, ell::algebraic, 
                obj::{BEAM, JOINT, ROD, SUPPORT, _EARTH}, RF::FRAME := ground, 
                $ ) :: FORCE
@@ -313,9 +324,10 @@ module TrussMe:
     # Check if the object &lt;obj&gt; is a FORCE object
     IsForce( obj::anything, $ ) :: boolean
 
-    # Define a MOMENT object with inputs: moment components, moment application 
-    # axial coordinate [0,L], target object, optional reference frame in which 
-    # the moment is defined (default = ground)
+    # Define a MOMENT object with inputs: moment components &lt;components&gt;, 
+    # moment application axial coordinate &lt;ell&gt; in [0,L], target object &lt;obj&gt;, 
+    # andand optional reference frame &lt;RF&gt; in which the moment is defined 
+    # (default = ground)
     MakeMoment( components::list, ell::algebraic, 
                 obj::{BEAM, JOINT, SUPPORT, _EARTH}, RF::FRAME := ground, $ )
               :: MOMENT
@@ -323,10 +335,11 @@ module TrussMe:
     # Check if the object &lt;obj&gt; is a MOMENT object
     IsMoment( obj::anything, $ ) :: boolean
 
-    # Define a 'QFORCE' object with inputs: distributed load components, target 
-    # object, initial and final application points (axial coordinates), 
-    # optional reference frame in which the load components are defined 
-    # (default = ground)
+    # Define a QFORCE object with inputs: distributed load target object 
+    # components &lt;components&gt;, target object &lt;obj&gt;, optional reference frame 
+    # &lt;RF&gt; in which the load components are defined (default = ground), and 
+    # optional initial &lt;ell_min&gt; and final &lt;ell_max&gt; application points (axial 
+    # coordinates)
     MakeQForce( components::{procedure, list(algebraic)}, obj::{BEAM, ROD}, 
                 RF::FRAME := ground, 
                 { ell_max::algebraic := obj[parse(&quot;length&quot;)], 
@@ -335,10 +348,11 @@ module TrussMe:
     # Check if the object &lt;obj&gt; is a QFORCE object
     IsQForce( obj::anything, $ ) :: boolean
 
-    # Define a QMOMENT object with inputs: distributed torque components, 
-    # target object, initial and final application points (axial coordinates), 
-    # optional reference frame in which the load components are defined 
-    # (default = ground)
+    # Define a QMOMENT object with inputs: distributed torque target object 
+    # components &lt;components&gt;, target object &lt;obj&gt;, optional reference frame 
+    # &lt;RF&gt; in which the load components are defined (default = ground), and 
+    # optional initial &lt;ell_min&gt; and final &lt;ell_max&gt; application points (axial 
+    # coordinates)
     MakeQMoment( components::{procedure, list(algebraic)}, obj::BEAM, 
                  RF::FRAME := ground, 
                  { ell_max::algebraic := obj[parse(&quot;length&quot;)], 
@@ -347,15 +361,14 @@ module TrussMe:
     # Check if the object &lt;obj&gt; is a QMOMENT object
     IsQMoment( obj::anything, $ ) :: boolean
 
-    # Create a STRUCTURE object with inputs: structure objects, external 
-    # forces, moments or distributed loads, hyperstatic variables and 
-    # displacements and structure dimension (&quot;2D&quot; or &quot;3D&quot;)
+    # Create a STRUCTURE object with inputs: structure objects &lt;objs&gt;, external 
+    # actions &lt;exts&gt;, optional hyperstatic variables &lt;hyper_vars&gt;, optional 
+    # hyperstatic displacements &lt;hyper_disp&gt;
     MakeStructure( objs::{list({BEAM, JOINT, ROD, SUPPORT}), set({BEAM, 
                      JOINT, ROD, SUPPORT})}, 
                    exts::{list({FORCE, MOMENT, QFORCE, QMOMENT}), set({FORCE, 
                      MOMENT, QFORCE, QMOMENT})} := [], 
-                   { dimensions::string := &quot;3D&quot;, 
-                     hyper_disp::{list, set} := [seq(0,1 .. 
+                   { hyper_disp::{list, set} := [seq(0,1 .. 
                        nops(hyper_vars))], 
                      hyper_vars::{list, set} := [], 
                      verbose::boolean := false }, $ ) :: STRUCTURE
@@ -363,18 +376,17 @@ module TrussMe:
     # Check if the object &lt;obj&gt; is a STRUCTURE object
     IsStructure( obj::anything, $ ) :: boolean
 
-    # Solve the static equilibrium of a structure with inputs: the structure 
-    # object, the compute internal action enabling flag, the compute 
-    # displacement enabling flag, the shear contribution enabling flag and the 
-    # verbose mode
+    # Solve the static equilibrium of a structure with inputs: structure 
+    # &lt;struct&gt;, optional compute internal action enabling flag 
+    # &lt;compute_intact&gt;, optional compute displacement enabling flag 
+    # &lt;compute_disp&gt;, optional shear contribution flag &lt;shear_contribution&gt;
     SolveStructure( struct::STRUCTURE, 
                     { compute_disp::boolean := false, 
                       compute_intact::boolean := false, 
-                      shear_contribution::boolean := false, 
-                      verbose::boolean := false }, $ )
+                      shear_contribution::boolean := false }, $ )
 
     # Plot a the STRUCTURE object &lt;obj&gt;
-    PlotStructure( obj::STRUCTURE, $ )
+    PlotStructure( obj::STRUCTURE, $ ) :: list(procedure)
 
 </Text-field>
 </Output>
