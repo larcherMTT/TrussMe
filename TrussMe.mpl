@@ -54,7 +54,12 @@ export  `union`,
         MakeStructure,
         IsStructure,
         SolveStructure,
-        PlotStructure;
+        PlotStructure,
+        CleanJoint,
+        CleanSupport,
+        CleanRod,
+        CleanBeam,
+        CleanStructure;
 
 global  ground;
 
@@ -63,11 +68,6 @@ local   ModuleLoad,
         earth,
         gravity,
         GetNames,
-        CleanJoint,
-        CleanSupport,
-        CleanRod,
-        CleanBeam,
-        CleanStructure,
         ComputeDOF,
         NewtonEuler,
         HyperstaticSolver,
@@ -1831,6 +1831,12 @@ CleanStructure := proc(
   local i;
   PrintStartProc(procname);
 
+  # Clean internal variables
+  obj[parse("support_reactions_solved")] := false;
+  obj[parse("internal_actions_solved")]  := false;
+  obj[parse("displacement_solved")]      := false;
+
+  # Clean objects
   for i from 1 to nops(obj[parse("objects")]) do
     if IsBeam(obj[i]) then
       obj[parse("objects")][i] := CleanBeam(i);
@@ -1997,15 +2003,13 @@ SolveStructure := proc(
     "<compute_intact>, optional compute displacement enabling flag "
     "<compute_disp>, optional Timoshenko beam flag <timoshenko_beam>";
 
-  local i, g_load, S_obj, S_ext, S_support, S_joint, S_con_forces, vars, sol,
-    obj, x;
+  local g_load, S_obj, S_ext, S_support, S_joint, S_con_forces, vars, sol, obj,
+    x;
 
   PrintStartProc(procname);
 
-  # Clear structure computed flags
-  struct[parse("support_reactions_solved")] := false;
-  struct[parse("internal_actions_solved")]  := false;
-  struct[parse("displacement_solved")]      := false;
+  # Clean structure
+  CleanStructure(struct);
 
   # Parsing inputs
   S_obj        := {};
@@ -2014,8 +2018,7 @@ SolveStructure := proc(
   S_joint      := {};
   S_con_forces := {};
   vars         := [];
-  for i from 1 to nops(struct[parse("objects")]) do
-    obj := struct[parse("objects")][i];
+  for obj in struct[parse("objects")] do
     if IsBeam(obj) or IsRod(obj) then
       S_obj := S_obj union {obj};
       end if;
@@ -2036,15 +2039,17 @@ SolveStructure := proc(
 
   # Add gravity distributed load
   if (gravity <> [0, 0, 0]) then
-      for i from 1 to nops(S_obj) do
-        if IsBeam(S_obj[i]) then
-          g_load||(S_obj[i][parse("name")]) := MakeQForce(
-            (x -> gravity *~ S_obj[i][parse("area")](x) *~ S_obj[i][parse("material")][parse("density")]),
-            S_obj[i],ground
-            );
-          S_ext := S_ext union {g_load||(S_obj[i][parse("name")])};
-        end if;
-      end do;
+    for obj in S_obj do
+      if IsRod(obj) then
+        WARNING("Message (in SolveStructure) gravity load is not supported for rod %1", obj);
+      elif IsBeam(obj) then
+        g_load||(obj[parse("name")]) := MakeQForce(
+          (x -> gravity *~ obj[parse("area")](x) *~ obj[parse("material")][parse("density")]),
+          obj,ground
+          );
+        S_ext := S_ext union {g_load||(obj[parse("name")])};
+      end if;
+    end do;
   end if;
 
   # Solve isostatic structure
@@ -2067,10 +2072,10 @@ SolveStructure := proc(
       end if;
     end if;
     # Update support reactions properties
-    for i from 1 to nops(S_support) do
-      S_support[i][parse("support_reactions")] := [
-        seq(lhs(S_support[i][parse("support_reactions")][j]) = subs(sol, rhs(S_support[i][parse("support_reactions")][j])),
-        j = 1..nops(S_support[i][parse("support_reactions")]))
+    for obj in S_support do
+      obj[parse("support_reactions")] := [
+        seq(lhs(obj[parse("support_reactions")][j]) = subs(sol, rhs(obj[parse("support_reactions")][j])),
+        j = 1..nops(obj[parse("support_reactions")]))
       ];
     end do;
     if (verbose_mode > 0) then
@@ -2112,10 +2117,10 @@ SolveStructure := proc(
     if (verbose_mode > 0) then
       printf("%*sMessage (in SolveStructure) updating support reactions fields...\n", print_indent, "");
     end if;
-    for i from 1 to nops(S_support) do
-    S_support[i][parse("support_reactions")] := [
-      seq(lhs(S_support[i][parse("support_reactions")][j]) = subs(sol,rhs(S_support[i][parse("support_reactions")][j])),
-      j = 1..nops(S_support[i][parse("support_reactions")]))
+    for obj in S_support do
+    obj[parse("support_reactions")] := [
+      seq(lhs(obj[parse("support_reactions")][j]) = subs(sol,rhs(obj[parse("support_reactions")][j])),
+      j = 1..nops(obj[parse("support_reactions")]))
       ];
     end do;
     if (verbose_mode > 0) then
@@ -2514,7 +2519,7 @@ InternalActions := proc(
   # Assumptions
   # NOTE: assumptions higly help readability of the solution and improve
   # computation, but results must be considered valid only in the assumed range
-  assume(x >= 0, x <= obj[parse("length")]);
+   Physics[Assume](x >= 0, x <= obj[parse("length")]);
 
   # Compute internal actions for concentrated loads as effect overlay
   for i from 1 to nops(exts) do
@@ -2649,7 +2654,7 @@ PlotBeam := proc(
   P2 := subs(data, Origin(obj[parse("frame")].Translate(obj[parse("length")], 0, 0)));
 
   out := plots:-display(
-    plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 4),
+    plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 6),
     linestyle = solid, color = "SteelBlue");
 
   PrintEndProc(procname);
@@ -2674,7 +2679,7 @@ PlotRod := proc(
   P2 := subs(data, Origin(obj[parse("frame")].Translate(obj[parse("length")], 0, 0)));
 
   out := plots:-display(
-    plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 3),
+    plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 4),
     linestyle = dash, color = "Niagara DarkOrchid");
 
   PrintEndProc(procname);
@@ -2686,7 +2691,6 @@ end proc:
 PlotJoint := proc(
   obj::JOINT,            # Joint to be plot
   {
-    dim::algebraic := 0.1,           # Dimensions
     data::{list(`=`),set(`=`)} := [] # Substitutions
   },
   $)::procedure;
@@ -2702,8 +2706,8 @@ PlotJoint := proc(
     ));
 
   out := plots:-display(
-    plottools:-sphere(convert(O[1..3], list), dim),
-    linestyle = solid, color = "SteelBlue");
+    plottools:-point(convert(O[1..3], list), symbol='solidsphere', symbolsize = 20),
+    linestyle = solid, color = "MediumSeaGreen");
 
   PrintEndProc(procname);
   return out;
@@ -2714,7 +2718,6 @@ end proc:
 PlotSupport := proc(
   obj::SUPPORT, # Joint to be plot
   {
-    dim::algebraic := 0.1,           # Dimensions
     data::{list(`=`),set(`=`)} := [] # Substitutions
   },
   $)::procedure;
@@ -2728,8 +2731,8 @@ PlotSupport := proc(
     ));
 
   out := plots:-display(
-    plottools:-sphere(convert(O[1..3], list), dim),
-    linestyle = solid, color = "Niagara DarkOrchid");
+    plottools:-point(convert(O[1..3], list), symbol='solidbox', symbolsize = 20),
+    linestyle = solid, color = "DarkOrange");
 
   PrintEndProc(procname);
   return out;
