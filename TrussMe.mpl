@@ -1616,7 +1616,7 @@ ComputeSpringDisplacement := proc(
   PrintStartProc(procname);
 
   out := RealDomain[solve](
-    spring_load = signum(spring_load) * integrate(spring_stiffness(x), x = 0..Dx), Dx
+    spring_load = integrate(spring_stiffness(x), x = 0..Dx), Dx
     );
 
   PrintEndProc(procname);
