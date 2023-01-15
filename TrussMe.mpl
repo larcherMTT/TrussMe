@@ -144,9 +144,6 @@ ModuleLoad := proc()
   # Protect Module Keywords
   Protect();
 
-  # Hide tilda '~' in variable assumptions
-  interface(showassumed=0);
-
   NULL;
 end proc: # ModuleLoad
 
@@ -163,9 +160,6 @@ end proc: # ModuleLoad
 ModuleUnload := proc()
   description "Module 'TrussMe' module unload procedure";
   printf("Unloading 'TrussMe'\n");
-
-  # Restore interface
-  interface(showassumed=0);
 
 end proc: # ModuleUnload
 
@@ -1049,10 +1043,20 @@ MakeSupport := proc(
 
   if type(stiffness, procedure) then
     S_stiffness := unapply(stiffness(x) *~ constrained_dof, x);
+    # Check for non zero stiffness on constrained dof
+    if has(stiffness(x)[remove(x -> x=0, ([seq(i, i = 1..6)]) *~ constrained_dof)], 0) then
+      error "stiffness corresponding to constrained degrees of freedom cannot be zero";
+    end if;
+    # Check for zero stiffness on unconstrained dof
     if (S_stiffness(x) <> stiffness(x)) then
       WARNING("stiffness components not corresponding to constrained_dof are ignored");
     end if;
   else
+    # Check for non zero stiffness on constrained dof
+    if has(stiffness[remove(x -> x=0, ([seq(i, i = 1..6)]) *~ constrained_dof)], 0) then
+      error "stiffness corresponding to constrained degrees of freedom cannot be zero";
+    end if;
+    # Check for zero stiffness on unconstrained dof
     S_stiffness := (x) -> stiffness *~ constrained_dof;
     if (S_stiffness(x) <> stiffness) then
       WARNING("stiffness components not corresponding to constrained_dof are ignored");
@@ -1168,21 +1172,16 @@ IsCompliantSupport := proc(
   local out, i;
   PrintStartProc(procname);
 
-  if not IsSupport(obj) then
-    error "object is not a SUPPORT";
-    PrintEndProc(procname);
-    out := false;
-    return out;
-  end if;
-
   out := false;
-  for i from 1 to nops(obj[parse("stiffness")]) do
-    if (obj[parse("stiffness")][i] <> infinity) and
-       (obj[parse("constrained_dof")][i] = 1) then
-      out := true;
-      break;
-    end if;
-  end do;
+  if IsSupport(obj) then
+    for i from 1 to nops(obj[parse("stiffness")]) do
+      if (obj[parse("stiffness")](x)[i] <> infinity) and
+         (obj[parse("constrained_dof")][i] = 1) then
+        out := true;
+        break;
+      end if;
+    end do;
+  end if;
 
   PrintEndProc(procname);
   return out;
@@ -1258,18 +1257,19 @@ MakeJoint := proc(
       Project(jf_comp, RF, objs[i][parse("frame")])
       .~ <op(objs[i][parse("admissible_loads")][1..3])>,
       list);
+    # Extract the survived components
+    jf_indets := indets(jf_comp_obj);
     # Use the non admissible loads to build the loads constraint
     constraint := convert(
       Project(jf_comp, RF, objs[i][parse("frame")])
       .~ <op((-1*objs[i][parse("admissible_loads")][1..3]) +~ 1)>,
       list);
+    # Remove the null equations
     constraint := remove(x -> x = 0, constraint);
-    J[parse("constraint_loads")] := [
-      op(J[parse("constraint_loads")]),
-      op(constraint)
-      ];
-    # Extract the survived components
-    jf_indets := indets(jf_comp);
+    # Remove useless constraints
+    constraint := select(x -> has(x, jf_indets), constraint);
+    # Update the joint constraint loads
+    J[parse("constraint_loads")] := J[parse("constraint_loads")] union constraint;
     # Check if there are reactions
     if (jf_comp_obj <> [0, 0, 0]) then
       # Create the reaction force between joint and obj
@@ -1280,10 +1280,7 @@ MakeJoint := proc(
         -jf_comp_obj, 0, J, objs[i][parse("frame")]
         );
       # Update the output joint
-      J[parse("variables")] := [
-        op(J[parse("variables")]),
-        op(jf_indets)
-        ];
+      J[parse("variables")] := J[parse("variables")] union jf_indets;
       J[parse("forces")] := [
         op(J[parse("forces")]),
         JF_||(name)||_||(objs[i][parse("name")]),
@@ -1603,7 +1600,7 @@ ComputeSpringDisplacement := proc(
   PrintStartProc(procname);
 
   out := RealDomain[solve](
-    spring_load = integrate(spring_stiffness(x), x = 0..Dx), Dx
+    spring_load = signum(spring_load) * integrate(spring_stiffness(x), x = 0..Dx), Dx
     );
 
   PrintEndProc(procname);
@@ -1624,54 +1621,11 @@ ComputeSpringEnergy := proc(
   PrintStartProc(procname);
 
   disp := ComputeSpringDisplacement(spring_load, spring_stiffness);
-  out  := integrate(integrate(spring_stiffness(x), x = 0..disp), x = 0..disp);
+  out  := integrate(integrate(spring_stiffness(x), x), x = 0..disp);
 
   PrintEndProc(procname);
   return out;
 end proc: # ComputeSpringEnergy
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-ComputeSupportInducedDisplacements := proc(
-  obj::SUPPORT, # Support object
-  exts::{       # External actions
-    list({FORCE, MOMENT}),
-    set( {FORCE, MOMENT})
-  }, $)::list;
-
-  description "Compute the displacements of a support object <obj> induced "
-    "from the external actions <exts>";
-
-  local loads_f, loads_m, loads, i, x, out;
-  PrintStartProc(procname);
-
-  # Initialize load vectors
-  loads_f := [0, 0, 0];
-  loads_m := [0, 0, 0];
-  # Initialize displacement vector
-  out := [0, 0, 0, 0, 0, 0];
-
-  # Compute the load vector
-  for i from 1 to nops(exts) do
-    if (exts[i][parse("target")] <> obj[parse("name")]) then
-      error "load target is not the support object";
-    end if;
-    if (exts[i][parse("type")] = FORCE) then
-      loads_f := loads_f +~ exts[i][parse("components")];
-    elif (exts[i][parse("type")] = MOMENT) then
-      loads_m := loads_m +~ exts[i][parse("components")];
-    end if;
-  end do;
-  loads := loads_f union loads_m;
-
-  # Compute the displacements
-  for i from 1 to 6 do
-    out[i] := ComputeSpringDisplacement(loads[i], (x -> obj[parse("stiffness")](x)[i]));
-  end do;
-
-  PrintEndProc(procname);
-  return out;
-end proc; # ComputeSupportInducedDisplacements
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -1682,15 +1636,17 @@ ComputeSupportDisplacements := proc(
   description "Compute the displacements of the support <obj> from its "
     "support reactions";
 
-  local sup_disp, disp_vec, i, disp, x;
+  local sup_disp, disp_vec, i, disp, x, sup_reac;
   PrintStartProc(procname);
 
   sup_disp := [];
   disp_vec := [tx, ty, tz, rx, ry, rz];
+  sup_reac := [FX, FY, FZ, MX, MY, MZ];
 
   for i from 1 to 6 do
-    if (obj[parse("constrained_dofs")][i] = 1) then
-      disp := ComputeSpringDisplacement(obj[parse("support_reactions")][i],
+    if (obj[parse("constrained_dof")][i] = 1) and
+        has(obj[parse("support_reactions")], sup_reac[i]) then
+      disp := ComputeSpringDisplacement(subs(obj[parse("support_reactions")], - sup_reac[i]),
         (x -> obj[parse("stiffness")](x)[i]));
       sup_disp := sup_disp union [disp_vec[i] = disp];
     end if;
@@ -2143,7 +2099,7 @@ SolveStructure := proc(
   # Compute displacements
   if (compute_disp) and not struct[parse("displacement_solved")] then
     ComputeDisplacements(
-      S_obj, S_ext union S_con_forces, sol
+      S_obj union S_joint union S_support, S_ext union S_con_forces, sol
       );
     # Set displacements computed flag
     struct[parse("displacement_solved")] := true;
@@ -2203,45 +2159,17 @@ HyperstaticSolver := proc(
   ComputeInternalActions(S_obj, exts, iso_sol);
 
   # Compute structure internal energy
-  P := ComputePotentialEnergy(objs, parse("timoshenko_beam") = timoshenko_beam);
+  P := ComputePotentialEnergy(objs, iso_sol, parse("timoshenko_beam") = timoshenko_beam);
 
   hyper_eq := [];
 
   for i from 1 to nops(hyper_vars) do
-    # Get the supports involved in the hyperstatic equation
-    for obj in objs do
-      if IsSupport(obj) and (member(hyper_vars[i], obj[parse("variables")])) then
-        hyper_support := copy(obj);
-        if (IsCompliantSupport(hyper_support)) then
-          # Get the support loads related to the hyperstatic variable
-          for hyper_load in hyper_support[parse("forces")] union hyper_support[parse("moments")] do
-            if (hyper_load[parse("target")] =  hyper_support[parse("name")]) and
-                (has(hyper_load[parse("components")], hyper_vars[i])) then
-              hyper_comps := eval(hyper_load[parse("components")] *~ map(has, hyper_load[parse("components")], hyper_vars[i]), [true=1,false=0]);
-              # Create temporary load keeping only the components
-              # related to the hyperstatic variable
-              if (IsForce(hyper_load)) then
-                hyper_load := MakeForce(hyper_comps,0,hyper_support,hyper_support[parse("frame")]);
-              elif (IsMoment(hyper_load)) then
-                hyper_load := MakeMoment(hyper_comps,0,hyper_support,hyper_support[parse("frame")]);
-              end if;
-              break;
-            end if;
-          end do;
-          # Compute support induced displacements
-          hyper_compliant_disp := Norm2(ComputeSupportInducedDisplacements(hyper_support, {hyper_load}));
-          # Compose the hyperstatic equation, case compliant support
-          hyper_eq := hyper_eq union [diff(P, hyper_vars[i]) = hyper_disp[i] + hyper_compliant_disp];
-        else
-          # Compose the hyperstatic equation, case rigid support
-          hyper_eq := hyper_eq union [diff(P, hyper_vars[i]) = hyper_disp[i]];
-        end if;
-      end if;
-    end do;
+    # Compose the hyperstatic equation
+    hyper_eq := hyper_eq union [diff(P, hyper_vars[i]) = hyper_disp[i]];
   end do;
 
   # Solve hyperstatic equations
-  hyper_sol := op(solve(hyper_eq, hyper_vars));
+  hyper_sol := op(RealDomain[solve](convert(hyper_eq, signum), hyper_vars));
 
   if (verbose_mode > 1) then
     printf("%*sDONE\n", print_indent, "");
@@ -2260,6 +2188,7 @@ ComputePotentialEnergy := proc(
     list({BEAM, ROD, SUPPORT, JOINT}),
     set( {BEAM, ROD, SUPPORT, JOINT})
   },
+  sol::{list(`=`),set(`=`)} := [], # Substitutions
   {
     timoshenko_beam := false # Timoshenko beam flag
   }, $)
@@ -2323,36 +2252,42 @@ ComputePotentialEnergy := proc(
             Mz(x)^2/(2*obj[parse("material")][parse("elastic_modulus")]*obj[parse("inertias")][2](x))
           ), x = 0..obj[parse("length")]);
       end if;
-    elif IsSupport(obj[i]) and IsCompliantSupport(obj[i]) then
+    elif IsCompliantSupport(obj) then
       # Support reaction Fx contribution
-      if (subs(obj[parse("support_reactions")], Fx) <> 0) and
-          (obj[parse("stiffness")](x)[1] <> infinity) then
-        P := P + subs(obj[parse("support_reactions")], ComputeSpringEnergy(Fx, (x -> obj[parse("stiffness")](x)[1])));
+      if (subs(obj[parse("support_reactions")], FX) <> 0) and
+          (obj[parse("stiffness")](x)[1] <> infinity) and
+           (obj[parse("constrained_dof")][1] <> 0) then
+        P := P + subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-FX, (x -> obj[parse("stiffness")](x)[1])));
       end if;
       # Support reaction Fy contribution
-      if (subs(obj[parse("support_reactions")], Fy) <> 0) and
-          (obj[parse("stiffness")](x)[2] <> infinity) then
-        P := P + subs(obj[parse("support_reactions")], ComputeSpringEnergy(Fy, (x -> obj[parse("stiffness")](x)[2])));
+      if (subs(obj[parse("support_reactions")], FY) <> 0) and
+          (obj[parse("stiffness")](x)[2] <> infinity) and
+           (obj[parse("constrained_dof")][2] <> 0) then
+        P := P + subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-FY, (x -> obj[parse("stiffness")](x)[2])));
       end if;
       # Support reaction Fz contribution
-      if (subs(obj[parse("support_reactions")], Fz) <> 0) and
-          (obj[parse("stiffness")](x)[3] <> infinity) then
-        P := P + subs(obj[parse("support_reactions")], ComputeSpringEnergy(Fz, (x -> obj[parse("stiffness")](x)[3])));
+      if (subs(obj[parse("support_reactions")], FZ) <> 0) and
+          (obj[parse("stiffness")](x)[3] <> infinity) and
+           (obj[parse("constrained_dof")][3] <> 0) then
+        P := P + subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-FZ, (x -> obj[parse("stiffness")](x)[3])));
       end if;
       # Support reaction Mx contribution
-      if (subs(obj[parse("support_reactions")], Mx) <> 0) and
-          (obj[parse("stiffness")](x)[4] <> infinity) then
-        P := P + subs(obj[parse("support_reactions")], ComputeSpringEnergy(Mx, (x -> obj[parse("stiffness")](x)[4])));
+      if (subs(obj[parse("support_reactions")], MX) <> 0) and
+          (obj[parse("stiffness")](x)[4] <> infinity) and
+           (obj[parse("constrained_dof")][4] <> 0) then
+        P := P + subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-MX, (x -> obj[parse("stiffness")](x)[4])));
       end if;
       # Support reaction My contribution
-      if (subs(obj[parse("support_reactions")], My) <> 0) and
-          (obj[parse("stiffness")](x)[5] <> infinity) then
-        P := P + subs(obj[parse("support_reactions")], ComputeSpringEnergy(My, (x -> obj[parse("stiffness")](x)[5])));
+      if (subs(obj[parse("support_reactions")], MY) <> 0) and
+          (obj[parse("stiffness")](x)[5] <> infinity) and
+           (obj[parse("constrained_dof")][5] <> 0) then
+        P := P + subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-MY, (x -> obj[parse("stiffness")](x)[5])));
       end if;
       # Support reaction Mz contribution
-      if (subs(obj[parse("support_reactions")], Mz) <> 0) and
-          (obj[parse("stiffness")](x)[6] <> infinity) then
-        P := P + subs(obj[parse("support_reactions")], ComputeSpringEnergy(Mz, (x -> obj[parse("stiffness")](x)[6])));
+      if (subs(obj[parse("support_reactions")], MZ) <> 0) and
+          (obj[parse("stiffness")](x)[6] <> infinity) and
+           (obj[parse("constrained_dof")][6] <> 0) then
+        P := P + subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-MZ, (x -> obj[parse("stiffness")](x)[6])));
       end if;
     end if;
   end do;
@@ -2433,10 +2368,11 @@ IsostaticSolver := proc(
     print(vars_tmp);
   end if;
 
-  if (rank_eq <> nops(vars_tmp)) then
-    error "inconsistent system of equation, got %1 independent equations and "
-      "%2 variables, check structure supports and joints",
-      rank_eq, nops(vars_tmp);
+  if (rank_eq <> nops(vars_tmp)) or (nops(eq) <> nops(vars_tmp)) then
+    error "inconsistent system of equation, got %1 equations and %2 variables. "
+      "Rank of the system  wrt the system variables is %3. Check structure "
+      "supports and joints",
+      nops(eq), nops(vars_tmp), rank_eq;
   end if;
 
   # Solve structure equations
@@ -2444,7 +2380,7 @@ IsostaticSolver := proc(
     printf("%*sMessage (in IsostaticSolver) computing the structure reaction forces...\n", print_indent, "");
   end if;
 
-  sol := simplify(op(solve(eq, vars_tmp)));
+  sol := simplify(op(RealDomain[solve](eq, vars_tmp)));
 
   if (verbose_mode > 1) then
     printf("%*sDONE\n", print_indent, "");
@@ -2519,7 +2455,7 @@ InternalActions := proc(
   # Assumptions
   # NOTE: assumptions higly help readability of the solution and improve
   # computation, but results must be considered valid only in the assumed range
-   Physics[Assume](x >= 0, x <= obj[parse("length")]);
+   Physics[Assume](x > 0, x < obj[parse("length")]);
 
   # Compute internal actions for concentrated loads as effect overlay
   for i from 1 to nops(exts) do
@@ -2627,7 +2563,7 @@ ComputeDisplacements := proc(
       obj[parse("displacements")] := disp;
 
     # Support
-    elif IsSupport(obj) then
+    elif IsCompliantSupport(obj) then
       # Compute displacements
       ComputeSupportDisplacements(obj);
     end if;
@@ -2722,17 +2658,30 @@ PlotSupport := proc(
   },
   $)::procedure;
 
-  local O, out;
+  local O, col, out;
   PrintStartProc(procname);
 
-  O := subs(data, Origin(
-    parse(obj[parse("targets")][2])[parse("frame")].
-    Translate(obj[parse("coordinates")][2], 0, 0)
-    ));
+  if nops(obj[parse("targets")])>1 then
+    O := subs(data, Origin(
+      parse(obj[parse("targets")][2])[parse("frame")].
+      Translate(obj[parse("coordinates")][2], 0, 0)
+      ));
+  else
+    O := subs(data, Origin(
+      earth[parse("frame")].
+      Translate(obj[parse("coordinates")][1], 0, 0)
+      ));
+  end if;
+
+  if IsCompliantSupport(obj) then
+    col := "DarkGreen";
+  else
+    col := "DarkOrange";
+  end if;
 
   out := plots:-display(
     plottools:-point(convert(O[1..3], list), symbol='solidbox', symbolsize = 20),
-    linestyle = solid, color = "DarkOrange");
+    linestyle = solid, color = col);
 
   PrintEndProc(procname);
   return out;
