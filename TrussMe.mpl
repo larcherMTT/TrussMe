@@ -21,6 +21,7 @@ export  `union`,
         PrintEndProc,
         IsEarth,
         SetGravity,
+        GetGravity,
         Show,
         Rotate,
         Translate,
@@ -90,6 +91,11 @@ local   ModuleLoad,
         PlotRod,
         PlotJoint,
         PlotSupport,
+        IsInsideJoint,
+        IsInsideSupport,
+        IsInsideBeam,
+        IsInsideRod,
+        IsInsideStructure,
         lib_base_path,
         verbose_mode,
         print_indent,
@@ -169,6 +175,7 @@ end proc: # ModuleLoad
 ModuleUnload := proc()
   description "Module 'TrussMe' module unload procedure";
   printf("Unloading 'TrussMe'\n");
+  verbose_mode := 1;
 
 end proc: # ModuleUnload
 
@@ -376,7 +383,6 @@ PrintEndProc := proc(
   print_indent := print_indent - print_increment;
 end proc: # PrintEndProc
 
-
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsEarth := proc(
@@ -420,6 +426,18 @@ SetGravity := proc(
   PrintEndProc(procname);
   NULL;
 end proc: # SetGravity
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+GetGravity := proc(
+  $)::list;
+
+  description "Get gravity vector";
+
+  PrintStartProc(procname);
+  PrintEndProc(procname);
+  return gravity;
+end proc: # GetGravity
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -698,14 +716,15 @@ end proc: # Project
 MakeMaterial := proc({
     name::string               := "steel",   # Name of the material
     elastic_modulus::algebraic := 210.0E+09, # Elastic modulus (Pa)
-    poisson_modulus::algebraic := 0.3,       # Poisson modulus (-)
-    shear_modulus::algebraic   := 77.0E+09,  # Shear modulus (Pa)
+    poisson_ratio::algebraic   := 0.3,       # Poisson ratio (-)
+    shear_modulus::algebraic   := elastic_modulus/(2*(1+poisson_ratio)),
+                                             # Shear modulus (Pa)
     density::algebraic         := 7.4E+03    # Density (kg/m^3)
   }, $)::MATERIAL;
 
   description "Define a MATERIAL object with inputs: name of the material, "
-    "elastic modulus <elastic_modulus> (default = 210.0E9 Pa), Poisson modulus "
-    "<poisson_modulus> (default = 0.3), shear modulus <shear_modulus> (default "
+    "elastic modulus <elastic_modulus> (default = 210.0E9 Pa), Poisson ratio "
+    "<poisson_ratio> (default = 0.3), shear modulus <shear_modulus> (default "
     "= E/(2*(1+nu))), density <density> (default = 7.4E3 kg/m^3)";
 
   local out;
@@ -715,7 +734,7 @@ MakeMaterial := proc({
     parse("type")            = MATERIAL,
     parse("name")            = name,
     parse("elastic_modulus") = elastic_modulus,
-    parse("poisson_modulus") = poisson_modulus,
+    parse("poisson_ratio")   = poisson_ratio,
     parse("shear_modulus")   = shear_modulus,
     parse("density")         = density
     });
@@ -739,7 +758,7 @@ IsMaterial := proc(
      type(obj, table) and
      type(obj[parse("name")], string) and
      type(obj[parse("elastic_modulus")], algebraic) and
-     type(obj[parse("poisson_modulus")], algebraic) and
+     type(obj[parse("poisson_ratio")], algebraic) and
      type(obj[parse("shear_modulus")], algebraic) and
      type(obj[parse("density")], algebraic) then
     out := true;
@@ -1234,7 +1253,7 @@ MakeJoint := proc(
     "joint is defined (default = ground)";
 
   local J, i, jf_comp, jm_comp, jf_comp_obj, jm_comp_obj, jm_indets, jf_indets,
-    constraint;
+    constraint, P_tmp;
   PrintStartProc(procname);
 
   for i from 1 to nops(objs) do
@@ -1246,18 +1265,29 @@ MakeJoint := proc(
     end if;
   end do;
 
-    J := table({
-      parse("type")                     = JOINT,
-      parse("constrained_dof")          = constrained_dof,
-      parse("coordinates")              = ells,
-      parse("name")                     = name,
-      parse("frame")                    = RF,
-      parse("targets")                  = GetNames(objs),
-      parse("variables")                = [],
-      parse("forces")                   = [],
-      parse("moments")                  = [],
-      parse("constraint_loads")         = []
-      });
+  J := table({
+    parse("type")                     = JOINT,
+    parse("constrained_dof")          = constrained_dof,
+    parse("coordinates")              = ells,
+    parse("name")                     = name,
+    parse("frame")                    = RF,
+    parse("targets")                  = GetNames(objs),
+    parse("variables")                = [],
+    parse("forces")                   = [],
+    parse("moments")                  = [],
+    parse("constraint_loads")         = []
+    });
+
+  # Check if joint position on each object is the same
+  # FIXME: does not work for mixed numerical and symbolic coordinates
+  #if nops(ells) > 1 then
+  #  P_tmp := objs[1][parse("frame")].Translate(ells[1], 0, 0);
+  #  for i from 2 to nops(ells) do
+  #    if not (norm(P_tmp - objs[i][parse("frame")].Translate(ells[i], 0, 0)) = 0) then
+  #      error "Joint locations are not the same on all objects";
+  #    end if;
+  #  end do;
+  #end if;
 
   # Add all the bodies forces
   for i from 1 to nops(objs) do
@@ -2776,6 +2806,153 @@ PlotStructure := proc(
       out := [op(out), PlotSupport(obj, parse("data") = data)];
     elif IsJoint(obj) then
       out := [op(out), PlotJoint(obj, parse("data") = data)];
+    end if;
+  end do;
+
+  PrintEndProc(procname);
+  return out;
+end proc:
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IsInsideJoint := proc(
+  obj::JOINT,        # Joint object
+  p::list,           # Point to be checked
+  tol::real := 1e-3, # Tolerance
+  $)::boolean;
+
+  description "Check if the point <p> is inside the JOINT <obj>";
+
+  local O, out;
+  PrintStartProc(procname);
+
+  if not (nops(p) = 3) then
+    error "The input point must be a list of 3 elements";
+  end if:
+
+  if (nops(obj[parse("targets")]) > 1) then
+    O := Origin(
+      parse(obj[parse("targets")][2])[parse("frame")].
+      Translate(obj[parse("coordinates")][2], 0, 0)
+      );
+  else
+    WARNING("The support has no targets");
+  end if;
+
+  out := (norm(p - O) <= tol);
+
+  PrintEndProc(procname);
+  return out;
+end proc:
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IsInsideSupport := proc(
+  obj::SUPPORT,      # Support object
+  p::list,           # Point to be checked
+  tol::real := 1e-3, # Tolerance
+  $)::boolean;
+
+  description "Check if the point <p> is inside the SUPPORT <obj>";
+
+  local O, out;
+  PrintStartProc(procname);
+
+  if not (nops(p) = 3) then
+    error "The input point must be a list of 3 elements";
+  end if:
+
+  if (nops(obj[parse("targets")]) > 1) then
+    O := Origin(
+      parse(obj[parse("targets")][2])[parse("frame")].
+      Translate(obj[parse("coordinates")][2], 0, 0)
+      );
+  else
+    WARNING("The support has no targets");
+  end if;
+
+  out := (norm(p - O) <= tol);
+
+  PrintEndProc(procname);
+  return out;
+end proc:
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IsInsideRod := proc(
+  obj::ROD, # Rod object
+  p::list,  # Point to be checked
+  $)::boolean;
+
+  description "Check if the point <p> is inside the ROD <obj>";
+
+  local O, V, W, out;
+  PrintStartProc(procname);
+
+  if not (nops(p) = 3) then
+    error "The input point must be a list of 3 elements";
+  end if:
+
+  O := Origin(obj[parse("frame")]);
+  V := obj[parse("frame")].Translate(obj[parse("length")], 0, 0) - O;
+  W := p - O;
+
+  out := (dot(W, V) >= 0) and (dot(W, V) <= dot(V, V));
+
+  PrintEndProc(procname);
+  return out;
+end proc:
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IsInsideBeam := proc(
+  obj::BEAM, # Beam object
+  p::list,   # Point to be checked
+  $)::boolean;
+
+  description "Check if the point <p> is inside the BEAM <obj>";
+
+  local O, V, W, out;
+  PrintStartProc(procname);
+
+  if not (nops(p) = 3) then
+    error "The input point must be a list of 3 elements";
+  end if:
+
+  O := Origin(obj[parse("frame")]);
+  V := obj[parse("frame")].Translate(obj[parse("length")], 0, 0) - O;
+  W := p - O;
+
+  out := (dot(W, V) >= 0) and (dot(W, V) <= dot(V, V));
+
+  PrintEndProc(procname);
+  return out;
+end proc:
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IsInsideStructure := proc(
+  obj::STRUCTURE, # Structure object
+  p::list,        # Point to be checked
+  $)::boolean;
+
+  description "Check if the point <p> is inside the STRUCTURE <obj>";
+
+  local i, out;
+  PrintStartProc(procname);
+
+  out := false;
+  for i in str[parse("objects")] do
+    if IsJoint(i) then
+      out := out or IsInsideJoint(i, p);
+    elif IsSupport(i) then
+      out := out or IsInsideSupport(i, p);
+    elif IsBeam(i) then
+      out := out or IsInsideBeam(i, p);
+    elif IsRod(i) then
+      out := out or IsInsideRod(i, p);
+    else
+      error "Unknown object type";
     end if;
   end do;
 
