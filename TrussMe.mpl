@@ -39,6 +39,8 @@ export  `union`,
         IsBeam,
         MakeRod,
         IsRod,
+        MakeRigidBody,
+        IsRigidBody,
         MakeJoint,
         IsJoint,
         MakeSupport,
@@ -100,8 +102,10 @@ local   ModuleLoad,
         verbose_mode,
         print_indent,
         print_increment,
+        ListPadding,
         Beam_color,
         Rod_color,
+        RigidBody_color,
         CompliantSupport_color,
         Support_color,
         CompliantJoint_color,
@@ -199,6 +203,7 @@ TypeRegister := proc()
   TypeTools[AddType](FRAME, IsFrame);
   TypeTools[AddType](BEAM, IsBeam);
   TypeTools[AddType](ROD, IsRod);
+  TypeTools[AddType](RIGID_BODY, IsRigidBody);
   TypeTools[AddType](FORCE, IsForce);
   TypeTools[AddType](MOMENT, IsMoment);
   TypeTools[AddType](QFORCE, IsQForce);
@@ -237,6 +242,7 @@ InitTrussMe := proc()
   print_increment        := 4;
   Beam_color             := "SteelBlue";
   Rod_color              := "Niagara DarkOrchid";
+  RigidBody_color        := "DarkKhaki";
   CompliantSupport_color := "DarkGreen";
   Support_color          := "DarkOrange";
   CompliantJoint_color   := "LightSalmon";
@@ -458,6 +464,33 @@ end proc: # Norm2
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+ListPadding := proc(
+  list::{list, algebraic}, # List to be padded
+  n::integer,              # Number of elements of the final list
+  value::algebraic := 0,   # Value to be used for padding
+$)::list;
+
+  description "Pad a list <list> with <value> to have <n> elements";
+
+  local i, out;
+  PrintStartProc(procname);
+
+  if type(list, algebraic) then
+    out := [list];
+  else
+    out := list;
+  end if:
+
+  if (nops(out) < n) then
+    out := out union [seq(value, i = (1..n-nops(out)))];
+  end if:
+
+  PrintEndProc(procname);
+  return out;
+end proc: # ListPadding
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 Show := proc(
   tab::table, # Table to be shown
   $)::nothing;
@@ -473,8 +506,8 @@ end proc: # Show
 
 GetNames := proc(
   objs::{ # Structural elements
-    list({MATERIAL, BEAM, ROD, SUPPORT, JOINT, EARTH}),
-    set( {MATERIAL, BEAM, ROD, SUPPORT, JOINT, EARTH})
+    list({MATERIAL, BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH}),
+    set( {MATERIAL, BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH})
   }, $)::{list({string}), set({string})};
 
   description "Get names of a list/set of objects <objs>";
@@ -773,26 +806,28 @@ end proc: # IsMaterial
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeForce := proc(
-  components::list,                        # Force components
-  ell::algebraic,                          # Axial coordinate
-  obj::{BEAM, ROD, SUPPORT, JOINT, EARTH}, # Target object
-  RF::FRAME := ground,                     # Reference frame
+  components::list,                                    # Force components in RF
+  coords::{algebraic, list(algebraic)},                # Application coordinates in object frame
+  obj::{BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH}, # Target object
+  RF::FRAME := ground,                                 # Reference frame
   $)::FORCE;
 
   description "Define a FORCE object with inputs: force components <components>, "
-    "force application axial coordinate <ell> in [0,L], target object <obj>, and"
+    "force application axial coordinate <coords>, target object <obj>, and "
     "optional reference frame <RF> in which the force is defined (default = ground)";
 
   local proj_components, out;
 
   PrintStartProc(procname);
 
-  if IsBeam(obj) or IsRod(obj) then
-    if (not type(indets(ell),set(symbol))) then
-      if (evalf(ell) < 0) or (evalf(ell) > evalf(obj[parse("length")])) then
-        error "force application point must be in [0,L] range";
-      end if;
+  # Check input arguments
+  if IsRigidBody(obj) and (not type(coords,list)) then
+    error "rigid body objects require a list of 3 coordinates";
+    if (nops(coords) <> 3) then
+      error "rigid body objects require a list of 3 coordinates";
     end if;
+  elif (not IsRigidBody(obj)) and type(coords,list) then
+    error "only rigid body objects require a list of 3 coordinates";
   end if;
 
   proj_components := Project(components, RF, obj[parse("frame")]);
@@ -801,7 +836,7 @@ MakeForce := proc(
       error "only axial forces are accepted in ROD objects";
     end if;
   elif IsSupport(obj) or IsJoint(obj) then
-    if (evalf(ell) <> 0) then
+    if (evalf(coords) <> 0) then
       error "only null axial coordinate is accepted for SUPPORT and JOINT "
         "objects";
     end if;
@@ -810,7 +845,7 @@ MakeForce := proc(
   out := table({
     parse("type")       = FORCE,
     parse("components") = proj_components,
-    parse("coordinate") = ell,
+    parse("coordinate") = coords,
     parse("target")     = obj[parse("name")]
     });
 
@@ -832,7 +867,7 @@ IsForce := proc(
   if (obj[parse("type")] = FORCE) and
      type(obj, table) and
      type(obj[parse("components")], list) and
-     type(obj[parse("coordinate")], algebraic) and
+     type(obj[parse("coordinate")], {algebraic, list(algebraic)}) and
      type(obj[parse("target")], string) then
     out := true;
   else
@@ -846,32 +881,33 @@ end proc: # IsForce
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeMoment := proc(
-  components::list,                   # Moment components
-  ell::algebraic,                     # Axial coordinate
-  obj::{BEAM, SUPPORT, JOINT, EARTH}, # Target object
-  RF::FRAME := ground,                # Reference frame
+  components::list,                               # Moment components
+  coords::{algebraic, list(algebraic)},           # Application coordinates in object frame
+  obj::{BEAM, RIGID_BODY, SUPPORT, JOINT, EARTH}, # Target object
+  RF::FRAME := ground,                            # Reference frame
   $)::MOMENT;
 
   description "Define a MOMENT object with inputs: moment components <components>, "
-    "moment application axial coordinate <ell> in [0,L], target object <obj>, and"
-    "and optional reference frame <RF> in which the moment is  defined (default "
+    "moment application axial coordinate <coords>, target object <obj>, and "
+    "optional reference frame <RF> in which the moment is  defined (default "
     "= ground)";
 
   local proj_components, out;
   PrintStartProc(procname);
 
-  # FIXME: consider the case of symbolic length or ell
-  if IsBeam(obj) then
-    if (not type(indets(ell),set(symbol))) then
-      if (evalf(ell) < 0) or (evalf(ell) > evalf(obj[parse("length")])) then
-        error "moment application point must be in [0,L] range";
-      end if;
+  # Check input arguments
+  if IsRigidBody(obj) and (not type(coords,list)) then
+    error "rigid body objects require a list of 3 coordinates";
+    if (nops(coords) <> 3) then
+      error "rigid body objects require a list of 3 coordinates";
     end if;
+  elif (not IsRigidBody(obj)) and type(coords,list) then
+    error "only rigid body objects require a list of 3 coordinates";
   end if;
 
   proj_components := Project(components, RF, obj[parse("frame")]);
   if IsSupport(obj) or IsJoint(obj) then
-    if (evalf(ell) <> 0) then
+    if (evalf(coords) <> 0) then
       error "only null axial coordinate is accepted for SUPPORT and JOINT "
         "objects";
     end if;
@@ -880,7 +916,7 @@ MakeMoment := proc(
   out := table({
     parse("type")       = MOMENT,
     parse("components") = proj_components,
-    parse("coordinate") = ell,
+    parse("coordinate") = coords,
     parse("target")     = obj[parse("name")]
     });
 
@@ -902,7 +938,7 @@ IsMoment := proc(
   if (obj[parse("type")] = MOMENT) and
      type(obj, table) and
      type(obj[parse("components")], list) and
-     type(obj[parse("coordinate")], algebraic) and
+     type(obj[parse("coordinate")], {algebraic, list(algebraic)}) and
      type(obj[parse("target")], string) then
     out := true;
   else
@@ -1046,11 +1082,11 @@ end proc: # IsQMoment
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeSupport := proc(
-  name::string,            # Support name
-  constrained_dof::list,   # Constrained degree of freedom
-  objs::list({BEAM, ROD}), # Target objects
-  ells::list(algebraic),   # Support locations
-  RF::FRAME := ground,     # Reference frame of the support
+  name::string,                        # Support name
+  constrained_dof::list,               # Constrained degree of freedom
+  objs::list({BEAM, ROD, RIGID_BODY}), # Target objects
+  coords::list,                        # Support locations
+  RF::FRAME := ground,                 # Reference frame of the support
   {
     stiffness::{procedure,list(algebraic)} := [ # Stiffness components (default = infinite)
       infinity, infinity, infinity,
@@ -1060,15 +1096,15 @@ MakeSupport := proc(
 
   description "Make a SUPPORT object with inputs: support name <name>, constrained "
     "degrees of freedom <constrained_dof>, target objects <objs>, support locations "
-    "<ells> (axial coordinales), and optional reference frame <RF> in which the "
-    "support is defined (default = ground)";
+    "<coords>, and optional reference frame <RF> in which the support is defined "
+    "(default = ground)";
 
   local S, J_tmp, i, j, sr_F_names, sr_F_values_tmp, sr_M_names, sr_M_values_tmp,
     S_stiffness, x;
   PrintStartProc(procname);
 
   for i from 1 to nops(objs) do
-    if IsRod(objs[i]) and (ells[i] <> 0) and (ells[i] <> objs[i][parse("length")]) then
+    if IsRod(objs[i]) and (coords[i] <> 0) and (coords[i] <> objs[i][parse("length")]) then
       error "SUPPORT objects can only be applied at extremes of ROD objects"
     end if;
     if IsRod(objs[i]) and (constrained_dof[4..6] <> [0, 0, 0]) then
@@ -1101,7 +1137,7 @@ MakeSupport := proc(
   S := table({
     parse("type")                     = SUPPORT,
     parse("constrained_dof")          = constrained_dof,
-    parse("coordinates")              = [0, op(ells)],
+    parse("coordinates")              = [0, op(coords)],
     parse("name")                     = name,
     parse("frame")                    = RF,
     parse("targets")                  = [earth[parse("name")], op(GetNames(objs))],
@@ -1240,24 +1276,24 @@ end proc: # CleanSupport
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeJoint := proc(
-  name::string,                                   # Joint name
-  constrained_dof::list,                          # Constrained degree of freedom
-  objs::list({BEAM, ROD, SUPPORT, JOINT, EARTH}), # Target objects
-  ells::list(algebraic),                          # Joint locations
-  RF::FRAME := ground,                            # Reference frame
+  name::string,                                               # Joint name
+  constrained_dof::list,                                      # Constrained degree of freedom
+  objs::list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH}), # Target objects
+  coords::list,                                               # Joint locations
+  RF::FRAME := ground,                                        # Reference frame
   $)::JOINT;
 
   description "Make a JOINT object with inputs: joint name <name>, constrained "
     "degrees of freedom <constrained_dof>, target objects <objs>, joint locations "
-    "<ells> (axial coordinales), and optional reference frame <RF> in which the "
-    "joint is defined (default = ground)";
+    "<coords>, and optional reference frame <RF> in which the joint is defined "
+    "(default = ground)";
 
   local J, i, jf_comp, jm_comp, jf_comp_obj, jm_comp_obj, jm_indets, jf_indets,
     constraint, P_tmp;
   PrintStartProc(procname);
 
   for i from 1 to nops(objs) do
-    if IsRod(objs[i]) and (ells[i] <> 0) and (ells[i] <> objs[i][parse("length")]) then
+    if IsRod(objs[i]) and (coords[i] <> 0) and (coords[i] <> objs[i][parse("length")]) then
       error "JOINT objects can only be applied at extremes of ROD objects";
     end if;
     if IsRod(objs[i]) and (constrained_dof[4..6] <> [0, 0, 0]) then
@@ -1268,7 +1304,7 @@ MakeJoint := proc(
   J := table({
     parse("type")                     = JOINT,
     parse("constrained_dof")          = constrained_dof,
-    parse("coordinates")              = ells,
+    parse("coordinates")              = coords,
     parse("name")                     = name,
     parse("frame")                    = RF,
     parse("targets")                  = GetNames(objs),
@@ -1320,7 +1356,7 @@ MakeJoint := proc(
     if (jf_comp_obj <> [0, 0, 0]) then
       # Create the reaction force between joint and obj
       JF_||(name)||_||(objs[i][parse("name")]) := MakeForce(
-        jf_comp_obj, ells[i], objs[i], objs[i][parse("frame")]
+        jf_comp_obj, coords[i], objs[i], objs[i][parse("frame")]
         );
       JF_||(objs[i][parse("name")])||_||(name) := MakeForce(
         -jf_comp_obj, 0, J, objs[i][parse("frame")]
@@ -1365,7 +1401,7 @@ MakeJoint := proc(
     if not ((add(jm_comp_obj) = 0) or (add(jm_comp_obj) = 0.)) then
       # Create the reaction force between joint and obj
       JM_||(name)||_||(objs[i][parse("name")]) := MakeMoment(
-        jm_comp_obj, ells[i], objs[i], objs[i][parse("frame")]
+        jm_comp_obj, coords[i], objs[i], objs[i][parse("frame")]
         );
       JM_||(objs[i][parse("name")])||_||(name) := MakeMoment(
         -jm_comp_obj, 0, J, objs[i][parse("frame")]
@@ -1634,6 +1670,64 @@ end proc: # CleanBeam
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+MakeRigidBody := proc(
+  name::string,        # Object name
+  RF::FRAME := ground, # Reference frame
+  {
+    COM::list(algebraic) := Origin(RF), # COM position in RF (default: Origin(RF))
+    mass::algebraic := 0                # Mass (kg)
+  },
+  $)::RIGID_BODY;
+
+  description "Create a RIGID_BODY object with inputs: object name <name>, "
+    "reference frame <RF> in which the rigid body is defined, and optional "
+    "center of mass position <COM> and mass <mass>";
+
+  local out;
+  PrintStartProc(procname);
+
+  out := table({
+    parse("type") = RIGID_BODY,
+    parse("name") = name,
+    parse("frame") = RF,
+    parse("COM") = COM,
+    parse("mass") = mass,
+    parse("admissible_loads") = [1, 1, 1, 1, 1, 1]
+    });
+
+  PrintEndProc(procname);
+  return op(out);
+end proc: # MakeRigidBody
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IsRigidBody := proc(
+  obj::anything, # Object to be checked
+  $)::boolean;
+
+  description "Check if the object <obj> is a RIGID_BODY object";
+
+  local out;
+  PrintStartProc(procname);
+
+  if (obj[parse("type")] = RIGID_BODY) and
+     type(obj, table) and
+     type(obj[parse("name")], string) and
+     type(obj[parse("frame")], FRAME) and
+     type(obj[parse("COM")], list(algebraic)) and
+     type(obj[parse("mass")], algebraic) and
+     type(obj[parse("admissible_loads")], list) then
+    out := true;
+  else
+    out := false;
+  end if;
+
+  PrintEndProc(procname);
+  return out;
+end proc: # IsRigidBody
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 ComputeSpringDisplacement := proc(
   spring_load::algebraic,      # Load on the spring
   spring_stiffness::procedure, # Spring stiffness
@@ -1718,8 +1812,8 @@ end proc: # ComputeSupportDisplacements
 
 MakeStructure := proc(
   objs::{ # Structure objects
-    list({BEAM, ROD, SUPPORT, JOINT}),
-    set( {BEAM, ROD, SUPPORT, JOINT})
+    list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
+    set( {BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
   },
   exts::{ # External actions
     list({FORCE, MOMENT, QFORCE, QMOMENT}),
@@ -1859,8 +1953,8 @@ end proc: # CleanStructure
 
 ComputeDOF := proc(
   objs::{ # Structure objects
-    list({BEAM, ROD, SUPPORT, JOINT}),
-    set( {BEAM, ROD, SUPPORT, JOINT})
+    list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
+    set( {BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
   }, $)::integer ::function;
 
   description "Compute the degree of freedom of the input structure objects <objs>";
@@ -1908,6 +2002,8 @@ ComputeDOF := proc(
 
   for i from 1 to nops(objs_tmp) do
     if IsBeam(objs_tmp[i]) then
+      dof := dof + 6;
+    elif IsRigidBody(objs_tmp[i]) then
       dof := dof + 6;
     elif IsRod(objs_tmp[i]) then
       dof := dof + 5;
@@ -1961,9 +2057,9 @@ NewtonEuler := proc(
     list({FORCE, MOMENT, QFORCE, QMOMENT}),
     set( {FORCE, MOMENT, QFORCE, QMOMENT})
   },
-  obj::{BEAM, ROD, SUPPORT, JOINT}, # Object to compute the equilibrium
-  pole,                             # Pole to compute the equilibrium # TODO: which type is this?
+  obj::{BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}, # Object to compute the equilibrium
   {
+    pole::list := [0,0,0],                       # Pole to compute the equilibrium
     upper_lim::algebraic := obj[parse("length")] # Upper limit of the integration
   }, $)
 
@@ -1972,7 +2068,7 @@ NewtonEuler := proc(
     "the axial coordinate of the pole <pole>, and an optional upper limit of the "
     "integration <upper_lim>";
 
-  local eq_T, eq_R, i, x, out;
+  local eq_T, eq_R, i, x, arm, out;
   PrintStartProc(procname);
 
   eq_T := [0, 0, 0];
@@ -1996,11 +2092,19 @@ NewtonEuler := proc(
       if IsMoment(exts[i]) then
         eq_R := eq_R + exts[i][parse("components")];
       elif IsForce(exts[i]) then
-        eq_R := eq_R + [0, -exts[i][parse("components")][3], exts[i][parse("components")][2]]
-          *~ (exts[i][parse("coordinate")] - pole);
+        if nops(exts[i][parse("coordinate")]) = 3 then
+          # Rigid body case
+          arm := <op(pole - exts[i][parse("coordinate")])>;
+        else
+          # Lean body case
+          arm := <op(pole - [exts[i][parse("coordinate")], 0, 0])>;
+        end if;
+        eq_R := eq_R +
+          convert(LinearAlgebra[CrossProduct](<op(exts[i][parse("components")])>, arm), list);
       elif IsQForce(exts[i]) then
+        arm := <op(pole - [x, 0, 0])>;
         eq_R := eq_R + map(integrate,
-          [0, -exts[i][parse("components")](x)[3]*~(x-pole), exts[i][parse("components")](x)[2]*~(x-pole)],
+          convert(LinearAlgebra[CrossProduct](<op(exts[i][parse("components")](x))>, arm), list),
           x = 0..upper_lim);
       elif IsQMoment(FMQ[i]) then
         eq_R := eq_R + map(integrate,
@@ -2032,7 +2136,7 @@ SolveStructure := proc(
     "<compute_intact>, optional compute displacement enabling flag "
     "<compute_disp>, optional Timoshenko beam flag <timoshenko_beam>";
 
-  local g_load, S_obj, S_ext, S_support, S_joint, S_con_forces, vars, sol, obj,
+  local g_load, S_obj, S_rigid, S_ext, S_support, S_joint, S_con_forces, vars, sol, obj,
     x;
 
   PrintStartProc(procname);
@@ -2042,6 +2146,7 @@ SolveStructure := proc(
 
   # Parsing inputs
   S_obj        := {};
+  S_rigid      := {};
   S_ext        := {};
   S_support    := {};
   S_joint      := {};
@@ -2050,17 +2155,17 @@ SolveStructure := proc(
   for obj in struct[parse("objects")] do
     if IsBeam(obj) or IsRod(obj) then
       S_obj := S_obj union {obj};
-      end if;
-    if IsSupport(obj) then
+    elif IsRigidBody(obj) then
+      S_rigid := S_rigid union {obj};
+    elif IsSupport(obj) then
       S_support    := S_support union {obj};
       S_con_forces := S_con_forces union obj[parse("forces")] union obj[parse("moments")];
       vars         := vars union obj[parse("variables")];
-      end if;
-    if IsJoint(obj) then
+    elif IsJoint(obj) then
       S_joint      := S_joint union {obj};
       S_con_forces := S_con_forces union obj[parse("forces")] union obj[parse("moments")];
       vars         := vars union obj[parse("variables")];
-      end if;
+    end if;
       unassign('obj');
   end do;
 
@@ -2068,13 +2173,18 @@ SolveStructure := proc(
 
   # Add gravity distributed load
   if (gravity <> [0, 0, 0]) then
-    for obj in S_obj do
+    for obj in S_obj union S_rigid do
       if IsRod(obj) then
         WARNING("Message (in SolveStructure) gravity load is not supported for rod %1", obj);
       elif IsBeam(obj) then
         g_load||(obj[parse("name")]) := MakeQForce(
           (x -> gravity *~ obj[parse("area")](x) *~ obj[parse("material")][parse("density")]),
           obj,ground
+          );
+        S_ext := S_ext union {g_load||(obj[parse("name")])};
+      elif IsRigidBody(obj) then
+        g_load||(obj[parse("name")]) := MakeForce(
+          gravity *~ obj[parse("mass")], obj[parse("COM")], obj, ground
           );
         S_ext := S_ext union {g_load||(obj[parse("name")])};
       end if;
@@ -2088,7 +2198,7 @@ SolveStructure := proc(
       printf("%*sMessage (in SolveStructure) solving the isostatic structure...\n", print_indent, "");
     end if;
     sol := IsostaticSolver(
-      S_obj union S_joint union S_support,
+      S_obj union S_rigid union S_joint union S_support,
       S_ext union S_con_forces,
       vars
       );
@@ -2186,8 +2296,8 @@ end proc: # SolveStructure
 
 HyperstaticSolver := proc(
   objs::{ # Structural objects
-    list({BEAM, ROD, SUPPORT, JOINT}),
-    set( {BEAM, ROD, SUPPORT, JOINT})
+    list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
+    set( {BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
   },
   exts::{ # External actions
     list({FORCE, MOMENT, QFORCE, QMOMENT}),
@@ -2206,16 +2316,14 @@ HyperstaticSolver := proc(
     "<timoshenko_beam>";
 
   local hyper_eq, hyper_load, hyper_comps, hyper_compliant_disp, hyper_support, i, obj,
-        iso_vars, iso_sol, hyper_sol, sol, P, S_obj, out;
+        iso_vars, iso_sol, hyper_sol, sol, P, S_objs, E_objs, out;
   PrintStartProc(procname);
 
   # Parse input objects and find objects with internal actions property
-    S_obj := {};
-    for i from 1 to nops(objs) do
-      if IsBeam(objs[i]) or IsRod(objs[i]) then
-        S_obj := S_obj union {objs[i]};
-      end if;
-    end do;
+  S_objs := [seq(
+    `if`(IsBeam(objs[i]) or IsRod(objs[i]), objs[i], NULL),
+    i = 1..nops(objs))
+    ];
 
   if (verbose_mode > 1) then
     printf("%*sMessage (in HyperstaticSolver) solving the hyperstatic variables...\n", print_indent, "");
@@ -2229,10 +2337,16 @@ HyperstaticSolver := proc(
   iso_sol := IsostaticSolver(objs, exts, iso_vars);
 
   # Compute internal actions
-  ComputeInternalActions(S_obj, exts, iso_sol);
+  ComputeInternalActions(S_objs, exts, iso_sol);
+
+  # Extract the deformable objects
+  E_objs := [seq(
+    `if`(not IsRigidBody(objs[i]), objs[i], NULL),
+    i = 1..nops(objs))
+    ];
 
   # Compute structure internal energy
-  P := ComputePotentialEnergy(objs, iso_sol, parse("timoshenko_beam") = timoshenko_beam);
+  P := ComputePotentialEnergy(E_objs, iso_sol, parse("timoshenko_beam") = timoshenko_beam);
 
   hyper_eq := [];
 
@@ -2373,8 +2487,8 @@ end proc: # PotentialEnergy
 
 IsostaticSolver := proc(
   objs::{ # Structural objects
-    list({BEAM, ROD, SUPPORT, JOINT}),
-    set( {BEAM, ROD, SUPPORT, JOINT})
+    list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
+    set( {BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
   },
   exts::{ # External actions
     list({FORCE, MOMENT, QFORCE, QMOMENT}),
@@ -2403,7 +2517,7 @@ IsostaticSolver := proc(
         active_ext := active_ext union {exts[j]};
       end if;
     end do;
-    eq := eq union NewtonEuler(active_ext, objs[i], 0);
+    eq := eq union NewtonEuler(active_ext, objs[i]);
 
     # Add joints and supports constraint equations
     if IsSupport(objs[i]) or IsJoint(objs[i]) then
@@ -2648,7 +2762,7 @@ end proc: # ComputeDisplacements
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 ObjectColor := proc(
-  obj::{BEAM, ROD, SUPPORT, JOINT, EARTH}, # Object to be colored
+  obj::{BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH}, # Object to be colored
 $)::string;
 
 description "Return the color of the object <obj>";
@@ -2660,6 +2774,8 @@ description "Return the color of the object <obj>";
     color := Beam_color;
   elif IsRod(obj) then
     color := Rod_color;
+  elif IsRigidBody(obj) then
+    color := RigidBody_color;
   elif IsCompliantSupport(obj) then
     color := CompliantSupport_color;
   elif IsSupport(obj) then
@@ -2741,7 +2857,7 @@ PlotJoint := proc(
 
   O := subs(data, Origin(
     parse(obj[parse("targets")][1])[parse("frame")].
-    Translate(obj[parse("coordinates")][1], 0, 0)
+    Translate(op(ListPadding(obj[parse("coordinates")][1],3)))
     ));
 
   out := plots:-display(
@@ -2767,12 +2883,12 @@ PlotSupport := proc(
   if nops(obj[parse("targets")])>1 then
     O := subs(data, Origin(
       parse(obj[parse("targets")][2])[parse("frame")].
-      Translate(obj[parse("coordinates")][2], 0, 0)
+      Translate(op(ListPadding(obj[parse("coordinates")][2],3)))
       ));
   else
     O := subs(data, Origin(
       earth[parse("frame")].
-      Translate(obj[parse("coordinates")][1], 0, 0)
+      Translate(op(ListPadding(obj[parse("coordinates")][1],3)))
       ));
   end if;
 
