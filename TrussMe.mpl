@@ -59,7 +59,8 @@ export  `union`,
         CleanSupport,
         CleanRod,
         CleanBeam,
-        CleanStructure;
+        CleanStructure,
+        DrawStructureGraph;
 
 global  ground;
 
@@ -84,6 +85,7 @@ local   ModuleLoad,
         ComputeSpringEnergy,
         ComputeSupportDisplacements,
         ComputeSupportInducedDisplacements,
+        ObjectColor,
         PlotBeam,
         PlotRod,
         PlotJoint,
@@ -91,7 +93,14 @@ local   ModuleLoad,
         lib_base_path,
         verbose_mode,
         print_indent,
-        print_increment;
+        print_increment,
+        Beam_color,
+        Rod_color,
+        CompliantSupport_color,
+        Support_color,
+        CompliantJoint_color,
+        Joint_color,
+        Earth_color;
 
 option  package,
         load   = ModuleLoad,
@@ -216,9 +225,16 @@ InitTrussMe := proc()
 
   gravity := [0, 0, 0];
 
-  verbose_mode    := 1;
-  print_indent    := 0;
-  print_increment := 4;
+  verbose_mode           := 1;
+  print_indent           := 0;
+  print_increment        := 4;
+  Beam_color             := "SteelBlue";
+  Rod_color              := "Niagara DarkOrchid";
+  CompliantSupport_color := "DarkGreen";
+  Support_color          := "DarkOrange";
+  CompliantJoint_color   := "LightSalmon";
+  Joint_color            := "MediumSeaGreen";
+  Earth_color            := "Firebrick";
 
   earth := table({
     parse("type")             = EARTH,
@@ -1690,7 +1706,7 @@ MakeStructure := proc(
     "external actions <exts>, optional hyperstatic variables <hyper_vars>, optional "
     "hyperstatic displacements <hyper_disp>";
 
-  local num_dof, i, names, candidate_hyp_vars, out;
+  local num_dof, i, names, candidate_hyp_vars, Graph, out;
   PrintStartProc(procname);
 
   # Check for duplicate names
@@ -1702,7 +1718,7 @@ MakeStructure := proc(
     names := names union [objs[i][parse("name")]];
   end do;
 
-  num_dof := ComputeDOF(objs);
+  num_dof, Graph := ComputeDOF(objs);
 
   if (num_dof < 0) then
     if (nops(hyper_vars) <> -num_dof) then
@@ -1744,6 +1760,7 @@ MakeStructure := proc(
     parse("objects")                   = objs,
     parse("external_actions")          = exts,
     parse("dof")                       = num_dof,
+    parse("connections_graph")         = Graph,
     parse("hyperstatic_variables")     = hyper_vars,
     parse("hyperstatic_displacements") = hyper_disp,
     parse("support_reactions_solved")  = false,
@@ -1814,11 +1831,11 @@ ComputeDOF := proc(
   objs::{ # Structure objects
     list({BEAM, ROD, SUPPORT, JOINT}),
     set( {BEAM, ROD, SUPPORT, JOINT})
-  }, $)::integer;
+  }, $)::integer ::function;
 
   description "Compute the degree of freedom of the input structure objects <objs>";
 
-  local dof, objs_tmp, i, j, k, vertex, G;
+  local dof, objs_tmp, i, j, k, vertex, colors, G;
   PrintStartProc(procname);
 
   dof      := 0;
@@ -1826,13 +1843,16 @@ ComputeDOF := proc(
 
   # Built connections graph
   vertex := [];
+  colors := [];
   if (verbose_mode > 0) then
     printf("%*sMessage (in ComputeDOF) checking structure connections...\n", print_indent, "");
   end if;
   for i from 1 to nops(objs_tmp) do
     vertex := vertex union [objs_tmp[i][parse("name")]];
-    end do;
+    colors := colors union [ObjectColor(objs_tmp[i])];
+  end do;
   G := GraphTheory[Graph](vertex);
+  GraphTheory[HighlightVertex](G, vertex, colors);
   for i from 1 to nops(objs_tmp) do
     if IsSupport(objs_tmp[i]) or IsJoint(objs_tmp[i]) then
       for j from 1 to nops(objs_tmp) do
@@ -1878,8 +1898,31 @@ ComputeDOF := proc(
   end if;
 
   PrintEndProc(procname);
-  return dof;
+  if _nresults = 2 then
+    return dof, G;
+  else
+    return dof;
+  end
 end proc: # ComputeDOF
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+DrawStructureGraph := proc(
+  obj::STRUCTURE, # Object to be cleaned
+  $)::procedure;
+
+  description "Draw the connections graph of the STRUCTURE object <obj>";
+
+  local  out;
+  PrintStartProc(procname);
+
+  out := plots:-display(
+    GraphTheory[DrawGraph](obj[parse("connections_graph")], layout = tree),
+    title = "Structure connections graph");
+
+  PrintEndProc(procname);
+  return out;
+end proc: # DrawStructureGraph
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -2572,6 +2615,36 @@ ComputeDisplacements := proc(
   PrintEndProc(procname);
 end proc: # ComputeDisplacements
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+ObjectColor := proc(
+  obj::{BEAM, ROD, SUPPORT, JOINT, EARTH}, # Object to be colored
+$)::string;
+
+description "Return the color of the object <obj>";
+
+  local color;
+  PrintStartProc(procname);
+
+  if IsBeam(obj) then
+    color := Beam_color;
+  elif IsRod(obj) then
+    color := Rod_color;
+  elif IsCompliantSupport(obj) then
+    color := CompliantSupport_color;
+  elif IsSupport(obj) then
+    color := Support_color;
+  elif IsJoint(obj) then
+    color := Joint_color;
+  elif IsEarth(obj) then
+    color := Earth_color;
+  end if;
+
+  PrintEndProc(procname);
+  return color;
+end proc: # ObjectColor
+
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PlotBeam := proc(
@@ -2591,7 +2664,7 @@ PlotBeam := proc(
 
   out := plots:-display(
     plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 6),
-    linestyle = solid, color = "SteelBlue");
+    linestyle = solid, color = ObjectColor(obj));
 
   PrintEndProc(procname);
   return out;
@@ -2616,7 +2689,7 @@ PlotRod := proc(
 
   out := plots:-display(
     plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 4),
-    linestyle = dash, color = "Niagara DarkOrchid");
+    linestyle = dash, color = ObjectColor(obj));
 
   PrintEndProc(procname);
   return out;
@@ -2643,7 +2716,7 @@ PlotJoint := proc(
 
   out := plots:-display(
     plottools:-point(convert(O[1..3], list), symbol='solidsphere', symbolsize = 20),
-    linestyle = solid, color = "MediumSeaGreen");
+    linestyle = solid, color = ObjectColor(obj));
 
   PrintEndProc(procname);
   return out;
@@ -2658,7 +2731,7 @@ PlotSupport := proc(
   },
   $)::procedure;
 
-  local O, col, out;
+  local O, out;
   PrintStartProc(procname);
 
   if nops(obj[parse("targets")])>1 then
@@ -2673,15 +2746,9 @@ PlotSupport := proc(
       ));
   end if;
 
-  if IsCompliantSupport(obj) then
-    col := "DarkGreen";
-  else
-    col := "DarkOrange";
-  end if;
-
   out := plots:-display(
     plottools:-point(convert(O[1..3], list), symbol='solidbox', symbolsize = 20),
-    linestyle = solid, color = col);
+    linestyle = solid, color = ObjectColor(obj));
 
   PrintEndProc(procname);
   return out;
