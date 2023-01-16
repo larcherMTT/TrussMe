@@ -820,17 +820,8 @@ MakeForce := proc(
 
   PrintStartProc(procname);
 
-  # Check input arguments
-  if IsRigidBody(obj) and (not type(coords,list)) then
-    error "rigid body objects require a list of 3 coordinates";
-    if (nops(coords) <> 3) then
-      error "rigid body objects require a list of 3 coordinates";
-    end if;
-  elif (not IsRigidBody(obj)) and type(coords,list) then
-    error "only rigid body objects require a list of 3 coordinates";
-  end if;
-
   proj_components := Project(components, RF, obj[parse("frame")]);
+  # Check input arguments
   if IsRod(obj) then
     if (proj_components[2] <> 0) or (proj_components[3] <> 0) then
       error "only axial forces are accepted in ROD objects";
@@ -845,7 +836,7 @@ MakeForce := proc(
   out := table({
     parse("type")       = FORCE,
     parse("components") = proj_components,
-    parse("coordinate") = coords,
+    parse("coordinate") = ListPadding(coords, 3),
     parse("target")     = obj[parse("name")]
     });
 
@@ -895,17 +886,8 @@ MakeMoment := proc(
   local proj_components, out;
   PrintStartProc(procname);
 
-  # Check input arguments
-  if IsRigidBody(obj) and (not type(coords,list)) then
-    error "rigid body objects require a list of 3 coordinates";
-    if (nops(coords) <> 3) then
-      error "rigid body objects require a list of 3 coordinates";
-    end if;
-  elif (not IsRigidBody(obj)) and type(coords,list) then
-    error "only rigid body objects require a list of 3 coordinates";
-  end if;
-
   proj_components := Project(components, RF, obj[parse("frame")]);
+  # Check input arguments
   if IsSupport(obj) or IsJoint(obj) then
     if (evalf(coords) <> 0) then
       error "only null axial coordinate is accepted for SUPPORT and JOINT "
@@ -916,7 +898,7 @@ MakeMoment := proc(
   out := table({
     parse("type")       = MOMENT,
     parse("components") = proj_components,
-    parse("coordinate") = coords,
+    parse("coordinate") = ListPadding(coords, 3),
     parse("target")     = obj[parse("name")]
     });
 
@@ -972,7 +954,7 @@ MakeQForce := proc(
   if type(components, procedure) then
     proj_components := unapply(Project(components(x), RF, obj[parse("frame")]), x);
   else
-    proj_components := (x) -> Project(components, RF, obj[parse("frame")]);
+    proj_components := (x) -> piecewise((ell_min <= x) and (x <= ell_max), Project(components, RF, obj[parse("frame")]), 0);
   end if;
 
   if IsRod(obj) then
@@ -984,7 +966,6 @@ MakeQForce := proc(
   out := table({
     parse("type")        = QFORCE,
     parse("components")  = proj_components,
-    parse("coordinates") = [ell_min, ell_max],
     parse("target")      = obj[parse("name")]
     });
 
@@ -1006,7 +987,6 @@ IsQForce := proc(
   if (obj[parse("type")] = QFORCE) and
      type(obj, table) and
      type(obj[parse("components")], procedure) and
-     type(obj[parse("coordinates")], list) and
      type(obj[parse("target")], string) then
     out := true;
   else
@@ -1040,13 +1020,12 @@ MakeQMoment := proc(
   if type(components, procedure) then
     proj_components := unapply(Project(components(x), RF, obj[parse("frame")]),x);
   else
-    proj_components := (x) -> Project(components, RF, obj[parse("frame")]);
+    proj_components := (x) -> piecewise((ell_min <= x) and (x <= ell_max), Project(components, RF, obj[parse("frame")]), 0);
   end if;
 
   out := table({
     parse("type")        = QMOMENT,
     parse("components")  = proj_components,
-    parse("coordinates") = [ell_min, ell_max],
     parse("target")      = obj[parse("name")]
     });
 
@@ -1068,7 +1047,6 @@ IsQMoment := proc(
   if (obj[parse("type")] = QMOMENT) and
      type(obj, table) and
      type(obj[parse("components")], procedure) and
-     type(obj[parse("coordinates")], list) and
      type(obj[parse("target")], string) then
     out := true;
   else
@@ -1137,7 +1115,7 @@ MakeSupport := proc(
   S := table({
     parse("type")                     = SUPPORT,
     parse("constrained_dof")          = constrained_dof,
-    parse("coordinates")              = [0, op(coords)],
+    parse("coordinates")              = [[0,0,0], op(map(ListPadding, coords, 3))],
     parse("name")                     = name,
     parse("frame")                    = RF,
     parse("targets")                  = [earth[parse("name")], op(GetNames(objs))],
@@ -1293,7 +1271,9 @@ MakeJoint := proc(
   PrintStartProc(procname);
 
   for i from 1 to nops(objs) do
-    if IsRod(objs[i]) and (coords[i] <> 0) and (coords[i] <> objs[i][parse("length")]) then
+    if IsRod(objs[i]) and
+        (ListPadding(coords[i], 3) <> [0, 0, 0]) and
+        (ListPadding(coords[i], 3) <> [objs[i][parse("length")], 0, 0]) then
       error "JOINT objects can only be applied at extremes of ROD objects";
     end if;
     if IsRod(objs[i]) and (constrained_dof[4..6] <> [0, 0, 0]) then
@@ -1872,7 +1852,12 @@ MakeStructure := proc(
       end if;
     end if;
   elif (num_dof > 0) then
-    error "not enough constraints in the structure";
+    #error "not enough constraints in the structure";
+    WARNING(
+      "the structure is underconstrained with %1 unconstrained directions. "
+      "Results computation may fail due to rigid body motions.",
+      num_dof
+    );
   else
     if (verbose_mode > 0) then
       printf("%*sMessage (in MakeStructure) isostatic structure detected\n", print_indent, "");
@@ -2092,13 +2077,7 @@ NewtonEuler := proc(
       if IsMoment(exts[i]) then
         eq_R := eq_R + exts[i][parse("components")];
       elif IsForce(exts[i]) then
-        if nops(exts[i][parse("coordinate")]) = 3 then
-          # Rigid body case
           arm := <op(pole - exts[i][parse("coordinate")])>;
-        else
-          # Lean body case
-          arm := <op(pole - [exts[i][parse("coordinate")], 0, 0])>;
-        end if;
         eq_R := eq_R +
           convert(LinearAlgebra[CrossProduct](<op(exts[i][parse("components")])>, arm), list);
       elif IsQForce(exts[i]) then
@@ -2192,7 +2171,13 @@ SolveStructure := proc(
   end if;
 
   # Solve isostatic structure
-  if (struct[dof] = 0) then
+  if (struct[dof] >= 0) then
+
+    if struct[dof] > 0 then
+      WARNING("Message (in SolveStructure) structure is underconstrained. "
+        "Trying to solve it anyway. Results computation may fail due to rigid "
+        "body motions.");
+    end if;
 
     if (verbose_mode > 0) then
       printf("%*sMessage (in SolveStructure) solving the isostatic structure...\n", print_indent, "");
@@ -2647,15 +2632,15 @@ InternalActions := proc(
   # Compute internal actions for concentrated loads as effect overlay
   for i from 1 to nops(exts) do
     if IsForce(exts[i]) then
-      N_sol  := `simplify/piecewise`(N_sol  - piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][1]), x);
-      Ty_sol := `simplify/piecewise`(Ty_sol + piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][2]), x);
-      Tz_sol := `simplify/piecewise`(Tz_sol + piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][3]), x);
-      My_sol := `simplify/piecewise`(My_sol + integrate(piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][3]), x = 0..x), x);
-      Mz_sol := `simplify/piecewise`(Mz_sol + integrate(piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][2]), x = 0..x), x);
+      N_sol  := `simplify/piecewise`(N_sol  - piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][1]), x);
+      Ty_sol := `simplify/piecewise`(Ty_sol + piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][2]), x);
+      Tz_sol := `simplify/piecewise`(Tz_sol + piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][3]), x);
+      My_sol := `simplify/piecewise`(My_sol + integrate(piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][3]), x = 0..x), x);
+      Mz_sol := `simplify/piecewise`(Mz_sol + integrate(piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][2]), x = 0..x), x);
     elif IsMoment(exts[i]) then
-      Mx_sol := `simplify/piecewise`(Mx_sol - piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][1]), x);
-      My_sol := `simplify/piecewise`(My_sol + piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][2]), x);
-      Mz_sol := `simplify/piecewise`(Mz_sol - piecewise(x >= exts[i][parse("coordinate")] and x <= obj[parse("length")], exts[i][parse("components")][3]), x);
+      Mx_sol := `simplify/piecewise`(Mx_sol - piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][1]), x);
+      My_sol := `simplify/piecewise`(My_sol + piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][2]), x);
+      Mz_sol := `simplify/piecewise`(Mz_sol - piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][3]), x);
     elif IsQForce(exts[i]) then
       N_sol  := `simplify/piecewise`(N_sol  - integrate(exts[i][parse("components")](x)[1], x = 0..x), x);
       Ty_sol := `simplify/piecewise`(Ty_sol + integrate(exts[i][parse("components")](x)[2], x = 0..x), x);
