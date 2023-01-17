@@ -1370,7 +1370,7 @@ MakeJoint := proc(
       .~ <op(objs[i][parse("admissible_loads")][1..3])>,
       list);
     # Extract the survived components
-    jf_indets := indets(jf_comp_obj);
+    jf_indets := indets(jf_comp_obj, parse("name"));
     # Use the non admissible loads to build the loads constraint
     constraint := convert(
       Project(jf_comp, RF, objs[i][parse("frame")])
