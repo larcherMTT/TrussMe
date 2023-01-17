@@ -28,16 +28,21 @@ export  `union`,
         Project,
         InverseFrame,
         IsFrame,
+        IsPoint,
+        IsVector,
         Origin,
         Uvec,
         UvecX,
         UvecY,
         UvecZ,
+        Norm2,
         MakeMaterial,
         IsMaterial,
         MakeBeam,
+        MakeBeamPoints,
         IsBeam,
         MakeRod,
+        MakeRodPoints,
         IsRod,
         MakeRigidBody,
         IsRigidBody,
@@ -83,7 +88,6 @@ local   ModuleLoad,
         InitTrussMe,
         TypeRegister,
         Protect,
-        Norm2,
         ComputeSpringDisplacement,
         ComputeSpringEnergy,
         ComputeSupportDisplacements,
@@ -201,6 +205,8 @@ TypeRegister := proc()
   # Register types
   TypeTools[AddType](EARTH, IsEarth);
   TypeTools[AddType](FRAME, IsFrame);
+  TypeTools[AddType](POINT, IsPoint);
+  TypeTools[AddType](VECTOR, IsVector);
   TypeTools[AddType](BEAM, IsBeam);
   TypeTools[AddType](ROD, IsRod);
   TypeTools[AddType](RIGID_BODY, IsRigidBody);
@@ -417,7 +423,7 @@ end proc: # IsEarth
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 SetGravity := proc(
-  obj::list, # Gravity vector
+  obj::VECTOR, # Gravity vector
   $)::nothing;
 
   description "Set gravity vector with [x, y, z] components of <obj>";
@@ -436,7 +442,7 @@ end proc: # SetGravity
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 GetGravity := proc(
-  $)::list;
+  $)::VECTOR;
 
   description "Get gravity vector";
 
@@ -637,6 +643,50 @@ end proc: # Translate
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+IsPoint := proc(
+  obj::anything, # Object to be checked
+  $)::boolean;
+
+  description "Check if the input object <obj> is a POINT object";
+
+  local out;
+  PrintStartProc(procname);
+
+  if (type(obj, 'list')) and
+     (nops(obj) = 3) then
+    out := true;
+  else
+    out := false;
+  end if;
+
+  PrintEndProc(procname);
+  return out;
+end proc: # IsPoint
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IsVector := proc(
+  obj::anything, # Object to be checked
+  $)::boolean;
+
+  description "Check if the input object <obj> is a VECTOR object";
+
+  local out;
+  PrintStartProc(procname);
+
+  if (type(obj, 'list')) and
+     (nops(obj) = 3) then
+    out := true;
+  else
+    out := false;
+  end if;
+
+  PrintEndProc(procname);
+  return out;
+end proc: # IsVector
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 Uvec := proc(
   axis::symbol,        # Axis of the unit vector
   RF::FRAME := ground, # Reference frame
@@ -747,12 +797,12 @@ end proc: # Project
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeMaterial := proc({
-    name::string               := "steel",   # Name of the material
-    elastic_modulus::algebraic := 210.0E+09, # Elastic modulus (Pa)
-    poisson_ratio::algebraic   := 0.3,       # Poisson ratio (-)
+    name::string               := "DeafultSteel", # Name of the material
+    elastic_modulus::algebraic := 210.0E+09,      # Elastic modulus (Pa)
+    poisson_ratio::algebraic   := 0.3,            # Poisson ratio (-)
     shear_modulus::algebraic   := elastic_modulus/(2*(1+poisson_ratio)),
-                                             # Shear modulus (Pa)
-    density::algebraic         := 7.4E+03    # Density (kg/m^3)
+                                                  # Shear modulus (Pa)
+    density::algebraic         := 7.4E+03         # Density (kg/m^3)
   }, $)::MATERIAL;
 
   description "Define a MATERIAL object with inputs: name of the material, "
@@ -806,7 +856,7 @@ end proc: # IsMaterial
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeForce := proc(
-  components::list,                                    # Force components in RF
+  components::VECTOR,                                  # Force components in RF
   coords::{algebraic, list(algebraic)},                # Application coordinates in object frame
   obj::{BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH}, # Target object
   RF::FRAME := ground,                                 # Reference frame
@@ -872,7 +922,7 @@ end proc: # IsForce
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeMoment := proc(
-  components::list,                               # Moment components
+  components::VECTOR,                             # Moment components
   coords::{algebraic, list(algebraic)},           # Application coordinates in object frame
   obj::{BEAM, RIGID_BODY, SUPPORT, JOINT, EARTH}, # Target object
   RF::FRAME := ground,                            # Reference frame
@@ -1449,18 +1499,67 @@ end proc: # CleanJoint
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+MakeRodPoints := proc(
+  name::string,  # Object name
+  point1::POINT, # First point
+  point2::POINT, # Second point
+  vec::VECTOR,   # Vector for XY-plane
+  {
+    area::{algebraic, procedure} := infinity,      # Section area (m^2)
+    material::MATERIAL           := MakeMaterial() # Material
+  }, $)::ROD;
+
+  description "Create a ROD object with inputs: object name <name>, first "
+    "point <point1>, second point <point2>, vector in XY-plane <vec>, optional "
+    "section area <area> and material type <material>";
+
+  local ell, ex, ey, ez, RF, out;
+  PrintStartProc(procname);
+
+  if (point1 = point2) then
+    error "Input points are the same";
+  end if;
+
+  if (Norm2(vec) < 0) then
+    error "Input vector is null";
+  end if;
+
+  ell := Norm2(point2 - point1);
+  ex  := (point2 - point1) /~ ell;
+  ez  := convert(LinearAlgebra[CrossProduct](<op(ex)>, <op(vec)>), list);
+  ez  := ez /~ Norm2(ez);
+  ey  := convert(LinearAlgebra[CrossProduct](<op(ez)>, <op(ex)>), list);
+  ey  := ey /~ Norm2(ey);
+
+  RF := <<ex[1],     ex[2],     ex[3],     0>|
+         <ey[1],     ey[2],     ey[3],     0>|
+         <ez[1],     ez[2],     ez[3],     0>|
+         <point1[1], point1[2], point1[3], 1>>;
+
+  out := MakeRod(
+    name, ell, RF,
+    parse("area")     = area,
+    parse("material") = material
+    );
+
+  PrintEndProc(procname);
+  return out;
+end proc: # MakeRod
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 MakeRod := proc(
   name::string,        # Object name
   ell::algebraic,      # Length (m)
   RF::FRAME := ground, # Reference frame
   {
-    area::{algebraic, procedure} := infinity, # Section area (m^2)
-    material::MATERIAL           := NULL      # Material
+    area::{algebraic, procedure} := infinity,      # Section area (m^2)
+    material::MATERIAL           := MakeMaterial() # Material
   }, $)::ROD;
 
   description "Create a ROD object with inputs: object name <name>, reference "
-  "length <ell>, optional reference frame <RF> in which the rod is defined, and "
-  "optional section area <area> and material type <material>";
+    "length <ell>, optional reference frame <RF> in which the rod is defined, "
+    "and optional section area <area> and material type <material>";
 
   local area_proc, out;
   PrintStartProc(procname);
@@ -1533,17 +1632,76 @@ end proc: # CleanRod
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+MakeBeamPoints := proc(
+  name::string,  # Object name
+  point1::POINT, # First point
+  point2::POINT, # Second point
+  vec::VECTOR,   # Vector for XY-plane
+  {
+    area::{algebraic, procedure}                   := infinity,       # Section area (m^2)
+    timo_shear_coeff::{list(algebraic), procedure} := [5/6, 5/6],     # Timoshenko shear coefficient
+    material::MATERIAL                             := MakeMaterial(), # Material object
+    I_xx::{algebraic, procedure}                   := infinity,       # Section x-axis inertia (m^4)
+    I_yy::{algebraic, procedure}                   := infinity,       # Section y-axis inertia (m^4)
+    I_zz::{algebraic, procedure}                   := infinity        # Section z-axis inertia (m^4)
+  }, $)::BEAM;
+
+  description "Create a BEAM object with inputs: object name <name>, first "
+    "point <point1>, second point <point2>, vector in XY-plane <vec>,  optional "
+    "section area <area>, optional Timoshenko shear coefficient <timo_shear_coeff>, "
+    "optional material type <material>, optional section x-axis inertia <I_xx>, "
+    "optional section y-axis inertia <I_yy> and optional section z-axis inertia "
+    "<I_zz>";
+
+  local ell, ex, ey, ez, RF, out;
+  PrintStartProc(procname);
+
+  if (point1 = point2) then
+    error "Input points are the same";
+  end if;
+
+  if (Norm2(vec) < 0) then
+    error "Input vector is null";
+  end if;
+
+  ell := Norm2(point2 - point1);
+  ex  := (point2 - point1) /~ ell;
+  ez  := convert(LinearAlgebra[CrossProduct](<op(ex)>, <op(vec)>), list);
+  ez  := ez /~ Norm2(ez);
+  ey  := convert(LinearAlgebra[CrossProduct](<op(ez)>, <op(ex)>), list);
+  ey  := ey /~ Norm2(ey);
+
+  RF := <<ex[1],     ex[2],     ex[3],     0>|
+         <ey[1],     ey[2],     ey[3],     0>|
+         <ez[1],     ez[2],     ez[3],     0>|
+         <point1[1], point1[2], point1[3], 1>>;
+
+  out := MakeBeam(name, ell, RF, {
+    area             = area,
+    timo_shear_coeff = timo_shear_coeff,
+    material         = material,
+    I_xx             = I_xx,
+    I_yy             = I_yy,
+    I_zz             = I_zz
+    });
+
+  PrintEndProc(procname);
+  return op(out);
+end proc: # MakeBeamPoints
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 MakeBeam := proc(
   name::string,        # Object name
   ell::algebraic,      # Length (m)
   RF::FRAME := ground, # Reference frame
   {
-    area::{algebraic, procedure}                   := infinity,   # Section area (m^2)
-    timo_shear_coeff::{list(algebraic), procedure} := [5/6, 5/6], # Timoshenko shear coefficient
-    material::MATERIAL                             := NULL,       # Material object
-    I_xx::{algebraic, procedure}                   := infinity,   # Section x-axis inertia (m^4)
-    I_yy::{algebraic, procedure}                   := infinity,   # Section y-axis inertia (m^4)
-    I_zz::{algebraic, procedure}                   := infinity    # Section z-axis inertia (m^4)
+    area::{algebraic, procedure}                   := infinity,       # Section area (m^2)
+    timo_shear_coeff::{list(algebraic), procedure} := [5/6, 5/6],     # Timoshenko shear coefficient
+    material::MATERIAL                             := MakeMaterial(), # Material object
+    I_xx::{algebraic, procedure}                   := infinity,       # Section x-axis inertia (m^4)
+    I_yy::{algebraic, procedure}                   := infinity,       # Section y-axis inertia (m^4)
+    I_zz::{algebraic, procedure}                   := infinity        # Section z-axis inertia (m^4)
   }, $)::BEAM;
 
   description "Create a BEAM object with inputs: object name <name>, reference "
@@ -2044,7 +2202,7 @@ NewtonEuler := proc(
   },
   obj::{BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}, # Object to compute the equilibrium
   {
-    pole::list := [0,0,0],                       # Pole to compute the equilibrium
+    pole::POINT := [0,0,0],                      # Pole to compute the equilibrium
     upper_lim::algebraic := obj[parse("length")] # Upper limit of the integration
   }, $)
 
@@ -2918,7 +3076,7 @@ end proc:
 
 IsInsideJoint := proc(
   obj::JOINT,        # Joint object
-  p::list,           # Point to be checked
+  p::POINT,          # Point to be checked
   tol::real := 1e-3, # Tolerance
   $)::boolean;
 
@@ -2950,7 +3108,7 @@ end proc:
 
 IsInsideSupport := proc(
   obj::SUPPORT,      # Support object
-  p::list,           # Point to be checked
+  p::POINT,          # Point to be checked
   tol::real := 1e-3, # Tolerance
   $)::boolean;
 
@@ -2982,7 +3140,7 @@ end proc:
 
 IsInsideRod := proc(
   obj::ROD, # Rod object
-  p::list,  # Point to be checked
+  p::POINT, # Point to be checked
   $)::boolean;
 
   description "Check if the point <p> is inside the ROD <obj>";
@@ -3008,7 +3166,7 @@ end proc:
 
 IsInsideBeam := proc(
   obj::BEAM, # Beam object
-  p::list,   # Point to be checked
+  p::POINT,  # Point to be checked
   $)::boolean;
 
   description "Check if the point <p> is inside the BEAM <obj>";
@@ -3034,7 +3192,7 @@ end proc:
 
 IsInsideStructure := proc(
   obj::STRUCTURE, # Structure object
-  p::list,        # Point to be checked
+  p::POINT,       # Point to be checked
   $)::boolean;
 
   description "Check if the point <p> is inside the STRUCTURE <obj>";
