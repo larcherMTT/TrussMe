@@ -1316,8 +1316,8 @@ MakeJoint := proc(
     "<coords>, and optional reference frame <RF> in which the joint is defined "
     "(default = ground)";
 
-  local J, i, jf_comp, jm_comp, jf_comp_obj, jm_comp_obj, jm_indets, jf_indets,
-    constraint, P_tmp;
+  local J, i, jf_comp, jm_comp, jf_comp_obj, jm_comp_obj, jm_surv, jf_surv,
+    jf_comp_cons, jm_comp_cons, constraint, P_tmp;
   PrintStartProc(procname);
 
   for i from 1 to nops(objs) do
@@ -1334,7 +1334,7 @@ MakeJoint := proc(
   J := table({
     parse("type")                     = JOINT,
     parse("constrained_dof")          = constrained_dof,
-    parse("coordinates")              = coords,
+    parse("coordinates")              = map(ListPadding, coords, 3),
     parse("name")                     = name,
     parse("frame")                    = RF,
     parse("targets")                  = GetNames(objs),
@@ -1357,33 +1357,35 @@ MakeJoint := proc(
 
   # Add all the bodies forces
   for i from 1 to nops(objs) do
-    # Create force compatible with the joint constrained dof
-    jf_comp := convert(<
+    # Create joint forces force
+    jf_comp := <
       JFx_||(J[parse("name")])||_||(objs[i][parse("name")]),
       JFy_||(J[parse("name")])||_||(objs[i][parse("name")]),
       JFz_||(J[parse("name")])||_||(objs[i][parse("name")])
-      > *~ <op(constrained_dof[1..3])>,
+      >;
+    # Keep components compatible with the joint constrained dof
+    jf_comp_cons := convert( jf_comp *~ <op(constrained_dof[1..3])>,
       list);
     # Project the components into object frame and extract admissible loads
     jf_comp_obj := convert(
-      Project(jf_comp, RF, objs[i][parse("frame")])
+      Project(jf_comp_cons, RF, objs[i][parse("frame")])
       .~ <op(objs[i][parse("admissible_loads")][1..3])>,
       list);
     # Extract the survived components
-    jf_indets := indets(jf_comp_obj, parse("name"));
+    jf_surv := indets(eval(jf_comp *~ map2(has, jf_comp_obj, jf_comp), [true = 1, false = 0]));
     # Use the non admissible loads to build the loads constraint
     constraint := convert(
-      Project(jf_comp, RF, objs[i][parse("frame")])
+      Project(jf_comp_cons, RF, objs[i][parse("frame")])
       .~ <op((-1*objs[i][parse("admissible_loads")][1..3]) +~ 1)>,
       list);
     # Remove the null equations
     constraint := remove(x -> x = 0, constraint);
     # Remove useless constraints
-    constraint := select(x -> has(x, jf_indets), constraint);
+    constraint := select(x -> has(x, jf_surv), constraint);
     # Update the joint constraint loads
     J[parse("constraint_loads")] := J[parse("constraint_loads")] union constraint;
     # Check if there are reactions
-    if (jf_comp_obj <> [0, 0, 0]) then
+    if (nops(jf_surv) <> 0) then
       # Create the reaction force between joint and obj
       JF_||(name)||_||(objs[i][parse("name")]) := MakeForce(
         jf_comp_obj, coords[i], objs[i], objs[i][parse("frame")]
@@ -1392,7 +1394,7 @@ MakeJoint := proc(
         -jf_comp_obj, 0, J, objs[i][parse("frame")]
         );
       # Update the output joint
-      J[parse("variables")] := J[parse("variables")] union jf_indets;
+      J[parse("variables")] := J[parse("variables")] union jf_surv;
       J[parse("forces")] := [
         op(J[parse("forces")]),
         JF_||(name)||_||(objs[i][parse("name")]),
@@ -1404,20 +1406,22 @@ MakeJoint := proc(
   # Add all the bodies moments
   for i from 1 to nops(objs) do
     # Create moment compatible with joint constrained dof
-    jm_comp := convert(<
+    jm_comp := <
       JMx_||(J[parse("name")])||_||(objs[i][parse("name")]),
       JMy_||(J[parse("name")])||_||(objs[i][parse("name")]),
       JMz_||(J[parse("name")])||_||(objs[i][parse("name")])
-      > *~ <op(constrained_dof[4..6])>,
+      >;
+    # Keep components compatible with the joint constrained dof
+    jm_comp_cons := convert(jm_comp *~ <op(constrained_dof[4..6])>,
       list);
     # Project the components into object frame and extract the admissible loads
     jm_comp_obj := convert(
-      Project(jm_comp, RF, objs[i][parse("frame")])
+      Project(jm_comp_cons, RF, objs[i][parse("frame")])
       .~ <op(objs[i][parse("admissible_loads")][4..6])>,
       list);
     # Use the non admissible loads to build the loads constraint
     constraint := convert(
-      Project(jm_comp, RF, objs[i][parse("frame")])
+      Project(jm_comp_cons, RF, objs[i][parse("frame")])
       .~ <op((-1*objs[i][parse("admissible_loads")][4..6]) +~ 1)>,
       list);
     constraint := remove(x -> x = 0, constraint);
@@ -1426,9 +1430,9 @@ MakeJoint := proc(
       op(constraint)
       ];
     # Extract the survived components
-    jm_indets := indets(jm_comp);
+    jm_surv := indets(eval(jm_comp *~ map2(has, jm_comp_obj, jm_comp), [true = 1, false = 0]));
     # Check if there are reactions
-    if not ((add(jm_comp_obj) = 0) or (add(jm_comp_obj) = 0.)) then
+    if (nops(jm_surv) <> 0) then
       # Create the reaction force between joint and obj
       JM_||(name)||_||(objs[i][parse("name")]) := MakeMoment(
         jm_comp_obj, coords[i], objs[i], objs[i][parse("frame")]
@@ -1439,7 +1443,7 @@ MakeJoint := proc(
       # Update the output joint
       J[parse("variables")] := [
         op(J[parse("variables")]),
-        op(jm_indets)
+        op(jm_surv)
         ];
       J[parse("moments")] := [
         op(J[parse("moments")]),
