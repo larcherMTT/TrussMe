@@ -373,7 +373,7 @@ PrintStartProc := proc(
 
   # Show start message
   if (verbose_mode > 1) then
-    printf("%*sStart '%s' procedure...\n", print_indent, "", proc_name);
+    printf("%*sStart '%s' procedure...\n", print_indent, "|   ", proc_name);
   end if:
 end proc: # PrintStartProc
 
@@ -388,7 +388,7 @@ PrintEndProc := proc(
 
   # Show end message
   if (verbose_mode > 1) then
-    printf("%*sEnd   '%s' procedure\n", print_indent, "", proc_name);
+    printf("%*sEnd   '%s' procedure\n", print_indent, "|   ", proc_name);
   end if:
 
   # Increase printf indentation
@@ -555,8 +555,8 @@ IsFrame := proc(
 
   if (type(obj, 'Matrix')) and
      (LinearAlgebra:-RowDimension(obj) = 4) and
-     (LinearAlgebra:-ColumnDimension(obj) = 4) and
-     (simplify(combine(LinearAlgebra:-Determinant(obj) = 1))) then
+     (LinearAlgebra:-ColumnDimension(obj) = 4) then
+     # FIXME (simplify(combine(LinearAlgebra:-Determinant(obj) = 1))) then
     out := true;
   else
     out := false;
@@ -2134,15 +2134,6 @@ ComputeDOF := proc(
     end if;
   end do;
 
-  # Check graph connections
-  if GraphTheory[IsConnected](G) then
-    if (verbose_mode > 0) then
-      printf("%*sDONE\n", print_indent, "");
-    end if;
-  else
-    error "unconnected elements detected in the structure";
-  end if;
-
   if (verbose_mode > 0) then
     printf("%*sMessage (in ComputeDOF) computing degrees of freedom...\n", print_indent, "");
   end if;
@@ -2168,6 +2159,15 @@ ComputeDOF := proc(
     if (verbose_mode > 1) then
       print(GraphTheory[DrawGraph](G));
     end if;
+  end if;
+
+  # Check graph connections
+  if GraphTheory[IsConnected](G) then
+    if (verbose_mode > 0) then
+      printf("%*sDONE\n", print_indent, "");
+    end if;
+  else
+    error "unconnected elements detected in the structure";
   end if;
 
   PrintEndProc(procname);
@@ -2687,13 +2687,10 @@ IsostaticSolver := proc(
       );
       end if;
   end do;
+
   if (verbose_mode > 1) then
     printf("%*sDONE\n", print_indent, "");
   end if;
-
-  # Structure equations check
-  A, B    := LinearAlgebra[GenerateMatrix](eq, vars_tmp);
-  rank_eq := LinearAlgebra[Rank](A);
 
   if (verbose_mode > 1) then
     printf("%*sMessage (in IsostaticSolver) structure equilibrium equations:\n", print_indent, "");
@@ -2701,6 +2698,12 @@ IsostaticSolver := proc(
     printf("%*sMessage (in IsostaticSolver) structure unknown variables:\n", print_indent, "");
     print(vars_tmp);
   end if;
+
+  # Structure equations check
+  A, B    := LinearAlgebra[GenerateMatrix](eq, vars_tmp);
+  rank_eq := LinearAlgebra[Rank](A);
+
+  print(indets(eq, parse("name")));
 
   if (rank_eq <> nops(vars_tmp)) or (nops(eq) <> nops(vars_tmp)) then
     error "inconsistent system of equation, got %1 equations and %2 variables. "
@@ -2714,7 +2717,8 @@ IsostaticSolver := proc(
     printf("%*sMessage (in IsostaticSolver) computing the structure reaction forces...\n", print_indent, "");
   end if;
 
-  sol := simplify(op(RealDomain[solve](eq, vars_tmp)));
+  #sol := simplify(op(RealDomain[solve](eq, vars_tmp)));
+  sol := op(RealDomain[solve](eq, vars_tmp));
 
   if (verbose_mode > 1) then
     printf("%*sDONE\n", print_indent, "");
@@ -2952,8 +2956,8 @@ PlotBeam := proc(
   local P1, P2, out;
   PrintStartProc(procname);
 
-  P1 := subs(data, Origin(obj[parse("frame")]));
-  P2 := subs(data, Origin(obj[parse("frame")].Translate(obj[parse("length")], 0, 0)));
+  P1 := subs(op(data), Origin(obj[parse("frame")]));
+  P2 := subs(op(data), Origin(obj[parse("frame")].Translate(obj[parse("length")], 0, 0)));
 
   out := plots:-display(
     plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 6),
@@ -2977,8 +2981,8 @@ PlotRod := proc(
   local P1, P2, out;
   PrintStartProc(procname);
 
-  P1 := subs(data, Origin(obj[parse("frame")]));
-  P2 := subs(data, Origin(obj[parse("frame")].Translate(obj[parse("length")], 0, 0)));
+  P1 := subs(op(data), Origin(obj[parse("frame")]));
+  P2 := subs(op(data), Origin(eval(obj[parse("frame")].Translate(obj[parse("length")], 0, 0))));
 
   out := plots:-display(
     plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 4),
@@ -2991,7 +2995,7 @@ end proc:
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PlotJoint := proc(
-  obj::JOINT,            # Joint to be plot
+  obj::JOINT, # Joint to be plot
   {
     data::{list(`=`),set(`=`)} := [] # Substitutions
   },
@@ -3002,7 +3006,7 @@ PlotJoint := proc(
   local O, out;
   PrintStartProc(procname);
 
-  O := subs(data, Origin(
+  O := subs(op(data), Origin(
     parse(obj[parse("targets")][1])[parse("frame")].
     Translate(op(ListPadding(obj[parse("coordinates")][1],3)))
     ));
@@ -3027,13 +3031,13 @@ PlotSupport := proc(
   local O, out;
   PrintStartProc(procname);
 
-  if nops(obj[parse("targets")])>1 then
-    O := subs(data, Origin(
+  if (nops(obj[parse("targets")]) > 1) then
+    O := subs(op(data), Origin(
       parse(obj[parse("targets")][2])[parse("frame")].
       Translate(op(ListPadding(obj[parse("coordinates")][2],3)))
       ));
   else
-    O := subs(data, Origin(
+    O := subs(op(data), Origin(
       earth[parse("frame")].
       Translate(op(ListPadding(obj[parse("coordinates")][1],3)))
       ));
