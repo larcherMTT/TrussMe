@@ -68,7 +68,8 @@ export  `union`,
         CleanRod,
         CleanBeam,
         CleanStructure,
-        DrawStructureGraph;
+        DrawStructureGraph,
+        DrawStructureSparseMatrix;
 
 global  ground;
 
@@ -2057,6 +2058,8 @@ MakeStructure := proc(
     parse("connections_graph")         = Graph,
     parse("hyperstatic_variables")     = hyper_vars,
     parse("hyperstatic_displacements") = hyper_disp,
+    parse("equations")                 = [],
+    parse("variables")                 = [],
     parse("support_reactions_solved")  = false,
     parse("internal_actions_solved")   = false,
     parse("displacement_solved")       = false
@@ -2225,6 +2228,32 @@ end proc: # DrawStructureGraph
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+DrawStructureSparseMatrix := proc(
+  obj::STRUCTURE, # Object to be cleaned
+  {
+    GaussianElimination::boolean := false # Apply Gaussian elimination
+  },
+  $)::procedure;
+
+  description "Draw the sparse matrix for the equation system of STRUCTURE object <obj>";
+
+  local  out, A, b;
+  PrintStartProc(procname);
+
+  A,b := LinearAlgebra[GenerateMatrix](obj[parse("equations")], obj[parse("variables")]);
+  if (GaussianElimination) then
+    A := LinearAlgebra[parse("GaussianElimination")](A);
+  end if;
+  out := plots:-display(
+    plots[sparsematrixplot](A,matrixview),
+    title = "Structure sparse matrix");
+
+  PrintEndProc(procname);
+  return out;
+end proc: # DrawStructureSparseMatrix
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 NewtonEuler := proc(
   exts::{ # External actions
     list({FORCE, MOMENT, QFORCE, QMOMENT}),
@@ -2295,16 +2324,18 @@ SolveStructure := proc(
   {
     compute_intact::boolean  := false, # Internal actions computation flag
     compute_disp::boolean    := false, # Displacement computation flag
-    timoshenko_beam::boolean := false  # Timoshenko beam flag
+    timoshenko_beam::boolean := false, # Timoshenko beam flag
+    implicit::boolean        := false  # Implicit solution flag
   }, $)
 
   description "Solve the static equilibrium of a structure with inputs: "
     "structure <struct>, optional compute internal action enabling flag "
     "<compute_intact>, optional compute displacement enabling flag "
-    "<compute_disp>, optional Timoshenko beam flag <timoshenko_beam>";
+    "<compute_disp>, optional Timoshenko beam flag <timoshenko_beam>, and "
+    "optional implicit solution flag <implicit>";
 
-  local g_load, S_obj, S_rigid, S_ext, S_support, S_joint, S_con_forces, vars, sol, obj,
-    x;
+  local g_load, S_obj, S_rigid, S_ext, S_support, S_joint, S_con_forces, vars,
+    sol, obj, x, str_eq, str_vars;
 
   PrintStartProc(procname);
 
@@ -2370,11 +2401,15 @@ SolveStructure := proc(
     if (verbose_mode > 0) then
       printf("%*sMessage (in SolveStructure) solving the isostatic structure...\n", print_indent, "|   ");
     end if;
-    sol := IsostaticSolver(
+    sol, str_eq, str_vars := IsostaticSolver(
       S_obj union S_rigid union S_joint union S_support,
       S_ext union S_con_forces,
-      vars
+      vars,
+      parse("implicit") = implicit
       );
+    # Update Structure equations and variables
+    struct[parse("equations")] := str_eq;
+    struct[parse("variables")] := str_vars;
     if (verbose_mode > 0) then
       printf("%*sDONE\n", print_indent, "|   ");
       if (verbose_mode > 1) then
@@ -2404,14 +2439,18 @@ SolveStructure := proc(
     if (verbose_mode > 0) then
       printf("%*sMessage (in SolveStructure) solving the hyperstatic structure\n", print_indent, "|   ");
     end if;
-    sol := HyperstaticSolver(
+    sol, str_eq, str_vars := HyperstaticSolver(
       S_obj union S_joint union S_support,
       S_ext union S_con_forces,
       vars,
       struct[parse("hyperstatic_variables")],
       struct[parse("hyperstatic_displacements")],
-      parse("timoshenko_beam") = timoshenko_beam
+      parse("timoshenko_beam") = timoshenko_beam,
+      parse("implicit") = implicit
       );
+    # Update Structure equations and variables
+    struct[parse("equations")] := str_eq;
+    struct[parse("variables")] := str_vars;
     if (verbose_mode > 0) then
       printf("%*sDONE\n", print_indent, "|   ");
       if (verbose_mode > 1) then
@@ -2480,7 +2519,8 @@ HyperstaticSolver := proc(
   hyper_vars::list, # Hyperstatic variables
   hyper_disp::list, # Hyperstatic displacements
   {
-    timoshenko_beam::boolean := false # Timoshenko beam flag
+    timoshenko_beam::boolean := false, # Timoshenko beam flag
+    implicit::boolean := false         # Implicit flag
   }, $)
 
   description "Solve hyperstatic structure with inputs objects <objs>, external "
@@ -2489,7 +2529,7 @@ HyperstaticSolver := proc(
     "<timoshenko_beam>";
 
   local hyper_eq, hyper_load, hyper_comps, hyper_compliant_disp, hyper_support, i, obj,
-        iso_vars, iso_sol, hyper_sol, sol, P, S_objs, E_objs, out;
+        iso_vars, iso_sol, iso_eq, hyper_sol, sol, P, S_objs, E_objs, out;
   PrintStartProc(procname);
 
   # Parse input objects and find objects with internal actions property
@@ -2498,16 +2538,12 @@ HyperstaticSolver := proc(
     i = 1..nops(objs))
     ];
 
-  if (verbose_mode > 1) then
-    printf("%*sMessage (in HyperstaticSolver) solving the hyperstatic variables...\n", print_indent, "|   ");
-  end if;
-
   # Create a solution as function of the hyperstatic variables
   iso_vars := [seq(
     `if`(member(vars[i], hyper_vars), NULL, vars[i]),
     i = 1..nops(vars))
     ];
-  iso_sol := IsostaticSolver(objs, exts, iso_vars);
+  iso_sol, iso_eq, iso_vars := IsostaticSolver(objs, exts, iso_vars, parse("implicit") = implicit);
 
   # Compute internal actions
   ComputeInternalActions(S_objs, exts, iso_sol);
@@ -2528,17 +2564,29 @@ HyperstaticSolver := proc(
     hyper_eq := hyper_eq union [diff(P, hyper_vars[i]) = hyper_disp[i]];
   end do;
 
-  # Solve hyperstatic equations
-  hyper_sol := op(RealDomain[solve](convert(hyper_eq, signum), hyper_vars));
+  # Check for implicit solution flag
+  if (implicit) then
+    hyper_sol := iso_sol;
+  else
+    if (verbose_mode > 1) then
+      printf("%*sMessage (in HyperstaticSolver) solving the hyperstatic variables...\n", print_indent, "|   ");
+    end if;
+    # Solve hyperstatic equations
+    hyper_sol := op(RealDomain[solve](convert(hyper_eq, signum), hyper_vars));
 
-  if (verbose_mode > 1) then
-    printf("%*sDONE\n", print_indent, "|   ");
+    if (verbose_mode > 1) then
+      printf("%*sDONE\n", print_indent, "|   ");
+    end if;
+    out := hyper_sol union subs(hyper_sol, iso_sol);
   end if;
-
-  out := hyper_sol union subs(hyper_sol, iso_sol);
 
   PrintEndProc(procname);
   return out;
+  if _nresults = 3 then
+    return out, iso_eq union hyper_eq, iso_vars union hyper_vars;
+  else
+    return dof;
+  end
 end proc: # HyperstaticSolver
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -2668,13 +2716,16 @@ IsostaticSolver := proc(
     set( {FORCE, MOMENT, QFORCE, QMOMENT})
   },
   vars::list, # Variables to solve
+  {
+    implicit::boolean := false  # Implicit solution
+  },
   $)
 
   description "Solve the isostatic structure equilibrium equation system given "
     "the structure objects <objs>, the external actions <exts> and the variables "
     "<vars> to solve";
 
-  local eq, i, j, active_ext, sol, A, B, rank_eq, vars_tmp;
+  local iso_eq, i, j, active_ext, iso_sol, A, B, rank_eq, iso_vars;
   PrintStartProc(procname);
 
   # Compute structure equations
@@ -2682,7 +2733,7 @@ IsostaticSolver := proc(
     printf("%*sMessage (in IsostaticSolver) computing the equilibrium equation for "
       "the isostatic structure...\n", print_indent, "|   ");
   end if;
-  eq := [];
+  iso_eq := [];
   for i from 1 to nops(objs) do
     active_ext := {};
     for j from 1 to nops(exts) do
@@ -2690,22 +2741,22 @@ IsostaticSolver := proc(
         active_ext := active_ext union {exts[j]};
       end if;
     end do;
-    eq := eq union NewtonEuler(active_ext, objs[i]);
+    iso_eq := iso_eq union NewtonEuler(active_ext, objs[i]);
 
     # Add joints and supports constraint equations
     if IsSupport(objs[i]) or IsJoint(objs[i]) then
-      eq := eq union objs[i][parse("constraint_loads")];
+      iso_eq := iso_eq union objs[i][parse("constraint_loads")];
     end if;
   end do;
 
   # Remove NULL equations
-  eq := remove(x -> x = 0, simplify(eq));
+  iso_eq := remove(x -> x = 0, simplify(iso_eq));
 
   # Remove non used variables
-  vars_tmp := vars;
+  iso_vars := vars;
   for i from 1 to nops(vars) do
-  if (has(eq, vars[i])) = false then
-    vars_tmp := remove(x -> x = vars[i], vars_tmp);
+  if (has(iso_eq, vars[i])) = false then
+    iso_vars := remove(x -> x = vars[i], iso_vars);
     WARNING(
       "Message (in IsostaticSolver) %1 was removed from variables because it "
       "is not used in the equations",
@@ -2720,36 +2771,52 @@ IsostaticSolver := proc(
 
   if (verbose_mode > 1) then
     printf("%*sMessage (in IsostaticSolver) structure equilibrium equations:\n", print_indent, "|   ");
-    print(<op(eq)>);
+    print(<op(iso_eq)>);
     printf("%*sMessage (in IsostaticSolver) structure unknown variables:\n", print_indent, "|   ");
-    print(vars_tmp);
+    print(iso_vars);
   end if;
 
-  # Structure equations check
-  A, B    := LinearAlgebra[GenerateMatrix](eq, vars_tmp);
-  rank_eq := LinearAlgebra[Rank](A);
+  # Check for implicit solution flag
+  if (implicit) then
+    iso_sol := [];
+  else
+    # Matrix form
+    A, B    := LinearAlgebra[GenerateMatrix](iso_eq, iso_vars);
+    # Gaussian elimination
+    simplify(LinearAlgebra[GaussianElimination](<A|B>));
+    A := %[1..-1, 1..-2];
+    B := %%[1..-1, -1];
+    # Check rank
+    rank_eq := LinearAlgebra[Rank](A);
+    if (rank_eq <> nops(iso_vars)) or (nops(iso_eq) <> nops(iso_vars)) then
+      error "inconsistent system of equation, got %1 equations and %2 variables. "
+        "Rank of the system  wrt the system variables is %3. Check structure "
+        "supports and joints",
+        nops(iso_eq), nops(iso_vars), rank_eq;
+    end if;
+    if (verbose_mode > 1) then
+      printf("%*sMessage (in IsostaticSolver) A matrix visualization of the linear system:\n", print_indent, "|   ");
+      print(plots[sparsematrixplot](A,matrixview));
+    end if;
+    # Solve structure equations
+    if (verbose_mode > 1) then
+      printf("%*sMessage (in IsostaticSolver) computing the structure reaction forces...\n", print_indent, "|   ");
+    end if;
 
-  if (rank_eq <> nops(vars_tmp)) or (nops(eq) <> nops(vars_tmp)) then
-    error "inconsistent system of equation, got %1 equations and %2 variables. "
-      "Rank of the system  wrt the system variables is %3. Check structure "
-      "supports and joints",
-      nops(eq), nops(vars_tmp), rank_eq;
-  end if;
+    #iso_sol := op(RealDomain[solve](iso_eq, iso_vars));
+    iso_sol := iso_vars =~ convert(simplify(LinearAlgebra[LinearSolve](A, B)), list);
 
-  # Solve structure equations
-  if (verbose_mode > 1) then
-    printf("%*sMessage (in IsostaticSolver) computing the structure reaction forces...\n", print_indent, "|   ");
-  end if;
-
-  #sol := simplify(op(RealDomain[solve](eq, vars_tmp)));
-  sol := op(RealDomain[solve](eq, vars_tmp));
-
-  if (verbose_mode > 1) then
-    printf("%*sDONE\n", print_indent, "|   ");
+    if (verbose_mode > 1) then
+      printf("%*sDONE\n", print_indent, "|   ");
+    end if;
   end if;
 
   PrintEndProc(procname);
-  return sol;
+  if _nresults = 3 then
+    return iso_sol, iso_eq, iso_vars;
+  else
+    return iso_sol;
+  end
 end proc: # IsostaticSolver
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
