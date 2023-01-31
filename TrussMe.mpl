@@ -779,16 +779,18 @@ Project := proc(
   PrintStartProc(procname);
 
   # Pad input vector with 0 if its length is 3
-  if (nops(x) = 3) then
-    x_tmp := <x[1], x[2], x[3], 0>;
-  elif (nops(x) = 4) then
-    x_tmp := <x[1], x[2], x[3], x[4]>;
-  else
+  if not (nops(x) = 3) and
+     not (nops(x) = 4) then
     error "invalid input vector/point <x> detected";
   end if;
+  x_tmp := <ListPadding(x, 4)>;
 
-  LinearAlgebra[MatrixInverse](RF_end).RF_ini.x_tmp;
-  out := simplify([seq(%[i], i = 1..nops(x))]);
+  if has(map(evalb, evala(simplify(RF_end)) =~ evala(simplify(RF_ini))), false) then
+    InverseFrame(RF_end).RF_ini.x_tmp;
+    out := simplify([seq(%[i], i = 1..nops(x))]);
+  else
+    out := x;
+  end if;
 
   PrintEndProc(procname);
   return out;
@@ -866,18 +868,23 @@ MakeForce := proc(
     "force application axial coordinate <coords>, target object <obj>, and "
     "optional reference frame <RF> in which the force is defined (default = ground)";
 
-  local proj_components, out;
+  local proj_components, admissible_components, out;
 
   PrintStartProc(procname);
 
   proj_components := Project(components, RF, obj[parse("frame")]);
+  admissible_components := convert(proj_components .~ <obj[parse("admissible_loads")][1..3]>, list);
+
   # Check input arguments
-  if IsRod(obj) then
-    if (proj_components[2] <> 0) or (proj_components[3] <> 0) then
-      error "only axial forces are accepted in ROD objects";
-    end if;
-  elif IsSupport(obj) or IsJoint(obj) then
-    if (evalf(coords) <> 0) then
+  if proj_components <> admissible_components then
+  ["x_comp", "y_comp", "z_comp"] =~
+    convert(proj_components .~ <eval(map((x->evalb(x = 0)), obj[parse("admissible_loads")][1..3]), [true = 1, false = 0])>, list);
+    WARNING("Force components is not admissible for the target object. The "
+      "following components will be ignored: %1", remove(x-> rhs(x) = 0, %));
+  end if;
+
+  if IsSupport(obj) or IsJoint(obj) then
+    if (ListPadding(coords, 3) <> [0,0,0]) then
       error "only null axial coordinate is accepted for SUPPORT and JOINT "
         "objects";
     end if;
@@ -885,7 +892,7 @@ MakeForce := proc(
 
   out := table({
     parse("type")       = FORCE,
-    parse("components") = proj_components,
+    parse("components") = admissible_components,
     parse("coordinate") = ListPadding(coords, 3),
     parse("target")     = obj[parse("name")]
     });
@@ -933,13 +940,22 @@ MakeMoment := proc(
     "optional reference frame <RF> in which the moment is  defined (default "
     "= ground)";
 
-  local proj_components, out;
+  local proj_components, admissible_components, out;
   PrintStartProc(procname);
 
   proj_components := Project(components, RF, obj[parse("frame")]);
+  admissible_components := convert(proj_components .~ <obj[parse("admissible_loads")][4..6]>, list);
+
   # Check input arguments
+  if proj_components <> admissible_components then
+    ["x_comp", "y_comp", "z_comp"] =~
+      convert(proj_components .~ <eval(map((x->evalb(x = 0)), obj[parse("admissible_loads")][4..6]), [true = 1, false = 0])>, list);
+    WARNING("Force components is not admissible for the target object. The "
+      "following components will be ignored: %1", remove(x-> rhs(x) = 0, %));
+  end if;
+
   if IsSupport(obj) or IsJoint(obj) then
-    if (evalf(coords) <> 0) then
+    if (ListPadding(coords, 3) <> [0,0,0]) then
       error "only null axial coordinate is accepted for SUPPORT and JOINT "
         "objects";
     end if;
@@ -947,7 +963,7 @@ MakeMoment := proc(
 
   out := table({
     parse("type")       = MOMENT,
-    parse("components") = proj_components,
+    parse("components") = admissible_components,
     parse("coordinate") = ListPadding(coords, 3),
     parse("target")     = obj[parse("name")]
     });
@@ -1110,11 +1126,11 @@ end proc: # IsQMoment
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 MakeSupport := proc(
-  name::string,                        # Support name
-  constrained_dof::list,               # Constrained degree of freedom
-  objs::list({BEAM, ROD, RIGID_BODY}), # Target objects
-  coords::list,                        # Support locations
-  RF::FRAME := ground,                 # Reference frame of the support
+  name::string,                                        # Support name
+  constrained_dof::list,                               # Constrained degree of freedom
+  objs::list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}), # Target objects
+  coords::list,                                        # Support locations
+  RF::FRAME := ground,                                 # Reference frame of the support
   {
     stiffness::{procedure,list(algebraic)} := [ # Stiffness components (default = infinite)
       infinity, infinity, infinity,
@@ -1143,7 +1159,7 @@ MakeSupport := proc(
   if type(stiffness, procedure) then
     S_stiffness := unapply(stiffness(x) *~ constrained_dof, x);
     # Check for non zero stiffness on constrained dof
-    if has(stiffness(x)[remove(x -> x=0, ([seq(i, i = 1..6)]) *~ constrained_dof)], 0) then
+    if has(map(evalb, stiffness(x)[remove(x -> x=0, ([seq(i, i = 1..6)]) *~ constrained_dof)] <>~ 0), false) then
       error "stiffness corresponding to constrained degrees of freedom cannot be zero";
     end if;
     # Check for zero stiffness on unconstrained dof
@@ -1165,6 +1181,7 @@ MakeSupport := proc(
   S := table({
     parse("type")                     = SUPPORT,
     parse("constrained_dof")          = constrained_dof,
+    parse("admissible_loads")         = constrained_dof,
     parse("coordinates")              = [[0,0,0], op(map(ListPadding, coords, 3))],
     parse("name")                     = name,
     parse("frame")                    = RF,
@@ -1239,6 +1256,7 @@ IsSupport := proc(
 
   if (obj[parse("type")] = SUPPORT) and
      type(obj[parse("constrained_dof")], list) and
+     type(obj[parse("admissible_loads")], list) and
      type(obj[parse("coordinates")], list) and
      type(obj[parse("name")], string) and
      type(obj[parse("frame")], FRAME) and
@@ -1334,6 +1352,7 @@ MakeJoint := proc(
   J := table({
     parse("type")                     = JOINT,
     parse("constrained_dof")          = constrained_dof,
+    parse("admissible_loads")         = constrained_dof,
     parse("coordinates")              = map(ListPadding, coords, 3),
     parse("name")                     = name,
     parse("frame")                    = RF,
@@ -1366,33 +1385,32 @@ MakeJoint := proc(
     # Keep components compatible with the joint constrained dof
     jf_comp_cons := convert( jf_comp *~ <op(constrained_dof[1..3])>,
       list);
+    # Extract the survived components
+    jf_surv := remove(x -> x = 0, jf_comp_cons);
     # Project the components into object frame and extract admissible loads
     jf_comp_obj := convert(
       Project(jf_comp_cons, RF, objs[i][parse("frame")])
       .~ <op(objs[i][parse("admissible_loads")][1..3])>,
       list);
-    # Extract the survived components
-    jf_surv := indets(eval(jf_comp *~ map2(has, jf_comp_obj, jf_comp), [true = 1, false = 0]));
-    # Use the non admissible loads to build the loads constraint
-    constraint := convert(
-      Project(jf_comp_cons, RF, objs[i][parse("frame")])
-      .~ <op((-1*objs[i][parse("admissible_loads")][1..3]) +~ 1)>,
-      list);
-    # Remove the null equations
-    constraint := remove(x -> x = 0, constraint);
-    # Remove useless constraints
-    constraint := select(x -> has(x, jf_surv), constraint);
-    # Update the joint constraint loads
-    J[parse("constraint_loads")] := J[parse("constraint_loads")] union constraint;
     # Check if there are reactions
     if (nops(jf_surv) <> 0) then
       # Create the reaction force between joint and obj
+      # Force on obj
       JF_||(name)||_||(objs[i][parse("name")]) := MakeForce(
         jf_comp_obj, coords[i], objs[i], objs[i][parse("frame")]
         );
+      # Force on joint
       JF_||(objs[i][parse("name")])||_||(name) := MakeForce(
-        -jf_comp_obj, 0, J, objs[i][parse("frame")]
-        );
+        -jf_comp_cons, 0, J, RF);
+      # Use the non admissible loads to build the loads constraint
+      constraint := convert(
+        Project(jf_comp_cons, RF, objs[i][parse("frame")])
+        .~ <eval(map((x->evalb(x = 0)), objs[i][parse("admissible_loads")][1..3]), [true = 1, false = 0])>,
+        list);
+      # Remove the null equations
+      constraint := remove(x -> x = 0, constraint);
+      # Update the joint constraint loads
+      J[parse("constraint_loads")] := J[parse("constraint_loads")] union constraint;
       # Update the output joint
       J[parse("variables")] := J[parse("variables")] union jf_surv;
       J[parse("forces")] := [
@@ -1414,37 +1432,33 @@ MakeJoint := proc(
     # Keep components compatible with the joint constrained dof
     jm_comp_cons := convert(jm_comp *~ <op(constrained_dof[4..6])>,
       list);
+    # Extract the survived components
+    jm_surv := remove(x -> x = 0, jm_comp_cons);
     # Project the components into object frame and extract the admissible loads
     jm_comp_obj := convert(
       Project(jm_comp_cons, RF, objs[i][parse("frame")])
       .~ <op(objs[i][parse("admissible_loads")][4..6])>,
       list);
-    # Use the non admissible loads to build the loads constraint
-    constraint := convert(
-      Project(jm_comp_cons, RF, objs[i][parse("frame")])
-      .~ <op((-1*objs[i][parse("admissible_loads")][4..6]) +~ 1)>,
-      list);
-    constraint := remove(x -> x = 0, constraint);
-    J[parse("constraint_loads")] := [
-      op(J[parse("constraint_loads")]),
-      op(constraint)
-      ];
-    # Extract the survived components
-    jm_surv := indets(eval(jm_comp *~ map2(has, jm_comp_obj, jm_comp), [true = 1, false = 0]));
     # Check if there are reactions
     if (nops(jm_surv) <> 0) then
       # Create the reaction force between joint and obj
+      # Moment on obj
       JM_||(name)||_||(objs[i][parse("name")]) := MakeMoment(
         jm_comp_obj, coords[i], objs[i], objs[i][parse("frame")]
         );
+      # Moment on joint
       JM_||(objs[i][parse("name")])||_||(name) := MakeMoment(
-        -jm_comp_obj, 0, J, objs[i][parse("frame")]
-        );
+      -jm_comp_cons, 0, J, RF);
+      # Use the non admissible loads to build the loads constraint
+      constraint := convert(
+        Project(jm_comp_cons, RF, objs[i][parse("frame")])
+        .~ <eval(map((x->evalb(x = 0)), objs[i][parse("admissible_loads")][4..6]), [true = 1, false = 0])>,
+        list);
+      constraint := remove(x -> x = 0, constraint);
+      # Update the joint constraint loads
+      J[parse("constraint_loads")] := J[parse("constraint_loads")] union constraint;
       # Update the output joint
-      J[parse("variables")] := [
-        op(J[parse("variables")]),
-        op(jm_surv)
-        ];
+      J[parse("variables")] := J[parse("variables")] union jm_surv;
       J[parse("moments")] := [
         op(J[parse("moments")]),
         JM_||(name)||_||(objs[i][parse("name")]),
@@ -1471,6 +1485,7 @@ IsJoint := proc(
   if (obj[parse("type")] = JOINT) and
      type(obj, table) and
      type(obj[parse("constrained_dof")], list) and
+     type(obj[parse("admissible_loads")], list) and
      type(obj[parse("coordinates")], list) and
      type(obj[parse("name")], string) and
      type(obj[parse("frame")], FRAME) and
@@ -1878,12 +1893,20 @@ ComputeSpringDisplacement := proc(
   description "Compute the displacement of a spring give the load <spring_load> "
   "and spring stiffness <stiffness>";
 
-  local x, out;
+  local x, out, Dx;
   PrintStartProc(procname);
 
+  #Physics[Assume](spring_load * Dx > 0);
+
   out := RealDomain[solve](
-    spring_load = integrate(spring_stiffness(x), x = 0..Dx), Dx
+    spring_load = convert(integrate(spring_stiffness(x), x = 0..Dx), signum), Dx
     );
+
+  if nops([out]) > 1 then
+    out := convert([out], piecewise);
+  else
+    out := convert(out, piecewise);
+  end if;
 
   PrintEndProc(procname);
   return out;
@@ -1937,14 +1960,14 @@ ComputeSupportDisplacements := proc(
   if (verbose_mode > 0) then
     printf(
       "%*sMessage (in ComputeSupportDisplacements) updating %s %s's displacements...\n",
-      print_indent, "", obj[parse("type")], obj[parse("name")]
+      print_indent, "|   ", obj[parse("type")], obj[parse("name")]
       );
   end if;
 
   obj[parse("displacements")] := sup_disp;
 
   if (verbose_mode > 0) then
-    printf("%*sDONE\n", print_indent, "");
+    printf("%*sDONE\n", print_indent, "|   ");
   end if;
 
   PrintEndProc(procname);
@@ -2010,7 +2033,7 @@ MakeStructure := proc(
       if (verbose_mode > 0) then
         printf("%*sMessage (in MakeStructure) "
           "hyperstatic structure detected with %d overconstrained directions\n",
-          print_indent, "", abs(num_dof));
+          print_indent, "|   ", abs(num_dof));
       end if;
     end if;
   elif (num_dof > 0) then
@@ -2022,7 +2045,7 @@ MakeStructure := proc(
     );
   else
     if (verbose_mode > 0) then
-      printf("%*sMessage (in MakeStructure) isostatic structure detected\n", print_indent, "");
+      printf("%*sMessage (in MakeStructure) isostatic structure detected\n", print_indent, "|   ");
     end if;
   end if;
 
@@ -2116,7 +2139,7 @@ ComputeDOF := proc(
   vertex := [];
   colors := [];
   if (verbose_mode > 0) then
-    printf("%*sMessage (in ComputeDOF) checking structure connections...\n", print_indent, "");
+    printf("%*sMessage (in ComputeDOF) checking structure connections...\n", print_indent, "|   ");
   end if;
   for i from 1 to nops(objs_tmp) do
     vertex := vertex union [objs_tmp[i][parse("name")]];
@@ -2135,7 +2158,24 @@ ComputeDOF := proc(
   end do;
 
   if (verbose_mode > 0) then
-    printf("%*sMessage (in ComputeDOF) computing degrees of freedom...\n", print_indent, "");
+    printf("%*sDONE\n", print_indent, "|   ");
+    printf("%*sMessage (in ComputeDOF) display connections graph...\n", print_indent, "|   ");
+    if (verbose_mode > 1) then
+      print(GraphTheory[DrawGraph](G), layout = tree);
+    end if;
+  end if;
+
+  # Check graph connections
+  if GraphTheory[IsConnected](G) then
+    if (verbose_mode > 0) then
+      printf("%*sDONE\n", print_indent, "|   ");
+    end if;
+  else
+    error "unconnected elements detected in the structure";
+  end if;
+
+  if (verbose_mode > 0) then
+    printf("%*sMessage (in ComputeDOF) computing degrees of freedom...\n", print_indent, "|   ");
   end if;
 
   for i from 1 to nops(objs_tmp) do
@@ -2146,28 +2186,14 @@ ComputeDOF := proc(
     elif IsRod(objs_tmp[i]) then
       dof := dof + 5;
     elif IsJoint(objs_tmp[i]) then
-      dof := dof - add(objs_tmp[i][constrained_dof][k], k = 1..6) * (nops(objs_tmp[i][parse("targets")]) - 1);
+      dof := dof - add(objs_tmp[i][parse("constrained_dof")][k], k = 1..6) * (nops(objs_tmp[i][parse("targets")]) - 1);
     elif IsSupport(objs_tmp[i]) then
-      dof := dof - add(objs_tmp[i][constrained_dof][k], k = 1..6) * (nops(objs_tmp[i][parse("targets")]) - 1);
+      dof := dof - add(objs_tmp[i][parse("constrained_dof")][k], k = 1..6) * (nops(objs_tmp[i][parse("targets")]) - 1);
     end if;
   end do;
 
   if (verbose_mode > 0) then
-    printf("%*sDONE\n", print_indent, "");
-    printf("%*sMessage (in ComputeDOF) display degrees of freedom... DOF = %d\n",print_indent, "", dof);
-    printf("%*sMessage (in ComputeDOF) display connections graph...\n", print_indent, "");
-    if (verbose_mode > 1) then
-      print(GraphTheory[DrawGraph](G));
-    end if;
-  end if;
-
-  # Check graph connections
-  if GraphTheory[IsConnected](G) then
-    if (verbose_mode > 0) then
-      printf("%*sDONE\n", print_indent, "");
-    end if;
-  else
-    error "unconnected elements detected in the structure";
+    printf("%*sDONE - DOF = %d\n", print_indent, "|   ", dof);
   end if;
 
   PrintEndProc(procname);
@@ -2342,7 +2368,7 @@ SolveStructure := proc(
     end if;
 
     if (verbose_mode > 0) then
-      printf("%*sMessage (in SolveStructure) solving the isostatic structure...\n", print_indent, "");
+      printf("%*sMessage (in SolveStructure) solving the isostatic structure...\n", print_indent, "|   ");
     end if;
     sol := IsostaticSolver(
       S_obj union S_rigid union S_joint union S_support,
@@ -2350,11 +2376,11 @@ SolveStructure := proc(
       vars
       );
     if (verbose_mode > 0) then
-      printf("%*sDONE\n", print_indent, "");
+      printf("%*sDONE\n", print_indent, "|   ");
       if (verbose_mode > 1) then
         printf("Message (in SolveStructure) solutions:\n");
         print(<sol>);
-        printf("%*sMessage (in SolveStructure) updating support reactions fields...\n", print_indent, "");
+        printf("%*sMessage (in SolveStructure) updating support reactions fields...\n", print_indent, "|   ");
       end if;
     end if;
     # Update support reactions properties
@@ -2365,7 +2391,7 @@ SolveStructure := proc(
       ];
     end do;
     if (verbose_mode > 0) then
-      printf("%*sDONE\n", print_indent, "");
+      printf("%*sDONE\n", print_indent, "|   ");
     end if;
 
   # Solve hyperstatic structure
@@ -2376,7 +2402,7 @@ SolveStructure := proc(
         "static variables of the structure and update the structure object";
     end if;
     if (verbose_mode > 0) then
-      printf("%*sMessage (in SolveStructure) solving the hyperstatic structure\n", print_indent, "");
+      printf("%*sMessage (in SolveStructure) solving the hyperstatic structure\n", print_indent, "|   ");
     end if;
     sol := HyperstaticSolver(
       S_obj union S_joint union S_support,
@@ -2387,9 +2413,9 @@ SolveStructure := proc(
       parse("timoshenko_beam") = timoshenko_beam
       );
     if (verbose_mode > 0) then
-      printf("%*sDONE\n", print_indent, "");
+      printf("%*sDONE\n", print_indent, "|   ");
       if (verbose_mode > 1) then
-        printf("%*sMessage (in SolveStructure) hyperstatic solver solution:\n", print_indent, "");
+        printf("%*sMessage (in SolveStructure) hyperstatic solver solution:\n", print_indent, "|   ");
         print(<sol>);
       end if;
     end if;
@@ -2401,7 +2427,7 @@ SolveStructure := proc(
     struct[parse("internal_actions_solved")] := true;
     # Update support reactions properties
     if (verbose_mode > 0) then
-      printf("%*sMessage (in SolveStructure) updating support reactions fields...\n", print_indent, "");
+      printf("%*sMessage (in SolveStructure) updating support reactions fields...\n", print_indent, "|   ");
     end if;
     for obj in S_support do
     obj[parse("support_reactions")] := [
@@ -2410,7 +2436,7 @@ SolveStructure := proc(
       ];
     end do;
     if (verbose_mode > 0) then
-      printf("%*sDONE\n", print_indent, "");
+      printf("%*sDONE\n", print_indent, "|   ");
     end if;
   end if;
 
@@ -2473,7 +2499,7 @@ HyperstaticSolver := proc(
     ];
 
   if (verbose_mode > 1) then
-    printf("%*sMessage (in HyperstaticSolver) solving the hyperstatic variables...\n", print_indent, "");
+    printf("%*sMessage (in HyperstaticSolver) solving the hyperstatic variables...\n", print_indent, "|   ");
   end if;
 
   # Create a solution as function of the hyperstatic variables
@@ -2506,7 +2532,7 @@ HyperstaticSolver := proc(
   hyper_sol := op(RealDomain[solve](convert(hyper_eq, signum), hyper_vars));
 
   if (verbose_mode > 1) then
-    printf("%*sDONE\n", print_indent, "");
+    printf("%*sDONE\n", print_indent, "|   ");
   end if;
 
   out := hyper_sol union subs(hyper_sol, iso_sol);
@@ -2654,7 +2680,7 @@ IsostaticSolver := proc(
   # Compute structure equations
   if (verbose_mode > 1) then
     printf("%*sMessage (in IsostaticSolver) computing the equilibrium equation for "
-      "the isostatic structure...\n", print_indent, "");
+      "the isostatic structure...\n", print_indent, "|   ");
   end if;
   eq := [];
   for i from 1 to nops(objs) do
@@ -2689,21 +2715,19 @@ IsostaticSolver := proc(
   end do;
 
   if (verbose_mode > 1) then
-    printf("%*sDONE\n", print_indent, "");
+    printf("%*sDONE\n", print_indent, "|   ");
   end if;
 
   if (verbose_mode > 1) then
-    printf("%*sMessage (in IsostaticSolver) structure equilibrium equations:\n", print_indent, "");
+    printf("%*sMessage (in IsostaticSolver) structure equilibrium equations:\n", print_indent, "|   ");
     print(<op(eq)>);
-    printf("%*sMessage (in IsostaticSolver) structure unknown variables:\n", print_indent, "");
+    printf("%*sMessage (in IsostaticSolver) structure unknown variables:\n", print_indent, "|   ");
     print(vars_tmp);
   end if;
 
   # Structure equations check
   A, B    := LinearAlgebra[GenerateMatrix](eq, vars_tmp);
   rank_eq := LinearAlgebra[Rank](A);
-
-  print(indets(eq, parse("name")));
 
   if (rank_eq <> nops(vars_tmp)) or (nops(eq) <> nops(vars_tmp)) then
     error "inconsistent system of equation, got %1 equations and %2 variables. "
@@ -2714,14 +2738,14 @@ IsostaticSolver := proc(
 
   # Solve structure equations
   if (verbose_mode > 1) then
-    printf("%*sMessage (in IsostaticSolver) computing the structure reaction forces...\n", print_indent, "");
+    printf("%*sMessage (in IsostaticSolver) computing the structure reaction forces...\n", print_indent, "|   ");
   end if;
 
   #sol := simplify(op(RealDomain[solve](eq, vars_tmp)));
   sol := op(RealDomain[solve](eq, vars_tmp));
 
   if (verbose_mode > 1) then
-    printf("%*sDONE\n", print_indent, "");
+    printf("%*sDONE\n", print_indent, "|   ");
   end if;
 
   PrintEndProc(procname);
@@ -2832,14 +2856,14 @@ InternalActions := proc(
   if (verbose_mode > 1) then
   printf(
     "%*sMessage (in InternalActions) updating %s %s's internal actions...\n",
-    print_indent, "", obj[parse("type")], obj[parse("name")]
+    print_indent, "|   ", obj[parse("type")], obj[parse("name")]
     );
   end if;
 
   obj[parse("internal_actions")] := ia;
 
   if (verbose_mode > 1) then
-    printf("%*sDONE\n", print_indent, "");
+    printf("%*sDONE\n", print_indent, "|   ");
   end if;
 
   PrintEndProc(procname);
@@ -2882,8 +2906,8 @@ ComputeDisplacements := proc(
         uz_sol := tz_sol + integrate(subs(obj[parse("internal_actions")](x), Tz(x)/(obj[parse("timo_shear_coeff")](x)[2]*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x))), x = 0..X);
       end if;
       disp := [
-        rx = unapply(rx_sol, X), ry = unapply(ry_sol, X), rz = unapply(rz_sol, X),
-        ux = unapply(ux_sol, X), uy = unapply(uy_sol, X), uz = unapply(uz_sol, X)
+        ux = unapply(ux_sol, X), uy = unapply(uy_sol, X), uz = unapply(uz_sol, X),
+        rx = unapply(rx_sol, X), ry = unapply(ry_sol, X), rz = unapply(rz_sol, X)
       ];
 
       # Update object displacements
