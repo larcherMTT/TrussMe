@@ -16,7 +16,7 @@
 TrussMe := module()
 
 export  `union`,
-        SetVerboseMode,
+        SetModuleOptions,
         PrintStartProc,
         PrintEndProc,
         IsEarth,
@@ -69,7 +69,8 @@ export  `union`,
         CleanBeam,
         CleanStructure,
         DrawStructureGraph,
-        DrawStructureSparseMatrix;
+        DrawStructureSparseMatrix,
+        ComputePunctualDisplacement;
 
 global  ground;
 
@@ -82,6 +83,7 @@ local   ModuleLoad,
         NewtonEuler,
         HyperstaticSolver,
         IsostaticSolver,
+        LinearSolver,
         ComputeInternalActions,
         ComputePotentialEnergy,
         ComputeDisplacements,
@@ -105,6 +107,7 @@ local   ModuleLoad,
         IsInsideStructure,
         lib_base_path,
         verbose_mode,
+        suppress_warnings,
         print_indent,
         print_increment,
         ListPadding,
@@ -184,7 +187,8 @@ end proc: # ModuleLoad
 ModuleUnload := proc()
   description "Module 'TrussMe' module unload procedure";
   printf("Unloading 'TrussMe'\n");
-  verbose_mode := 1;
+  verbose_mode      := 1;
+  suppress_warnings := false;
 
 end proc: # ModuleUnload
 
@@ -245,6 +249,7 @@ InitTrussMe := proc()
   gravity := [0, 0, 0];
 
   verbose_mode           := 1;
+  suppress_warnings      := false;
   print_indent           := 0;
   print_increment        := 4;
   Beam_color             := "SteelBlue";
@@ -345,21 +350,30 @@ end proc: # union
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-SetVerboseMode := proc(
-  mode::integer, # Procedure name
+SetModuleOptions := proc(
+  {
+    verbosity::integer      := false, # Verbose mode
+    disable_warnings::boolean := false # Suppress warnings
+  },
   $)::nothing;
 
-  description "Set verbose mode <mode> between 0, 1, 2";
+  description "Set the module options: "
+    "<verbose_mode>::integer = 0, 1, 2"
+    "<suppress_warnings>::boolean = true, false";
 
-  # Show start message
-  if (mode < 0) or
-     (mode > 2) then
+  # Verbosity
+  if (verbosity < 0) or
+     (verbosity > 2) then
     error "invalid verbose mode detected";
   else
-    verbose_mode := mode;
+    verbose_mode := verbosity;
   end if;
-  NULL;
-end proc: # PrintStartProc
+
+  # Suppress warnings
+  suppress_warnings := disable_warnings;
+
+  return NULL;
+end proc: # SetModuleOptions
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -877,10 +891,10 @@ MakeForce := proc(
   admissible_components := convert(proj_components .~ <obj[parse("admissible_loads")][1..3]>, list);
 
   # Check input arguments
-  if proj_components <> admissible_components then
+  if proj_components <> admissible_components and (not suppress_warnings) then
   ["x_comp", "y_comp", "z_comp"] =~
     convert(proj_components .~ <eval(map((x->evalb(x = 0)), obj[parse("admissible_loads")][1..3]), [true = 1, false = 0])>, list);
-    WARNING("Force components is not admissible for the target object. The "
+    WARNING("Force components are not admissible for the target object. The "
       "following components will be ignored: %1", remove(x-> rhs(x) = 0, %));
   end if;
 
@@ -948,10 +962,10 @@ MakeMoment := proc(
   admissible_components := convert(proj_components .~ <obj[parse("admissible_loads")][4..6]>, list);
 
   # Check input arguments
-  if proj_components <> admissible_components then
+  if proj_components <> admissible_components and (not suppress_warnings) then
     ["x_comp", "y_comp", "z_comp"] =~
       convert(proj_components .~ <eval(map((x->evalb(x = 0)), obj[parse("admissible_loads")][4..6]), [true = 1, false = 0])>, list);
-    WARNING("Force components is not admissible for the target object. The "
+    WARNING("Moment components are not admissible for the target object. The "
       "following components will be ignored: %1", remove(x-> rhs(x) = 0, %));
   end if;
 
@@ -1145,11 +1159,16 @@ MakeSupport := proc(
     "(default = ground)";
 
   local S, J_tmp, i, j, sr_F_names, sr_F_values_tmp, sr_M_names, sr_M_values_tmp,
-    S_stiffness, x;
+    S_stiffness, x, obj_coords;
   PrintStartProc(procname);
 
+  # Substitute -1 entries of coords with the corresponding object length
+  obj_coords := [seq(`if`(coords[i] = -1, objs[i][parse("length")], coords[i]), i = 1..nops(coords))];
+
   for i from 1 to nops(objs) do
-    if IsRod(objs[i]) and (coords[i] <> 0) and (coords[i] <> objs[i][parse("length")]) then
+    if IsRod(objs[i]) and
+        (ListPadding(obj_coords[i], 3) <> [0, 0, 0]) and
+        (ListPadding(obj_coords[i]^~2, 3) <> [objs[i][parse("length")]^~2, 0, 0]) then
       error "SUPPORT objects can only be applied at extremes of ROD objects"
     end if;
     if IsRod(objs[i]) and (constrained_dof[4..6] <> [0, 0, 0]) then
@@ -1164,7 +1183,7 @@ MakeSupport := proc(
       error "stiffness corresponding to constrained degrees of freedom cannot be zero";
     end if;
     # Check for zero stiffness on unconstrained dof
-    if (S_stiffness(x) <> stiffness(x)) then
+    if (S_stiffness(x) <> stiffness(x)) and (not suppress_warnings) then
       WARNING("stiffness components not corresponding to constrained_dof are ignored");
     end if;
   else
@@ -1174,7 +1193,7 @@ MakeSupport := proc(
     end if;
     # Check for zero stiffness on unconstrained dof
     S_stiffness := (x) -> stiffness *~ constrained_dof;
-    if (S_stiffness(x) <> stiffness) then
+    if (S_stiffness(x) <> stiffness) and (not suppress_warnings) then
       WARNING("stiffness components not corresponding to constrained_dof are ignored");
     end if;
   end if;
@@ -1183,7 +1202,7 @@ MakeSupport := proc(
     parse("type")                     = SUPPORT,
     parse("constrained_dof")          = constrained_dof,
     parse("admissible_loads")         = constrained_dof,
-    parse("coordinates")              = [[0,0,0], op(map(ListPadding, coords, 3))],
+    parse("coordinates")              = [[0,0,0], op(map(ListPadding, obj_coords, 3))],
     parse("name")                     = name,
     parse("frame")                    = RF,
     parse("targets")                  = [earth[parse("name")], op(GetNames(objs))],
@@ -1336,13 +1355,16 @@ MakeJoint := proc(
     "(default = ground)";
 
   local J, i, jf_comp, jm_comp, jf_comp_obj, jm_comp_obj, jm_surv, jf_surv,
-    jf_comp_cons, jm_comp_cons, constraint, P_tmp;
+    jf_comp_cons, jm_comp_cons, constraint, P_tmp, obj_coords;
   PrintStartProc(procname);
+
+  # Substitute -1 entries of coords with the corresponding object length
+  obj_coords := [seq(`if`(coords[i] = -1, objs[i][parse("length")], coords[i]), i = 1..nops(coords))];
 
   for i from 1 to nops(objs) do
     if IsRod(objs[i]) and
-        (ListPadding(coords[i], 3) <> [0, 0, 0]) and
-        (ListPadding(coords[i], 3) <> [objs[i][parse("length")], 0, 0]) then
+        (ListPadding(obj_coords[i], 3) <> [0, 0, 0]) and
+        (ListPadding(obj_coords[i]^~2, 3) <> [objs[i][parse("length")]^~2, 0, 0]) then
       error "JOINT objects can only be applied at extremes of ROD objects";
     end if;
     if IsRod(objs[i]) and (constrained_dof[4..6] <> [0, 0, 0]) then
@@ -1354,7 +1376,7 @@ MakeJoint := proc(
     parse("type")                     = JOINT,
     parse("constrained_dof")          = constrained_dof,
     parse("admissible_loads")         = constrained_dof,
-    parse("coordinates")              = map(ListPadding, coords, 3),
+    parse("coordinates")              = map(ListPadding, obj_coords, 3),
     parse("name")                     = name,
     parse("frame")                    = RF,
     parse("targets")                  = GetNames(objs),
@@ -1398,7 +1420,7 @@ MakeJoint := proc(
       # Create the reaction force between joint and obj
       # Force on obj
       JF_||(name)||_||(objs[i][parse("name")]) := MakeForce(
-        jf_comp_obj, coords[i], objs[i], objs[i][parse("frame")]
+        jf_comp_obj, obj_coords[i], objs[i], objs[i][parse("frame")]
         );
       # Force on joint
       JF_||(objs[i][parse("name")])||_||(name) := MakeForce(
@@ -1445,7 +1467,7 @@ MakeJoint := proc(
       # Create the reaction force between joint and obj
       # Moment on obj
       JM_||(name)||_||(objs[i][parse("name")]) := MakeMoment(
-        jm_comp_obj, coords[i], objs[i], objs[i][parse("frame")]
+        jm_comp_obj, obj_coords[i], objs[i], objs[i][parse("frame")]
         );
       # Moment on joint
       JM_||(objs[i][parse("name")])||_||(name) := MakeMoment(
@@ -1546,10 +1568,10 @@ MakeRodPoints := proc(
 
   ell := Norm2(point2 - point1);
   ex  := (point2 - point1) /~ ell;
-  ez  := convert(LinearAlgebra[CrossProduct](<op(ex)>, <op(vec)>), list);
-  ez  := ez /~ Norm2(ez);
-  ey  := convert(LinearAlgebra[CrossProduct](<op(ez)>, <op(ex)>), list);
+  ey  := convert(LinearAlgebra[CrossProduct](<op(vec)>, <op(ex)>), list);
   ey  := ey /~ Norm2(ey);
+  ez  := convert(LinearAlgebra[CrossProduct](<op(ex)>, <op(ey)>), list);
+  ez  := ez /~ Norm2(ez);
 
   RF := <<ex[1],     ex[2],     ex[3],     0>|
          <ey[1],     ey[2],     ey[3],     0>|
@@ -1557,14 +1579,14 @@ MakeRodPoints := proc(
          <point1[1], point1[2], point1[3], 1>>;
 
   out := MakeRod(
-    name, ell, RF,
+    name, ell, simplify(RF),
     parse("area")     = area,
     parse("material") = material
     );
 
   PrintEndProc(procname);
   return out;
-end proc: # MakeRod
+end proc: # MakeRodPoints
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -1656,7 +1678,7 @@ MakeBeamPoints := proc(
   name::string,  # Object name
   point1::POINT, # First point
   point2::POINT, # Second point
-  vec::VECTOR,   # Vector for XY-plane
+  vec::VECTOR,   # Vector for XY-plane (normal vector)
   {
     area::{algebraic, procedure}                   := infinity,       # Section area (m^2)
     timo_shear_coeff::{list(algebraic), procedure} := [5/6, 5/6],     # Timoshenko shear coefficient
@@ -1686,17 +1708,18 @@ MakeBeamPoints := proc(
 
   ell := Norm2(point2 - point1);
   ex  := (point2 - point1) /~ ell;
-  ez  := convert(LinearAlgebra[CrossProduct](<op(ex)>, <op(vec)>), list);
-  ez  := ez /~ Norm2(ez);
-  ey  := convert(LinearAlgebra[CrossProduct](<op(ez)>, <op(ex)>), list);
+  ey  := convert(LinearAlgebra[CrossProduct](<op(vec)>, <op(ex)>), list);
   ey  := ey /~ Norm2(ey);
+  ez  := convert(LinearAlgebra[CrossProduct](<op(ex)>, <op(ey)>), list);
+  ez  := ez /~ Norm2(ez);
+
 
   RF := <<ex[1],     ex[2],     ex[3],     0>|
          <ey[1],     ey[2],     ey[3],     0>|
          <ez[1],     ez[2],     ez[3],     0>|
          <point1[1], point1[2], point1[3], 1>>;
 
-  out := MakeBeam(name, ell, RF, {
+  out := MakeBeam(name, ell, simplify(RF), {
     area             = area,
     timo_shear_coeff = timo_shear_coeff,
     material         = material,
@@ -1996,7 +2019,7 @@ MakeStructure := proc(
     "external actions <exts>, optional hyperstatic variables <hyper_vars>, optional "
     "hyperstatic displacements <hyper_disp>";
 
-  local num_dof, i, names, candidate_hyp_vars, Graph, out;
+  local num_dof, i, names, candidate_hyp_vars, Graph, obj, S_ext, out;
   PrintStartProc(procname);
 
   # Check for duplicate names
@@ -2011,7 +2034,7 @@ MakeStructure := proc(
   num_dof, Graph := ComputeDOF(objs);
 
   if (num_dof < 0) then
-    if (nops(hyper_vars) <> -num_dof) then
+    if (nops(hyper_vars) <> -num_dof) and (not suppress_warnings) then
       candidate_hyp_vars := [];
       for i from 1 to nops(objs) do
         if IsSupport(objs[i]) or IsJoint(objs[i]) then
@@ -2037,7 +2060,7 @@ MakeStructure := proc(
           print_indent, "|   ", abs(num_dof));
       end if;
     end if;
-  elif (num_dof > 0) then
+  elif (num_dof > 0) and (not suppress_warnings) then
     #error "not enough constraints in the structure";
     WARNING(
       "the structure is underconstrained with %1 unconstrained directions. "
@@ -2050,19 +2073,42 @@ MakeStructure := proc(
     end if;
   end if;
 
+  # Add gravity distributed load
+  S_ext := exts;
+  if (gravity <> [0, 0, 0]) then
+    for obj in objs do
+      if IsRod(obj) and (not suppress_warnings) then
+        WARNING("Message (in SolveStructure) gravity load is not supported for rod %1", obj);
+      elif IsBeam(obj) then
+        g_load||(obj[parse("name")]) := MakeQForce(
+          (x -> gravity *~ obj[parse("area")](x) *~ obj[parse("material")][parse("density")]),
+          obj,ground
+          );
+        S_ext := S_ext union {g_load||(obj[parse("name")])};
+      elif IsRigidBody(obj) then
+        g_load||(obj[parse("name")]) := MakeForce(
+          gravity *~ obj[parse("mass")], obj[parse("COM")], obj, ground
+          );
+        S_ext := S_ext union {g_load||(obj[parse("name")])};
+      end if;
+    end do;
+  end if;
+
   out := table({
     parse("type")                      = STRUCTURE,
     parse("objects")                   = objs,
-    parse("external_actions")          = exts,
+    parse("external_actions")          = S_ext,
     parse("dof")                       = num_dof,
     parse("connections_graph")         = Graph,
     parse("hyperstatic_variables")     = hyper_vars,
     parse("hyperstatic_displacements") = hyper_disp,
     parse("equations")                 = [],
     parse("variables")                 = [],
+    parse("potential_energy")          = 0,
     parse("support_reactions_solved")  = false,
     parse("internal_actions_solved")   = false,
-    parse("displacement_solved")       = false
+    parse("displacement_solved")       = false,
+    parse("potential_energy_solved")   = false
     });
 
   PrintEndProc(procname);
@@ -2283,7 +2329,7 @@ NewtonEuler := proc(
           integrate, exts[i][parse("components")](x), x = 0..upper_lim
           );
       end if;
-    else
+    elif (not suppress_warnings) then
       WARNING("Message (in NewtonEuler) %1 is not applied to %2", exts[i], obj);
     end if;
   end do;
@@ -2306,7 +2352,7 @@ NewtonEuler := proc(
         eq_R := eq_R + map(integrate,
           exts[i][parse("components")](x), x = 0..upper_lim);
       end if;
-    else
+    elif (not suppress_warnings) then
       WARNING("Message (in NewtonEuler) %1 is not applied to %2", exts[i], obj);
     end if;
   end do;
@@ -2322,20 +2368,21 @@ end proc: # NewtonEuler
 SolveStructure := proc(
   struct::STRUCTURE, # Structure object
   {
-    compute_intact::boolean  := false, # Internal actions computation flag
-    compute_disp::boolean    := false, # Displacement computation flag
-    timoshenko_beam::boolean := false, # Timoshenko beam flag
-    implicit::boolean        := false  # Implicit solution flag
+    compute_internal_actions::boolean := false, # Internal actions computation flag
+    compute_displacements::boolean    := false, # Displacement computation flag
+    compute_potential_energy::boolean := false, # Potential energy computation flag
+    timoshenko_beam::boolean          := false, # Timoshenko beam flag
+    implicit::boolean                 := false  # Implicit solution flag
   }, $)
 
   description "Solve the static equilibrium of a structure with inputs: "
     "structure <struct>, optional compute internal action enabling flag "
-    "<compute_intact>, optional compute displacement enabling flag "
-    "<compute_disp>, optional Timoshenko beam flag <timoshenko_beam>, and "
+    "<compute_internal_actions>, optional compute displacement enabling flag "
+    "<compute_displacements>, optional Timoshenko beam flag <timoshenko_beam>, and "
     "optional implicit solution flag <implicit>";
 
   local g_load, S_obj, S_rigid, S_ext, S_support, S_joint, S_con_forces, vars,
-    sol, obj, x, str_eq, str_vars;
+    sol, obj, x, str_eq, str_vars, P_energy;
 
   PrintStartProc(procname);
 
@@ -2369,30 +2416,10 @@ SolveStructure := proc(
 
   S_ext := struct[parse("external_actions")];
 
-  # Add gravity distributed load
-  if (gravity <> [0, 0, 0]) then
-    for obj in S_obj union S_rigid do
-      if IsRod(obj) then
-        WARNING("Message (in SolveStructure) gravity load is not supported for rod %1", obj);
-      elif IsBeam(obj) then
-        g_load||(obj[parse("name")]) := MakeQForce(
-          (x -> gravity *~ obj[parse("area")](x) *~ obj[parse("material")][parse("density")]),
-          obj,ground
-          );
-        S_ext := S_ext union {g_load||(obj[parse("name")])};
-      elif IsRigidBody(obj) then
-        g_load||(obj[parse("name")]) := MakeForce(
-          gravity *~ obj[parse("mass")], obj[parse("COM")], obj, ground
-          );
-        S_ext := S_ext union {g_load||(obj[parse("name")])};
-      end if;
-    end do;
-  end if;
-
   # Solve isostatic structure
   if (struct[dof] >= 0) then
 
-    if struct[dof] > 0 then
+    if struct[dof] > 0 and (not suppress_warnings) then
       WARNING("Message (in SolveStructure) structure is underconstrained. "
         "Trying to solve it anyway. Results computation may fail due to rigid "
         "body motions.");
@@ -2439,7 +2466,7 @@ SolveStructure := proc(
     if (verbose_mode > 0) then
       printf("%*sMessage (in SolveStructure) solving the hyperstatic structure\n", print_indent, "|   ");
     end if;
-    sol, str_eq, str_vars := HyperstaticSolver(
+    sol, str_eq, str_vars, P_energy := HyperstaticSolver(
       S_obj union S_joint union S_support,
       S_ext union S_con_forces,
       vars,
@@ -2448,9 +2475,6 @@ SolveStructure := proc(
       parse("timoshenko_beam") = timoshenko_beam,
       parse("implicit") = implicit
       );
-    # Update Structure equations and variables
-    struct[parse("equations")] := str_eq;
-    struct[parse("variables")] := str_vars;
     if (verbose_mode > 0) then
       printf("%*sDONE\n", print_indent, "|   ");
       if (verbose_mode > 1) then
@@ -2458,6 +2482,13 @@ SolveStructure := proc(
         print(<sol>);
       end if;
     end if;
+    # Update Structure equations and variables
+    struct[parse("equations")] := str_eq;
+    struct[parse("variables")] := str_vars;
+    # Update structure energy
+    struct[parse("potential_energy")] := P_energy;
+    # Set potential energy computed flag
+    struct[parse("potential_energy_solved")] := true;
     # Update objects internal actions
     for obj in S_obj do
       obj[parse("internal_actions")] := subs(sol, obj[parse("internal_actions")]);
@@ -2469,10 +2500,7 @@ SolveStructure := proc(
       printf("%*sMessage (in SolveStructure) updating support reactions fields...\n", print_indent, "|   ");
     end if;
     for obj in S_support do
-    obj[parse("support_reactions")] := [
-      seq(lhs(obj[parse("support_reactions")][j]) = subs(sol,rhs(obj[parse("support_reactions")][j])),
-      j = 1..nops(obj[parse("support_reactions")]))
-      ];
+    obj[parse("support_reactions")] := subs(sol, obj[parse("support_reactions")]);
     end do;
     if (verbose_mode > 0) then
       printf("%*sDONE\n", print_indent, "|   ");
@@ -2483,7 +2511,7 @@ SolveStructure := proc(
   struct[parse("support_reactions_solved")] := true;
 
   # Compute internal actions
-  if ((compute_intact) or (compute_disp)) and not struct[parse("internal_actions_solved")] then
+  if ((compute_internal_actions) or (compute_displacements) or (compute_potential_energy)) and not struct[parse("internal_actions_solved")] then
     ComputeInternalActions(
       S_obj, S_ext union S_con_forces, sol
       );
@@ -2491,8 +2519,19 @@ SolveStructure := proc(
     struct[parse("internal_actions_solved")] := true;
   end if;
 
+  # Compute potential energy
+  if (compute_potential_energy) and not struct[parse("potential_energy_solved")] then
+    P_energy := ComputePotentialEnergy(
+      S_obj union S_support union S_joint, sol,
+      parse("timoshenko_beam") = timoshenko_beam);
+    # Update structure energy
+    struct[parse("potential_energy")] := P_energy;
+    # Set potential energy computed flag
+    struct[parse("potential_energy_solved")] := true;
+  end if;
+
   # Compute displacements
-  if (compute_disp) and not struct[parse("displacement_solved")] then
+  if (compute_displacements) and not struct[parse("displacement_solved")] then
     ComputeDisplacements(
       S_obj union S_joint union S_support, S_ext union S_con_forces, sol
       );
@@ -2520,7 +2559,7 @@ HyperstaticSolver := proc(
   hyper_disp::list, # Hyperstatic displacements
   {
     timoshenko_beam::boolean := false, # Timoshenko beam flag
-    implicit::boolean := false         # Implicit flag
+    implicit::boolean        := false  # Implicit flag
   }, $)
 
   description "Solve hyperstatic structure with inputs objects <objs>, external "
@@ -2529,7 +2568,7 @@ HyperstaticSolver := proc(
     "<timoshenko_beam>";
 
   local hyper_eq, hyper_load, hyper_comps, hyper_compliant_disp, hyper_support, i, obj,
-        iso_vars, iso_sol, iso_eq, hyper_sol, sol, P, S_objs, E_objs, out;
+        iso_vars, iso_sol, iso_eq, hyper_sol, P_energy, S_objs, E_objs, sol;
   PrintStartProc(procname);
 
   # Parse input objects and find objects with internal actions property
@@ -2555,13 +2594,13 @@ HyperstaticSolver := proc(
     ];
 
   # Compute structure internal energy
-  P := ComputePotentialEnergy(E_objs, iso_sol, parse("timoshenko_beam") = timoshenko_beam);
+  P_energy := ComputePotentialEnergy(E_objs, iso_sol, parse("timoshenko_beam") = timoshenko_beam);
 
   hyper_eq := [];
 
   for i from 1 to nops(hyper_vars) do
     # Compose the hyperstatic equation
-    hyper_eq := hyper_eq union [diff(P, hyper_vars[i]) = hyper_disp[i]];
+    hyper_eq := hyper_eq union [diff(P_energy, hyper_vars[i]) = hyper_disp[i]];
   end do;
 
   # Check for implicit solution flag
@@ -2574,18 +2613,24 @@ HyperstaticSolver := proc(
     # Solve hyperstatic equations
     hyper_sol := op(RealDomain[solve](convert(hyper_eq, signum), hyper_vars));
 
+    if hyper_sol = NULL then
+      error "HyperstaticSolver: hyperstatic solution not found";
+    end if;
+
+    # Substitute hyper_sol in P_energy
+    P_energy := subs(hyper_sol, P_energy);
+
     if (verbose_mode > 1) then
       printf("%*sDONE\n", print_indent, "|   ");
     end if;
-    out := hyper_sol union subs(hyper_sol, iso_sol);
+    sol := hyper_sol union subs(hyper_sol, iso_sol);
   end if;
 
   PrintEndProc(procname);
-  return out;
-  if _nresults = 3 then
-    return out, iso_eq union hyper_eq, iso_vars union hyper_vars;
+  if _nresults = 4 then
+    return sol, iso_eq union hyper_eq, iso_vars union hyper_vars, P_energy;
   else
-    return dof;
+    return sol;
   end
 end proc: # HyperstaticSolver
 
@@ -2755,14 +2800,14 @@ IsostaticSolver := proc(
   # Remove non used variables
   iso_vars := vars;
   for i from 1 to nops(vars) do
-  if (has(iso_eq, vars[i])) = false then
-    iso_vars := remove(x -> x = vars[i], iso_vars);
-    WARNING(
-      "Message (in IsostaticSolver) %1 was removed from variables because it "
-      "is not used in the equations",
-      vars[i]
-      );
+    if (has(iso_eq, vars[i])) = false then
+      iso_vars := remove(x -> x = vars[i], iso_vars);
+      if (not suppress_warnings) then
+        WARNING(
+          "Message (in IsostaticSolver) %1 was removed from variables because it "
+          "is not used in the equations", vars[i]);
       end if;
+    end if;
   end do;
 
   if (verbose_mode > 1) then
@@ -2781,14 +2826,10 @@ IsostaticSolver := proc(
     iso_sol := [];
   else
     # Matrix form
-    A, B    := LinearAlgebra[GenerateMatrix](iso_eq, iso_vars);
-    # Gaussian elimination
-    simplify(LinearAlgebra[GaussianElimination](<A|B>));
-    A := %[1..-1, 1..-2];
-    B := %%[1..-1, -1];
+    A, B := LinearAlgebra[GenerateMatrix](iso_eq, iso_vars);
     # Check rank
-    rank_eq := LinearAlgebra[Rank](A);
-    if (rank_eq <> nops(iso_vars)) or (nops(iso_eq) <> nops(iso_vars)) then
+    rank_eq := LinearAlgebra[Rank](LinearAlgebra[GaussianElimination](A));
+    if (rank_eq <> nops(iso_vars)) then
       error "inconsistent system of equation, got %1 equations and %2 variables. "
         "Rank of the system  wrt the system variables is %3. Check structure "
         "supports and joints",
@@ -2804,7 +2845,21 @@ IsostaticSolver := proc(
     end if;
 
     #iso_sol := op(RealDomain[solve](iso_eq, iso_vars));
-    iso_sol := iso_vars =~ convert(simplify(LinearAlgebra[LinearSolve](A, B)), list);
+    #iso_sol := iso_vars =~ convert(simplify(LinearAlgebra[LinearSolve](A, B)), list);
+    if nops(iso_eq) = nops(iso_vars) then
+      iso_sol := LinearSolver(iso_eq, iso_vars);
+    else
+      if (not suppress_warnings) then
+        WARNING("Message (in IsostaticSolver) the system of equations is not "
+          "consistent, trying to solve the system of equations anyway without "
+          "LinearSolver");
+      end if;
+      iso_sol := op(RealDomain[solve](iso_eq, iso_vars));
+    end if;
+
+    if iso_sol = NULL then
+      error "IsostaticSolver: isostatic solution not found";
+    end if;
 
     if (verbose_mode > 1) then
       printf("%*sDONE\n", print_indent, "|   ");
@@ -2837,7 +2892,6 @@ ComputeInternalActions := proc(
     "objects with given external actions and structure solution";
 
   local i, j, active_ext, subs_ext;
-
   PrintStartProc(procname);
 
   # Substitute structure solution into loads
@@ -2884,7 +2938,7 @@ InternalActions := proc(
   # Assumptions
   # NOTE: assumptions higly help readability of the solution and improve
   # computation, but results must be considered valid only in the assumed range
-   Physics[Assume](x > 0, x < obj[parse("length")]);
+  Physics[Assume](x > 0, x < obj[parse("length")]);
 
   # Compute internal actions for concentrated loads as effect overlay
   for i from 1 to nops(exts) do
@@ -2966,11 +3020,11 @@ ComputeDisplacements := proc(
       ry_sol := integrate(subs(obj[parse("internal_actions")](x), My(x)/(obj[parse("material")][parse("elastic_modulus")]*obj[parse("inertias")][2](x))), x = 0..X);
       rz_sol := integrate(subs(obj[parse("internal_actions")](x), Mz(x)/(obj[parse("material")][parse("elastic_modulus")]*obj[parse("inertias")][3](x))), x = 0..X);
       ux_sol := integrate(subs(obj[parse("internal_actions")](x), N(x)/(obj[parse("material")][parse("elastic_modulus")]*obj[parse("area")](x))), x = 0..X);
-      uy_sol := integrate(eval(ry_sol, X = x), x = 0..X);
-      uz_sol := integrate(eval(rz_sol, X = x), x = 0..X);
+      uy_sol := integrate(eval(rz_sol, X = x), x = 0..X);
+      uz_sol := integrate(eval(ry_sol, X = x), x = 0..X);
       if timoshenko_beam then
-        uy_sol := ty_sol + integrate(subs(obj[parse("internal_actions")](x), Ty(x)/(obj[parse("timo_shear_coeff")](x)[1]*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x))), x = 0..X);
-        uz_sol := tz_sol + integrate(subs(obj[parse("internal_actions")](x), Tz(x)/(obj[parse("timo_shear_coeff")](x)[2]*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x))), x = 0..X);
+        uy_sol := uy_sol + integrate(subs(obj[parse("internal_actions")](x), Ty(x)/(obj[parse("timo_shear_coeff")](x)[1]*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x))), x = 0..X);
+        uz_sol := uz_sol + integrate(subs(obj[parse("internal_actions")](x), Tz(x)/(obj[parse("timo_shear_coeff")](x)[2]*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x))), x = 0..X);
       end if;
       disp := [
         ux = unapply(ux_sol, X), uy = unapply(uy_sol, X), uz = unapply(uz_sol, X),
@@ -3000,6 +3054,108 @@ ComputeDisplacements := proc(
 
   PrintEndProc(procname);
 end proc: # ComputeDisplacements
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+ComputePunctualDisplacement := proc(
+  struct::STRUCTURE,                            # Structure
+  obj::{BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}, # Object on which the coordinates are defined
+  coords::list,                                 # Punctual coordinates defined in obj reference frame
+  directions::list,                             # Displacement directions defined in obj reference frame
+  # TODO: add the possibility to define the directions in custom reference frames
+  # TODO: add possibility for list of points
+  {
+    timoshenko_beam::boolean := false # Timoshenko beam flag
+  },
+  $)::list;
+
+  description "Compute the Structure <struct> punctual displacements of the "
+    "object <obj> at the coordinates <coords> in the directions <directions>";
+
+  local out, struct_copy, obj_copy, dummy_loads, dummy_Fx, dummy_Fy, dummy_Fz,
+    dummy_Mx, dummy_My, dummy_Mz, x, dFx, dFy, dFz, dMx, dMy, dMz, P_energy,
+    subs_null_dummy, disp;
+  PrintStartProc(procname);
+
+  # Create a copy of the structure
+  # FIXME: original strrcture objects are modified by the procedure
+  struct_copy := copy(struct);
+
+  # Create a copy of the object
+  obj_copy := copy(obj);
+
+  # Create dummy loads in the directions of interest
+  dummy_loads := [dummy_Fx, dummy_Fy, dummy_Fz, dummy_Mx, dummy_My, dummy_Mz] .~ directions;
+  dummy_Fx := MakeForce([dFx,0,0], coords, obj_copy, obj_copy[parse("frame")]);
+  dummy_Fy := MakeForce([0,dFy,0], coords, obj_copy, obj_copy[parse("frame")]);
+  dummy_Fz := MakeForce([0,0,dFz], coords, obj_copy, obj_copy[parse("frame")]);
+  dummy_Mx := MakeMoment([dMx,0,0], coords, obj_copy, obj_copy[parse("frame")]);
+  dummy_My := MakeMoment([0,dMy,0], coords, obj_copy, obj_copy[parse("frame")]);
+  dummy_Mz := MakeMoment([0,0,dMz], coords, obj_copy, obj_copy[parse("frame")]);
+  dummy_loads := remove(x-> x = 0, convert(dummy_loads, set));
+
+  # Add dummy loads to the structure copy
+  struct_copy[parse("external_actions")] := struct_copy[parse("external_actions")] union dummy_loads;
+
+  # Solve the structure copy
+  SolveStructure(
+    struct_copy,
+    parse("compute_internal_actions") = false,
+    parse("compute_displacements") = false,
+    parse("compute_potential_energy") = true,
+    parse("timoshenko_beam") = timoshenko_beam,
+    parse("implicit") = false);
+
+  # Get structure potential energy
+  P_energy := struct_copy[parse("potential_energy")];
+
+  # null dummy loads substitution list
+  subs_null_dummy := [dFx, dFy, dFz, dMx, dMy, dMz] =~ [0,0,0,0,0,0];
+
+  # Compute punctual displacements
+  disp := [0,0,0,0,0,0];
+  disp[1] := ux = unapply(subs(subs_null_dummy, diff(P_energy, dFx)),x);
+  disp[2] := uy = unapply(subs(subs_null_dummy, diff(P_energy, dFy)),x);
+  disp[3] := uz = unapply(subs(subs_null_dummy, diff(P_energy, dFz)),x);
+  disp[4] := rx = unapply(subs(subs_null_dummy, diff(P_energy, dMx)),x);
+  disp[5] := ry = unapply(subs(subs_null_dummy, diff(P_energy, dMy)),x);
+  disp[6] := rz = unapply(subs(subs_null_dummy, diff(P_energy, dMz)),x);
+
+  # Select displacement relative to desired directions
+  out := simplify(disp[select(x -> x <> 0, [seq(i, i=1..6)] *~ directions)]);
+
+  PrintEndProc(procname);
+  return out;
+end proc: # ComputePunctualDisplacement
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+LinearSolver := proc(
+  eqns::{list,set},  # Equations
+  vars::{list, set}, # Variables
+$)::list;
+
+description "Solve the linear system of equations <eqns> for the variables <vars>";
+
+  local sol, D, i, A, b, A_copy;
+  PrintStartProc(procname);
+
+  # Matrix form of the linear system
+  A, b := LinearAlgebra[GenerateMatrix](eqns, vars);
+
+  # Apply Cramer's rule to solve the linear system
+  D := LinearAlgebra[Determinant](A, method=algnum);
+
+  sol := vars;
+  for i from 1 to nops(vars) do
+    A_copy := copy(A);
+    A_copy[..,i] := b;
+    sol[i] := vars[i] = simplify(LinearAlgebra[Determinant](A_copy, method=algnum)/D);
+  end do;
+
+  PrintEndProc(procname);
+  return sol;
+end proc: # LinearSolver
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -3048,7 +3204,7 @@ PlotBeam := proc(
   PrintStartProc(procname);
 
   P1 := subs(op(data), Origin(obj[parse("frame")]));
-  P2 := subs(op(data), Origin(obj[parse("frame")].Translate(obj[parse("length")], 0, 0)));
+  P2 := subs(op(data), Origin(eval(obj[parse("frame")]).Translate(obj[parse("length")], 0, 0)));
 
   out := plots:-display(
     plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 6),
@@ -3073,7 +3229,7 @@ PlotRod := proc(
   PrintStartProc(procname);
 
   P1 := subs(op(data), Origin(obj[parse("frame")]));
-  P2 := subs(op(data), Origin(eval(obj[parse("frame")].Translate(obj[parse("length")], 0, 0))));
+  P2 := subs(op(data), Origin(eval(obj[parse("frame")]).Translate(obj[parse("length")], 0, 0)));
 
   out := plots:-display(
     plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 4),
@@ -3098,7 +3254,7 @@ PlotJoint := proc(
   PrintStartProc(procname);
 
   O := subs(op(data), Origin(
-    parse(obj[parse("targets")][1])[parse("frame")].
+    eval(parse(obj[parse("targets")][1])[parse("frame")]).
     Translate(op(ListPadding(obj[parse("coordinates")][1],3)))
     ));
 
@@ -3124,7 +3280,7 @@ PlotSupport := proc(
 
   if (nops(obj[parse("targets")]) > 1) then
     O := subs(op(data), Origin(
-      parse(obj[parse("targets")][2])[parse("frame")].
+      eval(parse(obj[parse("targets")][2])[parse("frame")]).
       Translate(op(ListPadding(obj[parse("coordinates")][2],3)))
       ));
   else
@@ -3193,7 +3349,7 @@ IsInsideJoint := proc(
       parse(obj[parse("targets")][2])[parse("frame")].
       Translate(obj[parse("coordinates")][2], 0, 0)
       );
-  else
+  elif (not suppress_warnings) then
     WARNING("The support has no targets");
   end if;
 
@@ -3225,7 +3381,7 @@ IsInsideSupport := proc(
       parse(obj[parse("targets")][2])[parse("frame")].
       Translate(obj[parse("coordinates")][2], 0, 0)
       );
-  else
+  elif (not suppress_warnings) then
     WARNING("The support has no targets");
   end if;
 
