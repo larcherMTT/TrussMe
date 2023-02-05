@@ -79,6 +79,9 @@ local   ModuleLoad,
         earth,
         gravity,
         GetNames,
+        GetObjByName,
+        CopyStructure,
+        Simplify,
         ComputeDOF,
         NewtonEuler,
         HyperstaticSolver,
@@ -108,6 +111,7 @@ local   ModuleLoad,
         lib_base_path,
         verbose_mode,
         suppress_warnings,
+        time_limit_simplify,
         print_indent,
         print_increment,
         ListPadding,
@@ -250,6 +254,7 @@ InitTrussMe := proc()
 
   verbose_mode           := 1;
   suppress_warnings      := false;
+  time_limit_simplify    := 5;
   print_indent           := 0;
   print_increment        := 4;
   Beam_color             := "SteelBlue";
@@ -352,8 +357,9 @@ end proc: # union
 
 SetModuleOptions := proc(
   {
-    verbosity::integer      := false, # Verbose mode
-    disable_warnings::boolean := false # Suppress warnings
+    verbosity::{integer, nothing}        := NULL, # Verbose mode
+    disable_warnings::{boolean, nothing} := NULL, # Suppress warnings
+    time_limit::{constant, nothing}      := NULL  # Time limit for simplify operations
   },
   $)::nothing;
 
@@ -362,15 +368,28 @@ SetModuleOptions := proc(
     "<suppress_warnings>::boolean = true, false";
 
   # Verbosity
-  if (verbosity < 0) or
-     (verbosity > 2) then
-    error "invalid verbose mode detected";
-  else
-    verbose_mode := verbosity;
+  if (verbosity <> NULL) then
+    if (verbosity < 0) or
+       (verbosity > 2) then
+      error "invalid verbose mode detected";
+    else
+      verbose_mode := verbosity;
+    end if;
   end if;
 
   # Suppress warnings
-  suppress_warnings := disable_warnings;
+  if (disable_warnings <> NULL) then
+    suppress_warnings := disable_warnings;
+  end if;
+
+  # Time limit
+  if (time_limit <> NULL) then
+    if (time_limit < 0) then
+      error "invalid time limit detected";
+    else
+      time_limit_simplify := time_limit;
+    end if;
+  end if;
 
   return NULL;
 end proc: # SetModuleOptions
@@ -489,7 +508,7 @@ ListPadding := proc(
   list::{list, algebraic}, # List to be padded
   n::integer,              # Number of elements of the final list
   value::algebraic := 0,   # Value to be used for padding
-$)::list;
+  $)::list;
 
   description "Pad a list <list> with <value> to have <n> elements";
 
@@ -548,6 +567,59 @@ end proc: # GetNames
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+GetObjByName := proc(
+  name::string, # Name of the object
+  objs::{ # Structural elements
+    list({MATERIAL, BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH}),
+    set( {MATERIAL, BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH})
+  }, $)::{MATERIAL, BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH};
+
+  description "Get object which name field is <name> from a list/set of objects <objs>";
+
+  local out, obj;
+  PrintStartProc(procname);
+
+  out := NULL;
+
+  for obj in objs do
+    if (obj[parse("name")] = name) then
+      out := obj;
+      break;
+    end if:
+  end do:
+
+  PrintEndProc(procname);
+  return out;
+end proc: # GetObjByName
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Simplify := proc(
+  obj::anything, # Expression to be simplified
+  $)::anything;
+
+  description "Simplify an algebraic expression <obj>";
+
+  local out;
+  PrintStartProc(procname);
+
+  try
+    timelimit(time_limit_simplify, simplify(obj));
+    out := %;
+  catch :
+    WARNING("Simplify exceeded maximum time of time_limit = %1s, raw solutions "
+      "is returned. <time_limit> can be modified by setting it in "
+      "SetModuleOptions", time_limit_simplify);
+    out := obj;
+  end try:
+
+  PrintEndProc(procname);
+  return out;
+end proc: # Simplify
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 InverseFrame := proc(
   RF::FRAME, # Reference frame (affine transformation) to be inverted
   $)::FRAME;
@@ -571,7 +643,6 @@ IsFrame := proc(
   if (type(obj, 'Matrix')) and
      (LinearAlgebra:-RowDimension(obj) = 4) and
      (LinearAlgebra:-ColumnDimension(obj) = 4) then
-     # FIXME (simplify(combine(LinearAlgebra:-Determinant(obj) = 1))) then
     out := true;
   else
     out := false;
@@ -802,7 +873,7 @@ Project := proc(
 
   if has(map(evalb, evala(simplify(RF_end)) =~ evala(simplify(RF_ini))), false) then
     InverseFrame(RF_end).RF_ini.x_tmp;
-    out := simplify([seq(%[i], i = 1..nops(x))]);
+    out := Simplify([seq(%[i], i = 1..nops(x))]);
   else
     out := x;
   end if;
@@ -1205,7 +1276,7 @@ MakeSupport := proc(
     parse("coordinates")              = [[0,0,0], op(map(ListPadding, obj_coords, 3))],
     parse("name")                     = name,
     parse("frame")                    = RF,
-    parse("targets")                  = [earth[parse("name")], op(GetNames(objs))],
+    parse("targets")                  = [earth[parse("name")]] union  GetNames(objs),
     parse("variables")                = [],
     parse("forces")                   = [],
     parse("moments")                  = [],
@@ -1579,13 +1650,13 @@ MakeRodPoints := proc(
          <point1[1], point1[2], point1[3], 1>>;
 
   out := MakeRod(
-    name, ell, simplify(RF),
+    name, ell, Simplify(RF),
     parse("area")     = area,
     parse("material") = material
     );
 
   PrintEndProc(procname);
-  return out;
+  return op(out);
 end proc: # MakeRodPoints
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1719,7 +1790,7 @@ MakeBeamPoints := proc(
          <ez[1],     ez[2],     ez[3],     0>|
          <point1[1], point1[2], point1[3], 1>>;
 
-  out := MakeBeam(name, ell, simplify(RF), {
+  out := MakeBeam(name, ell, Simplify(RF), {
     area             = area,
     timo_shear_coeff = timo_shear_coeff,
     material         = material,
@@ -2399,19 +2470,19 @@ SolveStructure := proc(
   vars         := [];
   for obj in struct[parse("objects")] do
     if IsBeam(obj) or IsRod(obj) then
-      S_obj := S_obj union {obj};
+      S_obj := S_obj union {eval(obj)};
     elif IsRigidBody(obj) then
-      S_rigid := S_rigid union {obj};
+      S_rigid := S_rigid union {eval(obj)};
     elif IsSupport(obj) then
-      S_support    := S_support union {obj};
+      S_support    := S_support union {eval(obj)};
       S_con_forces := S_con_forces union obj[parse("forces")] union obj[parse("moments")];
       vars         := vars union obj[parse("variables")];
     elif IsJoint(obj) then
-      S_joint      := S_joint union {obj};
+      S_joint      := S_joint union {eval(obj)};
       S_con_forces := S_con_forces union obj[parse("forces")] union obj[parse("moments")];
       vars         := vars union obj[parse("variables")];
     end if;
-      unassign('obj');
+    unassign('obj');
   end do;
 
   S_ext := struct[parse("external_actions")];
@@ -2521,6 +2592,9 @@ SolveStructure := proc(
 
   # Compute potential energy
   if (compute_potential_energy) and not struct[parse("potential_energy_solved")] then
+    if implicit then
+      error "potential energy cannot be computed in implicit mode";
+    end if;
     P_energy := ComputePotentialEnergy(
       S_obj union S_support union S_joint, sol,
       parse("timoshenko_beam") = timoshenko_beam);
@@ -2595,6 +2669,8 @@ HyperstaticSolver := proc(
 
   # Compute structure internal energy
   P_energy := ComputePotentialEnergy(E_objs, iso_sol, parse("timoshenko_beam") = timoshenko_beam);
+  # Simplify
+  P_energy := Simplify(P_energy);
 
   hyper_eq := [];
 
@@ -2795,7 +2871,7 @@ IsostaticSolver := proc(
   end do;
 
   # Remove NULL equations
-  iso_eq := remove(x -> x = 0, simplify(iso_eq));
+  iso_eq := remove(x -> x = 0, Simplify(iso_eq));
 
   # Remove non used variables
   iso_vars := vars;
@@ -2844,8 +2920,6 @@ IsostaticSolver := proc(
       printf("%*sMessage (in IsostaticSolver) computing the structure reaction forces...\n", print_indent, "|   ");
     end if;
 
-    #iso_sol := op(RealDomain[solve](iso_eq, iso_vars));
-    #iso_sol := iso_vars =~ convert(simplify(LinearAlgebra[LinearSolve](A, B)), list);
     if nops(iso_eq) = nops(iso_vars) then
       iso_sol := LinearSolver(iso_eq, iso_vars);
     else
@@ -3058,12 +3132,13 @@ end proc: # ComputeDisplacements
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 ComputePunctualDisplacement := proc(
-  struct::STRUCTURE,                            # Structure
-  obj::{BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}, # Object on which the coordinates are defined
-  coords::list,                                 # Punctual coordinates defined in obj reference frame
-  directions::list,                             # Displacement directions defined in obj reference frame
-  # TODO: add the possibility to define the directions in custom reference frames
-  # TODO: add possibility for list of points
+  struct::STRUCTURE, # Structure
+  objs::{ # Object on which the coordinates are defined
+    list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
+  },
+  coords::list,     # Punctual coordinates defined in obj reference frame
+  directions::list, # Displacement directions defined in obj reference frame
+  RFs::list,        # Reference frames for the directions
   {
     timoshenko_beam::boolean := false # Timoshenko beam flag
   },
@@ -3072,30 +3147,67 @@ ComputePunctualDisplacement := proc(
   description "Compute the Structure <struct> punctual displacements of the "
     "object <obj> at the coordinates <coords> in the directions <directions>";
 
-  local out, struct_copy, obj_copy, dummy_loads, dummy_Fx, dummy_Fy, dummy_Fz,
-    dummy_Mx, dummy_My, dummy_Mz, x, dFx, dFy, dFz, dMx, dMy, dMz, P_energy,
-    subs_null_dummy, disp;
+  local out, struct_copy, obj, objs_names, dummy_loads, subs_obj, obj_coords,
+    obj_targets, x, subs_null_dummy, disp, i, j;
   PrintStartProc(procname);
 
   # Create a copy of the structure
-  # FIXME: original strrcture objects are modified by the procedure
-  struct_copy := copy(struct);
+  struct_copy := CopyStructure(struct);
 
-  # Create a copy of the object
-  obj_copy := copy(obj);
+  # Get objects names
+  objs_names := GetNames(objs);
+
+  # Replace Rods with Beams to be able to compute the displacements in all directions
+  for obj in map(GetObjByName, objs_names, struct_copy[parse("objects")]) do
+    if IsRod(obj) then
+      subs_obj := MakeBeam(obj[parse("name")], obj[parse("length")], obj[parse("frame")], parse("area") = obj[parse("area")], parse("material") = obj[parse("material")]);
+      # Remove load on unconstrained direction
+      subs_obj[parse("admissible_loads")] = [1,1,0,1,1];
+      # Replace object in struct_copy
+      struct_copy[parse("objects")] := remove(x -> x[parse("name")] = obj[parse("name")], struct_copy[parse("objects")]);
+      struct_copy[parse("objects")] := struct_copy[parse("objects")] union {eval(subs_obj)};
+    end if;
+  end do;
+
+  # Update struct_copy supports and joints for the new objects
+  for obj in struct_copy[parse("objects")] do
+    if IsSupport(obj) then
+      # Re-Make support to generate new loads and constraint compliant with substituted objects (joint is made because earth is already in the list of targets)
+      obj_targets := map(GetObjByName, remove(x -> x = earth[parse("name")], obj[parse("targets")]), struct_copy[parse("objects")]);
+      obj_coords  := obj[parse("coordinates")][2..-1];
+      subs_obj := MakeSupport(obj[parse("name")], obj[parse("constrained_dof")], obj_targets, obj_coords, obj[parse("frame")], parse("stiffness") = obj[parse("stiffness")]);
+      # Replace object in struct_copy
+      struct_copy[parse("objects")] := remove(x -> x[parse("name")] = obj[parse("name")], struct_copy[parse("objects")]);
+      struct_copy[parse("objects")] := struct_copy[parse("objects")] union {eval(subs_obj)};
+    elif IsJoint(obj) then
+      # Re-Make joint to generate new loads and constraint compliant with substituted objects
+      obj_targets := map(GetObjByName, obj[parse("targets")], struct_copy[parse("objects")]);
+      subs_obj := MakeJoint(obj[parse("name")], obj[parse("constrained_dof")], obj_targets, obj[parse("coordinates")], obj[parse("frame")]);
+      # Replace object in struct_copy
+      struct_copy[parse("objects")] := remove(x -> x[parse("name")] = obj[parse("name")], struct_copy[parse("objects")]);
+      struct_copy[parse("objects")] := struct_copy[parse("objects")] union {eval(subs_obj)};
+    end if;
+  end do;
 
   # Create dummy loads in the directions of interest
-  dummy_loads := [dummy_Fx, dummy_Fy, dummy_Fz, dummy_Mx, dummy_My, dummy_Mz] .~ directions;
-  dummy_Fx := MakeForce([dFx,0,0], coords, obj_copy, obj_copy[parse("frame")]);
-  dummy_Fy := MakeForce([0,dFy,0], coords, obj_copy, obj_copy[parse("frame")]);
-  dummy_Fz := MakeForce([0,0,dFz], coords, obj_copy, obj_copy[parse("frame")]);
-  dummy_Mx := MakeMoment([dMx,0,0], coords, obj_copy, obj_copy[parse("frame")]);
-  dummy_My := MakeMoment([0,dMy,0], coords, obj_copy, obj_copy[parse("frame")]);
-  dummy_Mz := MakeMoment([0,0,dMz], coords, obj_copy, obj_copy[parse("frame")]);
-  dummy_loads := remove(x-> x = 0, convert(dummy_loads, set));
+  subs_null_dummy := [];
+  for i from 1 to nops(objs_names) do
+    [
+    `if`(directions[i,1] = 1, dummy_Fx_||i = MakeForce( [dFx_||i,0,0], coords[i], GetObjByName(objs_names[i], struct_copy[parse("objects")]), RFs[i]), dummy_Fx_||i = NULL),
+    `if`(directions[i,2] = 1, dummy_Fy_||i = MakeForce( [0,dFy_||i,0], coords[i], GetObjByName(objs_names[i], struct_copy[parse("objects")]), RFs[i]), dummy_Fy_||i = NULL),
+    `if`(directions[i,3] = 1, dummy_Fz_||i = MakeForce( [0,0,dFz_||i], coords[i], GetObjByName(objs_names[i], struct_copy[parse("objects")]), RFs[i]), dummy_Fz_||i = NULL),
+    `if`(directions[i,4] = 1, dummy_Mx_||i = MakeMoment([dMx_||i,0,0], coords[i], GetObjByName(objs_names[i], struct_copy[parse("objects")]), RFs[i]), dummy_Mx_||i = NULL),
+    `if`(directions[i,5] = 1, dummy_My_||i = MakeMoment([0,dMy_||i,0], coords[i], GetObjByName(objs_names[i], struct_copy[parse("objects")]), RFs[i]), dummy_My_||i = NULL),
+    `if`(directions[i,6] = 1, dummy_Mz_||i = MakeMoment([0,0,dMz_||i], coords[i], GetObjByName(objs_names[i], struct_copy[parse("objects")]), RFs[i]), dummy_Mz_||i = NULL)
+    ];
+    assign(%);
+    dummy_loads := [dummy_Fx_||i, dummy_Fy_||i, dummy_Fz_||i, dummy_Mx_||i, dummy_My_||i, dummy_Mz_||i];
 
-  # Add dummy loads to the structure copy
-  struct_copy[parse("external_actions")] := struct_copy[parse("external_actions")] union dummy_loads;
+    # null dummy loads substitution list
+    subs_null_dummy := subs_null_dummy union ([dFx_||i, dFy_||i, dFz_||i, dMx_||i, dMy_||i, dMz_||i] =~ [0,0,0,0,0,0]);
+    # Add dummy loads to the structure copy
+    struct_copy[parse("external_actions")] := struct_copy[parse("external_actions")] union dummy_loads;
+  end do;
 
   # Solve the structure copy
   SolveStructure(
@@ -3106,23 +3218,23 @@ ComputePunctualDisplacement := proc(
     parse("timoshenko_beam") = timoshenko_beam,
     parse("implicit") = false);
 
-  # Get structure potential energy
-  P_energy := struct_copy[parse("potential_energy")];
-
-  # null dummy loads substitution list
-  subs_null_dummy := [dFx, dFy, dFz, dMx, dMy, dMz] =~ [0,0,0,0,0,0];
-
   # Compute punctual displacements
-  disp := [0,0,0,0,0,0];
-  disp[1] := ux = unapply(subs(subs_null_dummy, diff(P_energy, dFx)),x);
-  disp[2] := uy = unapply(subs(subs_null_dummy, diff(P_energy, dFy)),x);
-  disp[3] := uz = unapply(subs(subs_null_dummy, diff(P_energy, dFz)),x);
-  disp[4] := rx = unapply(subs(subs_null_dummy, diff(P_energy, dMx)),x);
-  disp[5] := ry = unapply(subs(subs_null_dummy, diff(P_energy, dMy)),x);
-  disp[6] := rz = unapply(subs(subs_null_dummy, diff(P_energy, dMz)),x);
+  out := [];
+  for i from 1 to nops(objs_names) do
+    disp := [0,0,0,0,0,0];
+    disp[1] := ux = subs(subs_null_dummy, diff(struct_copy[parse("potential_energy")], dFx_||i));
+    disp[2] := uy = subs(subs_null_dummy, diff(struct_copy[parse("potential_energy")], dFy_||i));
+    disp[3] := uz = subs(subs_null_dummy, diff(struct_copy[parse("potential_energy")], dFz_||i));
+    disp[4] := rx = subs(subs_null_dummy, diff(struct_copy[parse("potential_energy")], dMx_||i));
+    disp[5] := ry = subs(subs_null_dummy, diff(struct_copy[parse("potential_energy")], dMy_||i));
+    disp[6] := rz = subs(subs_null_dummy, diff(struct_copy[parse("potential_energy")], dMz_||i));
 
-  # Select displacement relative to desired directions
-  out := simplify(disp[select(x -> x <> 0, [seq(i, i=1..6)] *~ directions)]);
+    # Select displacement relative to desired directions and add to the list of displacements
+    out := out union [disp[select(x -> x <> 0, [seq(j, j=1..6)] *~ directions[i])]];
+  end do;
+
+  # Simplify output
+  out := Simplify(out);
 
   PrintEndProc(procname);
   return out;
@@ -3130,14 +3242,44 @@ end proc: # ComputePunctualDisplacement
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+CopyStructure := proc(
+  struct::STRUCTURE, # Structure to copy
+  $)::STRUCTURE;
+
+description "Create a copy of the structure <struct> and its objects";
+
+  local struct_copy, obj, action;
+  PrintStartProc(procname);
+
+  # Create a copy of the structure
+  struct_copy := copy(struct);
+
+  # Substitute objects in the structure with a copy
+  for obj in struct_copy[parse("objects")] do
+    struct_copy[parse("objects")] := remove(x -> x[parse("name")] = obj[parse("name")], struct_copy[parse("objects")]);
+    struct_copy[parse("objects")] := struct_copy[parse("objects")] union {copy(obj)};
+  end do;
+
+  # Substitute external actions in the structure with a copy
+  for action in struct_copy[parse("external_actions")] do
+    struct_copy[parse("external_actions")] := remove(x -> x[parse("name")] = action[parse("name")], struct_copy[parse("external_actions")]);
+    struct_copy[parse("external_actions")] := struct_copy[parse("external_actions")] union {copy(action)};
+  end do;
+
+  PrintEndProc(procname);
+  return struct_copy;
+end proc: # CopyStructure
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 LinearSolver := proc(
   eqns::{list,set},  # Equations
   vars::{list, set}, # Variables
-$)::list;
+  $)::list;
 
 description "Solve the linear system of equations <eqns> for the variables <vars>";
 
-  local sol, D, i, A, b, A_copy;
+  local sol, D, i, A, b, Cramer;
   PrintStartProc(procname);
 
   # Matrix form of the linear system
@@ -3145,12 +3287,31 @@ description "Solve the linear system of equations <eqns> for the variables <vars
 
   # Apply Cramer's rule to solve the linear system
   D := LinearAlgebra[Determinant](A, method=algnum);
-
   sol := vars;
-  for i from 1 to nops(vars) do
+  # Cramer procedure for parallel computing
+  Cramer := proc(
+    i::integer,   # Index of the variable to be solved
+    A::Matrix,    # Matrix of the linear system
+    b::Vector,    # Vector of the linear system
+    D::algebraic, # Determinant of the matrix A of the linear system
+  $)::nothing;
+
+  description "Compute the <i>th variable of the linear system defined by the "
+    "matrix <A> and the vector <b>. The determinant of the matrix <A> is <D>.";
+
+    local A_copy;
+
     A_copy := copy(A);
     A_copy[..,i] := b;
-    sol[i] := vars[i] = simplify(LinearAlgebra[Determinant](A_copy, method=algnum)/D);
+    sol[i] := sol[i] = Simplify(LinearAlgebra[Determinant](A_copy, method=algnum)/D);
+
+    return NULL;
+  end proc: # Cramer
+
+  # Parallel computing of the solution
+  #Threads[Map](Cramer, [seq(i,i=1..nops(vars))], A, b, D); # Not working check Thread-Safe functions
+  for i from 1 to nops(vars) do
+    Cramer(i, A, b, D);
   end do;
 
   PrintEndProc(procname);
@@ -3161,7 +3322,7 @@ end proc: # LinearSolver
 
 ObjectColor := proc(
   obj::{BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH}, # Object to be colored
-$)::string;
+  $)::string;
 
 description "Return the color of the object <obj>";
 
@@ -3243,6 +3404,10 @@ end proc:
 
 PlotJoint := proc(
   obj::JOINT, # Joint to be plot
+  targets::{ # Joint targets
+    list({BEAM,ROD,SUPPORT,JOINT}),
+    set({BEAM,ROD,SUPPORT,JOINT})
+  },
   {
     data::{list(`=`),set(`=`)} := [] # Substitutions
   },
@@ -3254,7 +3419,7 @@ PlotJoint := proc(
   PrintStartProc(procname);
 
   O := subs(op(data), Origin(
-    eval(parse(obj[parse("targets")][1])[parse("frame")]).
+    GetObjByName(obj[parse("targets")][1], targets)[parse("frame")].
     Translate(op(ListPadding(obj[parse("coordinates")][1],3)))
     ));
 
@@ -3269,7 +3434,11 @@ end proc:
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PlotSupport := proc(
-  obj::SUPPORT, # Joint to be plot
+  obj::SUPPORT, # Support to be plotted
+  targets::{ # Support targets
+    list({BEAM,ROD,SUPPORT,JOINT}),
+    set({BEAM,ROD,SUPPORT,JOINT})
+  },
   {
     data::{list(`=`),set(`=`)} := [] # Substitutions
   },
@@ -3280,7 +3449,7 @@ PlotSupport := proc(
 
   if (nops(obj[parse("targets")]) > 1) then
     O := subs(op(data), Origin(
-      eval(parse(obj[parse("targets")][2])[parse("frame")]).
+      GetObjByName(obj[parse("targets")][2], targets)[parse("frame")].
       Translate(op(ListPadding(obj[parse("coordinates")][2],3)))
       ));
   else
@@ -3301,7 +3470,7 @@ end proc:
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PlotStructure := proc(
-  str::STRUCTURE,                   # Structure to be plot
+  str::STRUCTURE,                   # Structure to be plotted
   data::{list(`=`),set(`=`)} := [], # Substitutions
   $)::list(procedure);
 
@@ -3317,9 +3486,9 @@ PlotStructure := proc(
     elif IsRod(obj) then
       out := [op(out), PlotRod(obj, parse("data") = data)];
     elif IsSupport(obj) then
-      out := [op(out), PlotSupport(obj, parse("data") = data)];
+      out := [op(out), PlotSupport(obj, map(GetObjByName, obj[parse("targets")], str[parse("objects")]), parse("data") = data)];
     elif IsJoint(obj) then
-      out := [op(out), PlotJoint(obj, parse("data") = data)];
+      out := [op(out), PlotJoint(obj, map(GetObjByName, obj[parse("targets")], str[parse("objects")]), parse("data") = data)];
     end if;
   end do;
 
@@ -3346,8 +3515,8 @@ IsInsideJoint := proc(
 
   if (nops(obj[parse("targets")]) > 1) then
     O := Origin(
-      parse(obj[parse("targets")][2])[parse("frame")].
-      Translate(obj[parse("coordinates")][2], 0, 0)
+      GetObjByName(obj[parse("targets")][1], targets)[parse("frame")].
+      Translate(obj[parse("coordinates")][1], 0, 0)
       );
   elif (not suppress_warnings) then
     WARNING("The support has no targets");
@@ -3378,7 +3547,7 @@ IsInsideSupport := proc(
 
   if (nops(obj[parse("targets")]) > 1) then
     O := Origin(
-      parse(obj[parse("targets")][2])[parse("frame")].
+      GetObjByName(obj[parse("targets")][2], targets)[parse("frame")].
       Translate(obj[parse("coordinates")][2], 0, 0)
       );
   elif (not suppress_warnings) then
