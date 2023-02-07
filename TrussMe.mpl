@@ -51,6 +51,7 @@ export  `union`,
         MakeSupport,
         IsSupport,
         IsCompliantSupport,
+        IsCompliantJoint,
         MakeForce,
         IsForce,
         MakeMoment,
@@ -97,7 +98,7 @@ local   ModuleLoad,
         ComputeSpringDisplacement,
         ComputeSpringEnergy,
         ComputeSupportDisplacements,
-        ComputeSupportInducedDisplacements,
+        ComputeJointDisplacements,
         ObjectColor,
         PlotBeam,
         PlotRod,
@@ -607,7 +608,7 @@ Simplify := proc(
     timelimit(time_limit_simplify, simplify(obj));
     out := %;
   catch :
-    WARNING("Simplify exceeded maximum time of time_limit = %1s, raw solutions "
+    WARNING("Time limit of %1s exceeded for simplify operation, raw solutions "
       "is returned. <time_limit> can be modified by setting it in "
       "SetModuleOptions", time_limit_simplify);
     out := obj;
@@ -1418,7 +1419,12 @@ MakeJoint := proc(
   objs::list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH}), # Target objects
   coords::list,                                               # Joint locations
   RF::FRAME := ground,                                        # Reference frame
-  $)::JOINT;
+  {
+    stiffness::{procedure,list(algebraic)} := [ # Stiffness components (default = infinite)
+      infinity, infinity, infinity,
+      infinity, infinity, infinity
+    ] *~ constrained_dof
+  }, $)::JOINT;
 
   description "Make a JOINT object with inputs: joint name <name>, constrained "
     "degrees of freedom <constrained_dof>, target objects <objs>, joint locations "
@@ -1426,7 +1432,7 @@ MakeJoint := proc(
     "(default = ground)";
 
   local J, i, jf_comp, jm_comp, jf_comp_obj, jm_comp_obj, jm_surv, jf_surv,
-    jf_comp_cons, jm_comp_cons, constraint, P_tmp, obj_coords;
+    jf_comp_cons, jm_comp_cons, constraint, P_tmp, obj_coords, J_stiffness;
   PrintStartProc(procname);
 
   # Substitute -1 entries of coords with the corresponding object length
@@ -1443,6 +1449,28 @@ MakeJoint := proc(
     end if;
   end do;
 
+  if type(stiffness, procedure) then
+    J_stiffness := unapply(stiffness(x) *~ constrained_dof, x);
+    # Check for non zero stiffness on constrained dof
+    if has(map(evalb, stiffness(x)[remove(x -> x=0, ([seq(i, i = 1..6)]) *~ constrained_dof)] <>~ 0), false) then
+      error "stiffness corresponding to constrained degrees of freedom cannot be zero";
+    end if;
+    # Check for zero stiffness on unconstrained dof
+    if (J_stiffness(x) <> stiffness(x)) and (not suppress_warnings) then
+      WARNING("stiffness components not corresponding to constrained_dof are ignored");
+    end if;
+  else
+    # Check for non zero stiffness on constrained dof
+    if has(stiffness[remove(x -> x=0, ([seq(i, i = 1..6)]) *~ constrained_dof)], 0) then
+      error "stiffness corresponding to constrained degrees of freedom cannot be zero";
+    end if;
+    # Check for zero stiffness on unconstrained dof
+    J_stiffness := (x) -> stiffness *~ constrained_dof;
+    if (J_stiffness(x) <> stiffness) and (not suppress_warnings) then
+      WARNING("stiffness components not corresponding to constrained_dof are ignored");
+    end if;
+  end if;
+
   J := table({
     parse("type")                     = JOINT,
     parse("constrained_dof")          = constrained_dof,
@@ -1454,7 +1482,9 @@ MakeJoint := proc(
     parse("variables")                = [],
     parse("forces")                   = [],
     parse("moments")                  = [],
-    parse("constraint_loads")         = []
+    parse("constraint_loads")         = [],
+    parse("stiffness")                = J_stiffness,
+    parse("displacements")            = []
     });
 
   # Check if joint position on each object is the same
@@ -1507,11 +1537,9 @@ MakeJoint := proc(
       J[parse("constraint_loads")] := J[parse("constraint_loads")] union constraint;
       # Update the output joint
       J[parse("variables")] := J[parse("variables")] union jf_surv;
-      J[parse("forces")] := [
-        op(J[parse("forces")]),
-        JF_||(name)||_||(objs[i][parse("name")]),
-        JF_||(objs[i][parse("name")])||_||(name)
-        ];
+      J[parse("forces")] := J[parse("forces")] union
+       [JF_||(name)||_||(objs[i][parse("name")]),
+        JF_||(objs[i][parse("name")])||_||(name)];
     end if;
   end do;
 
@@ -1553,11 +1581,9 @@ MakeJoint := proc(
       J[parse("constraint_loads")] := J[parse("constraint_loads")] union constraint;
       # Update the output joint
       J[parse("variables")] := J[parse("variables")] union jm_surv;
-      J[parse("moments")] := [
-        op(J[parse("moments")]),
-        JM_||(name)||_||(objs[i][parse("name")]),
-        JM_||(objs[i][parse("name")])||_||(name)
-        ];
+      J[parse("moments")] := J[parse("moments")] union
+        [JM_||(name)||_||(objs[i][parse("name")]),
+        JM_||(objs[i][parse("name")])||_||(name)];
     end if;
   end do;
 
@@ -1587,7 +1613,9 @@ IsJoint := proc(
      type(obj[parse("variables")], list) and
      type(obj[parse("forces")], list) and
      type(obj[parse("moments")], list) and
-     type(obj[parse("constraint_loads")], list) then
+     type(obj[parse("constraint_loads")], list) and
+     type(obj[parse("stiffness")], procedure) and
+     type(obj[parse("displacements")], list) then
     out := true;
   else
     out := false;
@@ -1596,6 +1624,33 @@ IsJoint := proc(
   PrintEndProc(procname);
   return out;
 end proc: # IsJoint
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IsCompliantJoint := proc(
+  obj::anything, # Object to be checked
+  $)::boolean;
+
+  description "Check if the object <obj> is a JOINT object with compliant "
+    "constraints";
+
+  local out, i;
+  PrintStartProc(procname);
+
+  out := false;
+  if IsJoint(obj) then
+    for i from 1 to nops(obj[parse("stiffness")]) do
+      if (obj[parse("stiffness")](x)[i] <> infinity) and
+         (obj[parse("constrained_dof")][i] = 1) then
+        out := true;
+        break;
+      end if;
+    end do;
+  end if;
+
+  PrintEndProc(procname);
+  return out;
+end proc; # IsCompliantJoint
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -2041,11 +2096,11 @@ ComputeSupportDisplacements := proc(
 
   sup_disp := [];
   disp_vec := [tx, ty, tz, rx, ry, rz];
-  sup_reac := [FX, FY, FZ, MX, MY, MZ];
+  sup_reac := ['FX', 'FY', 'FZ', 'MX', 'MY', 'MZ'];
 
   for i from 1 to 6 do
     if (obj[parse("constrained_dof")][i] = 1) and
-        has(obj[parse("support_reactions")], sup_reac[i]) then
+        member(sup_reac[i], map(lhs, obj[parse("support_reactions")])) then
       disp := ComputeSpringDisplacement(subs(obj[parse("support_reactions")], - sup_reac[i]),
         (x -> obj[parse("stiffness")](x)[i]));
       sup_disp := sup_disp union [disp_vec[i] = disp];
@@ -2067,6 +2122,61 @@ ComputeSupportDisplacements := proc(
 
   PrintEndProc(procname);
 end proc: # ComputeSupportDisplacements
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+ComputeJointDisplacements := proc(
+  obj::JOINT, # Joint object
+  sol::list,  # List of solutions for joint forces
+  $)::nothing;
+
+  description "Compute the displacements of the joint <obj>";
+
+  local jnt_disp, disp_vec, i, disp, x, jnt_load, f;
+  PrintStartProc(procname);
+
+  jnt_disp := [];
+  disp_vec := [tx, ty, tz, rx, ry, rz];
+  jnt_load := [0,0,0,0,0,0];
+
+  for i from 1 to 6 do
+    if (obj[parse("constrained_dof")][i] = 1) then
+        if i<4 then
+          # Forces
+          for f in obj[parse("forces")] do
+            if f[parse("target")] = obj[parse("name")] then
+              jnt_load[i] := jnt_load[i] + f[parse("components")][i];
+            end if;
+          end do;
+        else
+          # Moments
+          for f in obj[parse("moments")] do
+            if f[parse("target")] = obj[parse("name")] then
+              jnt_load[i] := jnt_load[i] + f[parse("components")][i-3];
+            end if;
+          end do;
+        end if;
+      disp := ComputeSpringDisplacement(subs(sol, jnt_load[i]),
+        (x -> obj[parse("stiffness")](x)[i]));
+      jnt_disp := jnt_disp union [disp_vec[i] = disp];
+    end if;
+  end do;
+
+  if (verbose_mode > 0) then
+    printf(
+      "%*sMessage (in ComputeJointDisplacements) updating %s %s's displacements...\n",
+      print_indent, "|   ", obj[parse("type")], obj[parse("name")]
+      );
+  end if;
+
+  obj[parse("displacements")] := jnt_disp;
+
+  if (verbose_mode > 0) then
+    printf("%*sDONE\n", print_indent, "|   ");
+  end if;
+
+  PrintEndProc(procname);
+end proc: # ComputeJointDisplacements
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -2725,7 +2835,7 @@ ComputePotentialEnergy := proc(
   description "Compute the internal potential energy of the structure given the "
     "objects <objs> and optional Timoshenko beam flag <timoshenko_beam>";
 
-  local obj, P, x;
+  local obj, P, x, f, FJX, FJY, FJZ, MJX, MJY, MJZ;
   PrintStartProc(procname);
 
   P := 0;
@@ -2817,6 +2927,79 @@ ComputePotentialEnergy := proc(
           (obj[parse("stiffness")](x)[6] <> infinity) and
            (obj[parse("constrained_dof")][6] <> 0) then
         P := P + subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-MZ, (x -> obj[parse("stiffness")](x)[6])));
+      end if;
+    elif IsCompliantJoint(obj) then
+      # Joint forces along X axis
+      if (obj[parse("stiffness")](x)[1] <> infinity) and
+           (obj[parse("constrained_dof")][1] <> 0) then
+        FJX := 0;
+        # Get all the forces along X axis
+        for f in obj[parse("forces")] do
+          if f[parse("target")] = obj[parse("name")] then
+            FJX := FJX + f[parse("components")][1];
+          end if;
+        end do;
+        P := P + subs(sol, ComputeSpringEnergy(FX, (x -> obj[parse("stiffness")](x)[1])));
+      end if;
+      # Joint forces along Y axis
+      if (obj[parse("stiffness")](x)[2] <> infinity) and
+           (obj[parse("constrained_dof")][2] <> 0) then
+        FJY := 0;
+        # Get all the forces along Y axis
+        for f in obj[parse("forces")] do
+          if f[parse("target")] = obj[parse("name")] then
+            FJY := FJY + f[parse("components")][2];
+          end if;
+        end do;
+        P := P + subs(sol, ComputeSpringEnergy(FY, (x -> obj[parse("stiffness")](x)[2])));
+      end if;
+      # Joint forces along Z axis
+      if (obj[parse("stiffness")](x)[3] <> infinity) and
+           (obj[parse("constrained_dof")][3] <> 0) then
+        FJZ := 0;
+        # Get all the forces along Z axis
+        for f in obj[parse("forces")] do
+          if f[parse("target")] = obj[parse("name")] then
+            FJZ := FJZ + f[parse("components")][3];
+          end if;
+        end do;
+        P := P + subs(sol, ComputeSpringEnergy(FZ, (x -> obj[parse("stiffness")](x)[3])));
+      end if;
+      # Joint moments along X axis
+      if (obj[parse("stiffness")](x)[4] <> infinity) and
+           (obj[parse("constrained_dof")][4] <> 0) then
+        MJX := 0;
+        # Get all the moments along X axis
+        for f in obj[parse("moments")] do
+          if f[parse("target")] = obj[parse("name")] then
+            MJX := MJX + f[parse("components")][1];
+          end if;
+        end do;
+        P := P + subs(sol, ComputeSpringEnergy(MX, (x -> obj[parse("stiffness")](x)[4])));
+      end if;
+      # Joint moments along Y axis
+      if (obj[parse("stiffness")](x)[5] <> infinity) and
+           (obj[parse("constrained_dof")][5] <> 0) then
+        MJY := 0;
+        # Get all the moments along Y axis
+        for f in obj[parse("moments")] do
+          if f[parse("target")] = obj[parse("name")] then
+            MJY := MJY + f[parse("components")][2];
+          end if;
+        end do;
+        P := P + subs(sol, ComputeSpringEnergy(MY, (x -> obj[parse("stiffness")](x)[5])));
+      end if;
+      # Joint moments along Z axis
+      if (obj[parse("stiffness")](x)[6] <> infinity) and
+           (obj[parse("constrained_dof")][6] <> 0) then
+        MJZ := 0;
+        # Get all the moments along Z axis
+        for f in obj[parse("moments")] do
+          if f[parse("target")] = obj[parse("name")] then
+            MJZ := MJZ + f[parse("components")][3];
+          end if;
+        end do;
+        P := P + subs(sol, ComputeSpringEnergy(MZ, (x -> obj[parse("stiffness")](x)[6])));
       end if;
     end if;
   end do;
@@ -3123,6 +3306,11 @@ ComputeDisplacements := proc(
     elif IsCompliantSupport(obj) then
       # Compute displacements
       ComputeSupportDisplacements(obj);
+
+    # Joint
+    elif IsCompliantJoint(obj) then
+      # Compute displacements
+      ComputeJointDisplacements(obj, sol);
     end if;
   end do;
 
@@ -3279,15 +3467,16 @@ LinearSolver := proc(
 
 description "Solve the linear system of equations <eqns> for the variables <vars>";
 
-  local sol, D, i, A, b, Cramer;
+  local sol, D, i, A, b, Cramer, Det_LU;
   PrintStartProc(procname);
 
   # Matrix form of the linear system
   A, b := LinearAlgebra[GenerateMatrix](eqns, vars);
 
-  # Apply Cramer's rule to solve the linear system
-  D := LinearAlgebra[Determinant](A, method=algnum);
-  sol := vars;
+  # BUG MAPLE (LinearSolve with p,lu gives wrong results, while LinearSolve with A,b is correct)
+  # p, lu := LinearAlgebra[LUDecomposition]( A, output='NAG' );
+  # sol := Simplify(convert(vars =~ LinearAlgebra[LinearSolve]( [p, lu], b ), list));
+
   # Cramer procedure for parallel computing
   Cramer := proc(
     i::integer,   # Index of the variable to be solved
@@ -3303,10 +3492,28 @@ description "Solve the linear system of equations <eqns> for the variables <vars
 
     A_copy := copy(A);
     A_copy[..,i] := b;
-    sol[i] := sol[i] = Simplify(LinearAlgebra[Determinant](A_copy, method=algnum)/D);
+    sol[i] := sol[i] = Det_LU(A_copy)/D;
 
     return NULL;
   end proc: # Cramer
+
+  Det_LU := proc(
+    A::Matrix, # Matrix to compute the determinant
+  $)::algebraic;
+
+  description "Compute the determinant of the matrix <A> using the LU decomposition.";
+
+    local P, L, U, out;
+
+    P,L,U := LinearAlgebra[LUDecomposition](A,method='GaussianElimination');
+    out := LinearAlgebra[Determinant](P) * LinearAlgebra[Determinant](L) * LinearAlgebra[Determinant](U);
+
+    return eval(out);
+  end proc: # Det_LU
+
+  # Apply Cramer's rule to solve the linear system
+  D := Simplify(Det_LU(A));
+  sol := vars;
 
   # Parallel computing of the solution
   #Threads[Map](Cramer, [seq(i,i=1..nops(vars))], A, b, D); # Not working check Thread-Safe functions
@@ -3315,7 +3522,7 @@ description "Solve the linear system of equations <eqns> for the variables <vars
   end do;
 
   PrintEndProc(procname);
-  return sol;
+  return Simplify(sol);
 end proc: # LinearSolver
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -3405,8 +3612,8 @@ end proc:
 PlotJoint := proc(
   obj::JOINT, # Joint to be plot
   targets::{ # Joint targets
-    list({BEAM,ROD,SUPPORT,JOINT}),
-    set({BEAM,ROD,SUPPORT,JOINT})
+    list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
+    set({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
   },
   {
     data::{list(`=`),set(`=`)} := [] # Substitutions
@@ -3436,8 +3643,8 @@ end proc:
 PlotSupport := proc(
   obj::SUPPORT, # Support to be plotted
   targets::{ # Support targets
-    list({BEAM,ROD,SUPPORT,JOINT}),
-    set({BEAM,ROD,SUPPORT,JOINT})
+    list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
+    set({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
   },
   {
     data::{list(`=`),set(`=`)} := [] # Substitutions
