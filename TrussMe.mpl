@@ -1228,7 +1228,8 @@ MakeSupport := proc(
   description "Make a SUPPORT object with inputs: support name <name>, constrained "
     "degrees of freedom <constrained_dof>, target objects <objs>, support locations "
     "<coords>, and optional reference frame <RF> in which the support is defined "
-    "(default = ground)";
+    "(default = ground). The optional input <stiffness> is a list of stiffness "
+    "components (default = infinite) in the order: [ktx, kty, ktz, krx, kry, krz].";
 
   local S, J_tmp, i, j, sr_F_names, sr_F_values_tmp, sr_M_names, sr_M_values_tmp,
     S_stiffness, x, obj_coords;
@@ -1423,13 +1424,17 @@ MakeJoint := proc(
     stiffness::{procedure,list(algebraic)} := [ # Stiffness components (default = infinite)
       infinity, infinity, infinity,
       infinity, infinity, infinity
-    ] *~ constrained_dof
+    ] *~ constrained_dof,
+    shell_objs::list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH}) := [objs[1]] # Objects to be considered connected to the shell of the joint
   }, $)::JOINT;
 
   description "Make a JOINT object with inputs: joint name <name>, constrained "
     "degrees of freedom <constrained_dof>, target objects <objs>, joint locations "
     "<coords>, and optional reference frame <RF> in which the joint is defined "
-    "(default = ground)";
+    "(default = ground). The optional input <stiffness> is a list of stiffness "
+    "components (default = infinite) in the order: [ktx, kty, ktz, krx, kry, krz] "
+    " and <shell_objs> is a list of objects to be considered connected to the "
+    "shell of the joint (default = [objs[1]])";
 
   local J, i, jf_comp, jm_comp, jf_comp_obj, jm_comp_obj, jm_surv, jf_surv,
     jf_comp_cons, jm_comp_cons, constraint, P_tmp, obj_coords, J_stiffness;
@@ -1479,6 +1484,7 @@ MakeJoint := proc(
     parse("name")                     = name,
     parse("frame")                    = RF,
     parse("targets")                  = GetNames(objs),
+    parse("shell_targets")            = GetNames(shell_objs),
     parse("variables")                = [],
     parse("forces")                   = [],
     parse("moments")                  = [],
@@ -1610,6 +1616,7 @@ IsJoint := proc(
      type(obj[parse("name")], string) and
      type(obj[parse("frame")], FRAME) and
      type(obj[parse("targets")], list({string})) and
+     type(obj[parse("shell_targets")], list({string})) and
      type(obj[parse("variables")], list) and
      type(obj[parse("forces")], list) and
      type(obj[parse("moments")], list) and
@@ -2144,14 +2151,14 @@ ComputeJointDisplacements := proc(
         if i<4 then
           # Forces
           for f in obj[parse("forces")] do
-            if f[parse("target")] = obj[parse("name")] then
+            if member(f[parse("target")], obj[parse("shell_targets")]) then
               jnt_load[i] := jnt_load[i] + f[parse("components")][i];
             end if;
           end do;
         else
           # Moments
           for f in obj[parse("moments")] do
-            if f[parse("target")] = obj[parse("name")] then
+            if member(f[parse("target")], obj[parse("shell_targets")]) then
               jnt_load[i] := jnt_load[i] + f[parse("components")][i-3];
             end if;
           end do;
@@ -2935,7 +2942,7 @@ ComputePotentialEnergy := proc(
         FJX := 0;
         # Get all the forces along X axis
         for f in obj[parse("forces")] do
-          if f[parse("target")] = obj[parse("name")] then
+          if member(f[parse("target")], obj[parse("shell_targets")]) then
             FJX := FJX + f[parse("components")][1];
           end if;
         end do;
@@ -2947,7 +2954,7 @@ ComputePotentialEnergy := proc(
         FJY := 0;
         # Get all the forces along Y axis
         for f in obj[parse("forces")] do
-          if f[parse("target")] = obj[parse("name")] then
+          if member(f[parse("target")], obj[parse("shell_targets")]) then
             FJY := FJY + f[parse("components")][2];
           end if;
         end do;
@@ -2959,7 +2966,7 @@ ComputePotentialEnergy := proc(
         FJZ := 0;
         # Get all the forces along Z axis
         for f in obj[parse("forces")] do
-          if f[parse("target")] = obj[parse("name")] then
+          if member(f[parse("target")], obj[parse("shell_targets")]) then
             FJZ := FJZ + f[parse("components")][3];
           end if;
         end do;
@@ -2971,7 +2978,7 @@ ComputePotentialEnergy := proc(
         MJX := 0;
         # Get all the moments along X axis
         for f in obj[parse("moments")] do
-          if f[parse("target")] = obj[parse("name")] then
+          if member(f[parse("target")], obj[parse("shell_targets")]) then
             MJX := MJX + f[parse("components")][1];
           end if;
         end do;
@@ -2983,7 +2990,7 @@ ComputePotentialEnergy := proc(
         MJY := 0;
         # Get all the moments along Y axis
         for f in obj[parse("moments")] do
-          if f[parse("target")] = obj[parse("name")] then
+          if member(f[parse("target")], obj[parse("shell_targets")]) then
             MJY := MJY + f[parse("components")][2];
           end if;
         end do;
@@ -2995,7 +3002,7 @@ ComputePotentialEnergy := proc(
         MJZ := 0;
         # Get all the moments along Z axis
         for f in obj[parse("moments")] do
-          if f[parse("target")] = obj[parse("name")] then
+          if member(f[parse("target")], obj[parse("shell_targets")]) then
             MJZ := MJZ + f[parse("components")][3];
           end if;
         end do;
@@ -3546,6 +3553,8 @@ description "Return the color of the object <obj>";
     color := CompliantSupport_color;
   elif IsSupport(obj) then
     color := Support_color;
+  elif IsCompliantJoint(obj) then
+    color := CompliantJoint_color;
   elif IsJoint(obj) then
     color := Joint_color;
   elif IsEarth(obj) then
