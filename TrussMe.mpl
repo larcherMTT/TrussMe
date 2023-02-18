@@ -81,6 +81,7 @@ local   ModuleLoad,
         gravity,
         GetNames,
         GetObjByName,
+        GetObjsByType,
         CopyStructure,
         Simplify,
         ComputeDOF,
@@ -100,6 +101,7 @@ local   ModuleLoad,
         ComputeSupportDisplacements,
         ComputeJointDisplacements,
         ObjectColor,
+        PlotRigidBody,
         PlotBeam,
         PlotRod,
         PlotJoint,
@@ -260,7 +262,7 @@ InitTrussMe := proc()
   print_increment        := 4;
   Beam_color             := "SteelBlue";
   Rod_color              := "Niagara DarkOrchid";
-  RigidBody_color        := "DarkKhaki";
+  RigidBody_color        := "Indigo";
   CompliantSupport_color := "DarkGreen";
   Support_color          := "DarkOrange";
   CompliantJoint_color   := "LightSalmon";
@@ -595,6 +597,31 @@ end proc: # GetObjByName
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+GetObjsByType := proc(
+  types::{list(symbol), set(symbol)}, # List of types to be selected from <objs>
+  objs::{list, set},                  # Structural elements
+
+  $)::list;
+
+  description "Get objects which type field is in <types> from a list/set of objects <objs>";
+
+  local out, obj;
+  option remember;
+  PrintStartProc(procname);
+
+  out := [];
+  for obj in objs do
+    if (obj::convert(types, set)) then
+      out := out union [obj];
+    end if:
+  end do:
+
+  PrintEndProc(procname);
+  return out;
+end proc: # GetObjsByType
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 Simplify := proc(
   obj::anything, # Expression to be simplified
   $)::anything;
@@ -627,7 +654,15 @@ InverseFrame := proc(
 
   description "Inverse transformation matrix of an affine transformation <RF>";
 
-  return LinearAlgebra:-Transpose(RF);
+  local out;
+  PrintStartProc(procname);
+
+  LinearAlgebra:-Transpose(RF[1..3, 1..3]);
+  out := <<% | -% . RF[1..3, 4]>,
+          <0 | 0 | 0 | 1>>;
+
+  PrintEndProc(procname);
+  return out;
 end proc: # InverseFrame
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1384,7 +1419,7 @@ IsCompliantSupport := proc(
 
   out := false;
   if IsSupport(obj) then
-    for i from 1 to nops(obj[parse("stiffness")]) do
+    for i from 1 to 6 do
       if (obj[parse("stiffness")](x)[i] <> infinity) and
          (obj[parse("constrained_dof")][i] = 1) then
         out := true;
@@ -1646,7 +1681,7 @@ IsCompliantJoint := proc(
 
   out := false;
   if IsJoint(obj) then
-    for i from 1 to nops(obj[parse("stiffness")]) do
+    for i from 1 to 6 do
       if (obj[parse("stiffness")](x)[i] <> infinity) and
          (obj[parse("constrained_dof")][i] = 1) then
         out := true;
@@ -1988,7 +2023,7 @@ MakeRigidBody := proc(
   name::string,        # Object name
   RF::FRAME := ground, # Reference frame
   {
-    COM::list(algebraic) := Origin(RF), # COM position in RF (default: Origin(RF))
+    COM::list(algebraic) := Origin(RF)[1..3], # COM position in RF (default: Origin(RF))
     mass::algebraic := 0                # Mass (kg)
   },
   $)::RIGID_BODY;
@@ -2133,8 +2168,8 @@ end proc: # ComputeSupportDisplacements
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 ComputeJointDisplacements := proc(
-  obj::JOINT, # Joint object
-  sol::list,  # List of solutions for joint forces
+  obj::JOINT,       # Joint object
+  sol::{list, set}, # List of solutions for joint forces
   $)::nothing;
 
   description "Compute the displacements of the joint <obj>";
@@ -2207,16 +2242,16 @@ MakeStructure := proc(
     "external actions <exts>, optional hyperstatic variables <hyper_vars>, optional "
     "hyperstatic displacements <hyper_disp>";
 
-  local num_dof, i, names, candidate_hyp_vars, Graph, obj, S_ext, out;
+  local num_dof, names, candidate_hyp_vars, Graph, obj, S_ext, out;
   PrintStartProc(procname);
 
   # Check for duplicate names
   names := [];
-  for i from 1 to nops(objs) do
-    if member(objs[i][parse("name")], names) then
+  for obj in objs do
+    if member(obj[parse("name")], names) then
       error "duplicate names found on structure objects";
     end if;
-    names := names union [objs[i][parse("name")]];
+    names := names union [obj[parse("name")]];
   end do;
 
   num_dof, Graph := ComputeDOF(objs);
@@ -2224,12 +2259,9 @@ MakeStructure := proc(
   if (num_dof < 0) then
     if (nops(hyper_vars) <> -num_dof) and (not suppress_warnings) then
       candidate_hyp_vars := [];
-      for i from 1 to nops(objs) do
-        if IsSupport(objs[i]) or IsJoint(objs[i]) then
-          candidate_hyp_vars := [
-            op(candidate_hyp_vars),
-            op(objs[i][parse("variables")])
-            ];
+      for obj in objs do
+        if IsSupport(obj) or IsJoint(obj) then
+          candidate_hyp_vars := candidate_hyp_vars union obj[parse("variables")];
         end if;
       end do;
     WARNING(
@@ -2366,7 +2398,7 @@ ComputeDOF := proc(
 
   description "Compute the degree of freedom of the input structure objects <objs>";
 
-  local dof, objs_tmp, i, j, k, vertex, colors, G;
+  local dof, objs_tmp, obj, i, j, k, vertex, colors, G;
   PrintStartProc(procname);
 
   dof      := 0;
@@ -2415,17 +2447,17 @@ ComputeDOF := proc(
     printf("%*sMessage (in ComputeDOF) computing degrees of freedom...\n", print_indent, "|   ");
   end if;
 
-  for i from 1 to nops(objs_tmp) do
-    if IsBeam(objs_tmp[i]) then
+  for obj in objs_tmp do
+    if IsBeam(obj) then
       dof := dof + 6;
-    elif IsRigidBody(objs_tmp[i]) then
+    elif IsRigidBody(obj) then
       dof := dof + 6;
-    elif IsRod(objs_tmp[i]) then
+    elif IsRod(obj) then
       dof := dof + 5;
-    elif IsJoint(objs_tmp[i]) then
-      dof := dof - add(objs_tmp[i][parse("constrained_dof")][k], k = 1..6) * (nops(objs_tmp[i][parse("targets")]) - 1);
-    elif IsSupport(objs_tmp[i]) then
-      dof := dof - add(objs_tmp[i][parse("constrained_dof")][k], k = 1..6) * (nops(objs_tmp[i][parse("targets")]) - 1);
+    elif IsJoint(obj) then
+      dof := dof - add(obj[parse("constrained_dof")][k], k = 1..6) * (nops(obj[parse("targets")]) - 1);
+    elif IsSupport(obj) then
+      dof := dof - add(obj[parse("constrained_dof")][k], k = 1..6) * (nops(obj[parse("targets")]) - 1);
     end if;
   end do;
 
@@ -2902,37 +2934,37 @@ ComputePotentialEnergy := proc(
       # Support reaction Fx contribution
       if (subs(obj[parse("support_reactions")], FX) <> 0) and
           (obj[parse("stiffness")](x)[1] <> infinity) and
-           (obj[parse("constrained_dof")][1] <> 0) then
+          (obj[parse("constrained_dof")][1] <> 0) then
         P := P + subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-FX, (x -> obj[parse("stiffness")](x)[1])));
       end if;
       # Support reaction Fy contribution
       if (subs(obj[parse("support_reactions")], FY) <> 0) and
           (obj[parse("stiffness")](x)[2] <> infinity) and
-           (obj[parse("constrained_dof")][2] <> 0) then
+          (obj[parse("constrained_dof")][2] <> 0) then
         P := P + subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-FY, (x -> obj[parse("stiffness")](x)[2])));
       end if;
       # Support reaction Fz contribution
       if (subs(obj[parse("support_reactions")], FZ) <> 0) and
           (obj[parse("stiffness")](x)[3] <> infinity) and
-           (obj[parse("constrained_dof")][3] <> 0) then
+          (obj[parse("constrained_dof")][3] <> 0) then
         P := P + subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-FZ, (x -> obj[parse("stiffness")](x)[3])));
       end if;
       # Support reaction Mx contribution
       if (subs(obj[parse("support_reactions")], MX) <> 0) and
           (obj[parse("stiffness")](x)[4] <> infinity) and
-           (obj[parse("constrained_dof")][4] <> 0) then
+          (obj[parse("constrained_dof")][4] <> 0) then
         P := P + subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-MX, (x -> obj[parse("stiffness")](x)[4])));
       end if;
       # Support reaction My contribution
       if (subs(obj[parse("support_reactions")], MY) <> 0) and
           (obj[parse("stiffness")](x)[5] <> infinity) and
-           (obj[parse("constrained_dof")][5] <> 0) then
+          (obj[parse("constrained_dof")][5] <> 0) then
         P := P + subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-MY, (x -> obj[parse("stiffness")](x)[5])));
       end if;
       # Support reaction Mz contribution
       if (subs(obj[parse("support_reactions")], MZ) <> 0) and
           (obj[parse("stiffness")](x)[6] <> infinity) and
-           (obj[parse("constrained_dof")][6] <> 0) then
+          (obj[parse("constrained_dof")][6] <> 0) then
         P := P + subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-MZ, (x -> obj[parse("stiffness")](x)[6])));
       end if;
     elif IsCompliantJoint(obj) then
@@ -2946,7 +2978,7 @@ ComputePotentialEnergy := proc(
             FJX := FJX + f[parse("components")][1];
           end if;
         end do;
-        P := P + subs(sol, ComputeSpringEnergy(FX, (x -> obj[parse("stiffness")](x)[1])));
+        P := P + subs(sol, ComputeSpringEnergy(FJX, (x -> obj[parse("stiffness")](x)[1])));
       end if;
       # Joint forces along Y axis
       if (obj[parse("stiffness")](x)[2] <> infinity) and
@@ -2958,7 +2990,7 @@ ComputePotentialEnergy := proc(
             FJY := FJY + f[parse("components")][2];
           end if;
         end do;
-        P := P + subs(sol, ComputeSpringEnergy(FY, (x -> obj[parse("stiffness")](x)[2])));
+        P := P + subs(sol, ComputeSpringEnergy(FJY, (x -> obj[parse("stiffness")](x)[2])));
       end if;
       # Joint forces along Z axis
       if (obj[parse("stiffness")](x)[3] <> infinity) and
@@ -2970,7 +3002,7 @@ ComputePotentialEnergy := proc(
             FJZ := FJZ + f[parse("components")][3];
           end if;
         end do;
-        P := P + subs(sol, ComputeSpringEnergy(FZ, (x -> obj[parse("stiffness")](x)[3])));
+        P := P + subs(sol, ComputeSpringEnergy(FJZ, (x -> obj[parse("stiffness")](x)[3])));
       end if;
       # Joint moments along X axis
       if (obj[parse("stiffness")](x)[4] <> infinity) and
@@ -2982,7 +3014,7 @@ ComputePotentialEnergy := proc(
             MJX := MJX + f[parse("components")][1];
           end if;
         end do;
-        P := P + subs(sol, ComputeSpringEnergy(MX, (x -> obj[parse("stiffness")](x)[4])));
+        P := P + subs(sol, ComputeSpringEnergy(MJX, (x -> obj[parse("stiffness")](x)[4])));
       end if;
       # Joint moments along Y axis
       if (obj[parse("stiffness")](x)[5] <> infinity) and
@@ -2994,7 +3026,7 @@ ComputePotentialEnergy := proc(
             MJY := MJY + f[parse("components")][2];
           end if;
         end do;
-        P := P + subs(sol, ComputeSpringEnergy(MY, (x -> obj[parse("stiffness")](x)[5])));
+        P := P + subs(sol, ComputeSpringEnergy(MJY, (x -> obj[parse("stiffness")](x)[5])));
       end if;
       # Joint moments along Z axis
       if (obj[parse("stiffness")](x)[6] <> infinity) and
@@ -3006,7 +3038,7 @@ ComputePotentialEnergy := proc(
             MJZ := MJZ + f[parse("components")][3];
           end if;
         end do;
-        P := P + subs(sol, ComputeSpringEnergy(MZ, (x -> obj[parse("stiffness")](x)[6])));
+        P := P + subs(sol, ComputeSpringEnergy(MJZ, (x -> obj[parse("stiffness")](x)[6])));
       end if;
     end if;
   end do;
@@ -3093,14 +3125,20 @@ IsostaticSolver := proc(
   else
     # Matrix form
     A, B := LinearAlgebra[GenerateMatrix](iso_eq, iso_vars);
+    A := Matrix(A, storage = sparse);
+    #ADJ := eval(evalb~(A=~0),[true=1,false=0]);
+    #G:= GraphTheory[Graph](iso_vars, ADJ);
+    #print(GraphTheory[DrawGraph](G));
+    #print(GraphTheory[ConnectedComponents](G));
+
     # Check rank
-    rank_eq := LinearAlgebra[Rank](LinearAlgebra[GaussianElimination](A));
-    if (rank_eq <> nops(iso_vars)) then
-      error "inconsistent system of equation, got %1 equations and %2 variables. "
-        "Rank of the system  wrt the system variables is %3. Check structure "
-        "supports and joints",
-        nops(iso_eq), nops(iso_vars), rank_eq;
-    end if;
+    # rank_eq := LinearAlgebra[Rank](LinearAlgebra[GaussianElimination](A));
+    # if (rank_eq <> nops(iso_vars)) then
+    #   error "inconsistent system of equation, got %1 equations and %2 variables. "
+    #     "Rank of the system  wrt the system variables is %3. Check structure "
+    #     "supports and joints",
+    #     nops(iso_eq), nops(iso_vars), rank_eq;
+    # end if;
     if (verbose_mode > 1) then
       printf("%*sMessage (in IsostaticSolver) A matrix visualization of the linear system:\n", print_indent, "|   ");
       print(plots[sparsematrixplot](A,matrixview));
@@ -3377,7 +3415,7 @@ ComputePunctualDisplacement := proc(
     elif IsJoint(obj) then
       # Re-Make joint to generate new loads and constraint compliant with substituted objects
       obj_targets := map(GetObjByName, obj[parse("targets")], struct_copy[parse("objects")]);
-      subs_obj := MakeJoint(obj[parse("name")], obj[parse("constrained_dof")], obj_targets, obj[parse("coordinates")], obj[parse("frame")]);
+      subs_obj := MakeJoint(obj[parse("name")], obj[parse("constrained_dof")], obj_targets, obj[parse("coordinates")], obj[parse("frame")], parse("stiffness") = obj[parse("stiffness")]);
       # Replace object in struct_copy
       struct_copy[parse("objects")] := remove(x -> x[parse("name")] = obj[parse("name")], struct_copy[parse("objects")]);
       struct_copy[parse("objects")] := struct_copy[parse("objects")] union {eval(subs_obj)};
@@ -3468,65 +3506,27 @@ end proc: # CopyStructure
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 LinearSolver := proc(
-  eqns::{list,set},  # Equations
+  eqns::{list, set}, # Equations
   vars::{list, set}, # Variables
   $)::list;
 
 description "Solve the linear system of equations <eqns> for the variables <vars>";
 
-  local sol, D, i, A, b, Cramer, Det_LU;
+  local sol, A, b, Q, PivotStrategy;
   PrintStartProc(procname);
 
   # Matrix form of the linear system
   A, b := LinearAlgebra[GenerateMatrix](eqns, vars);
 
-  # BUG MAPLE (LinearSolve with p,lu gives wrong results, while LinearSolve with A,b is correct)
-  # p, lu := LinearAlgebra[LUDecomposition]( A, output='NAG' );
-  # sol := Simplify(convert(vars =~ LinearAlgebra[LinearSolve]( [p, lu], b ), list));
-
-  # Cramer procedure for parallel computing
-  Cramer := proc(
-    i::integer,   # Index of the variable to be solved
-    A::Matrix,    # Matrix of the linear system
-    b::Vector,    # Vector of the linear system
-    D::algebraic, # Determinant of the matrix A of the linear system
-  $)::nothing;
-
-  description "Compute the <i>th variable of the linear system defined by the "
-    "matrix <A> and the vector <b>. The determinant of the matrix <A> is <D>.";
-
-    local A_copy;
-
-    A_copy := copy(A);
-    A_copy[..,i] := b;
-    sol[i] := sol[i] = Det_LU(A_copy)/D;
-
-    return NULL;
-  end proc: # Cramer
-
-  Det_LU := proc(
-    A::Matrix, # Matrix to compute the determinant
-  $)::algebraic;
-
-  description "Compute the determinant of the matrix <A> using the LU decomposition.";
-
-    local P, L, U, out;
-
-    P,L,U := LinearAlgebra[LUDecomposition](A,method='GaussianElimination');
-    out := LinearAlgebra[Determinant](P) * LinearAlgebra[Determinant](L) * LinearAlgebra[Determinant](U);
-
-    return eval(out);
-  end proc: # Det_LU
-
-  # Apply Cramer's rule to solve the linear system
-  D := Simplify(Det_LU(A));
-  sol := vars;
-
-  # Parallel computing of the solution
-  #Threads[Map](Cramer, [seq(i,i=1..nops(vars))], A, b, D); # Not working check Thread-Safe functions
-  for i from 1 to nops(vars) do
-    Cramer(i, A, b, D);
-  end do;
+  use LULEM in
+  if has(map(type, A, 'constant'), false) then
+    PivotStrategy := PivotStrategy_Sindets;
+  else
+    PivotStrategy := PivotStrategy_numeric;
+  end if;
+  Solve(A, b, Q, VeilingStrategy_n, PivotStrategy, ZeroStrategy_length);
+  sol := convert(vars =~ SubsVeil(Q, %), list);
+  end use;
 
   PrintEndProc(procname);
   return Simplify(sol);
@@ -3568,6 +3568,47 @@ end proc: # ObjectColor
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+PlotRigidBody := proc(
+  obj::RIGID_BODY, # Rigid body to be plot
+  joints::{ # Joint and support objects
+    list({SUPPORT, JOINT}),
+    set({SUPPORT, JOINT})
+  },
+  c_loads::{ # Concentrated loads
+    list({FORCE, MOMENT}),
+    set({FORCE, MOMENT})
+  },
+  {
+    data::{list(`=`),set(`=`)} := [] # Substitutions
+  },
+  $)::procedure;
+
+  description "Plot a the RIGID_BODY object <obj>";
+
+  local P1, P2, js, idx, lines, load, out;
+  PrintStartProc(procname);
+
+  lines := [];
+  P1 := Project(subs(op(data), obj[parse("COM")]), obj[parse("frame")], ground);
+  for js in joints do
+    member(obj[parse("name")], js[parse("targets")], 'idx');
+    P2 := Project(subs(op(data), [op(js[parse("coordinates")][idx]), 1]), obj[parse("frame")], ground);
+    lines := lines union [plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 6)];
+  end do;
+
+  for load in c_loads do
+    P2 :=  Project(subs(op(data), [op(load[parse("coordinate")]), 1]), obj[parse("frame")], ground);
+    lines := lines union [plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 6)];
+  end do;
+
+  out := plots:-display(lines, linestyle = solid, color = ObjectColor(obj));
+
+  PrintEndProc(procname);
+  return out;
+end proc: # PlotRigidBody
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 PlotBeam := proc(
   obj::BEAM, # Beam to be plot
   {
@@ -3575,13 +3616,13 @@ PlotBeam := proc(
   },
   $)::procedure;
 
-  description "Plot a the SUPPORT object <obj>";
+  description "Plot a the BEAM object <obj>";
 
   local P1, P2, out;
   PrintStartProc(procname);
 
   P1 := subs(op(data), Origin(obj[parse("frame")]));
-  P2 := subs(op(data), Origin(eval(obj[parse("frame")]).Translate(obj[parse("length")], 0, 0)));
+  P2 :=  Project(subs(op(data), [obj[parse("length")], 0, 0, 1]), obj[parse("frame")], ground);
 
   out := plots:-display(
     plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 6),
@@ -3589,7 +3630,7 @@ PlotBeam := proc(
 
   PrintEndProc(procname);
   return out;
-end proc:
+end proc: # PlotBeam
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -3606,7 +3647,7 @@ PlotRod := proc(
   PrintStartProc(procname);
 
   P1 := subs(op(data), Origin(obj[parse("frame")]));
-  P2 := subs(op(data), Origin(eval(obj[parse("frame")]).Translate(obj[parse("length")], 0, 0)));
+  P2 := Project(subs(op(data), [obj[parse("length")], 0, 0, 1]), obj[parse("frame")], ground);
 
   out := plots:-display(
     plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 4),
@@ -3614,7 +3655,7 @@ PlotRod := proc(
 
   PrintEndProc(procname);
   return out;
-end proc:
+end proc: # PlotRod
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -3645,7 +3686,7 @@ PlotJoint := proc(
 
   PrintEndProc(procname);
   return out;
-end proc:
+end proc: # PlotJoint
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -3681,7 +3722,7 @@ PlotSupport := proc(
 
   PrintEndProc(procname);
   return out;
-end proc:
+end proc: # PlotSupport
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -3692,25 +3733,31 @@ PlotStructure := proc(
 
   description "Plot a the STRUCTURE object <obj>";
 
-  local out, obj;
+  local out, rb_joints, rb_loads, obj;
   PrintStartProc(procname);
 
   out := []:
   for obj in str[parse("objects")] do
     if IsBeam(obj) then
-      out := [op(out), PlotBeam(obj, parse("data") = data)];
+      out := out union [PlotBeam(obj, parse("data") = data)];
     elif IsRod(obj) then
-      out := [op(out), PlotRod(obj, parse("data") = data)];
+      out := out union [PlotRod(obj, parse("data") = data)];
     elif IsSupport(obj) then
-      out := [op(out), PlotSupport(obj, map(GetObjByName, obj[parse("targets")], str[parse("objects")]), parse("data") = data)];
+      out := out union [PlotSupport(obj, map(GetObjByName, obj[parse("targets")], str[parse("objects")]), parse("data") = data)];
     elif IsJoint(obj) then
-      out := [op(out), PlotJoint(obj, map(GetObjByName, obj[parse("targets")], str[parse("objects")]), parse("data") = data)];
+      out := out union [PlotJoint(obj, map(GetObjByName, obj[parse("targets")], str[parse("objects")]), parse("data") = data)];
+    elif IsRigidBody(obj) then
+      GetObjsByType(['JOINT', 'SUPPORT'], str[parse("objects")]);
+      rb_joints := remove(x -> (not member(obj[parse("name")], x[parse("targets")])), %);
+      GetObjsByType(['FORCE', 'MOMENT'], str[parse("external_actions")]);
+      rb_loads := remove(x -> obj[parse("name")] <> x[parse("target")], %);
+      out := out union [PlotRigidBody(obj, rb_joints, rb_loads, parse("data") = data)];
     end if;
   end do;
 
   PrintEndProc(procname);
   return out;
-end proc:
+end proc: # PlotStructure
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -3742,7 +3789,7 @@ IsInsideJoint := proc(
 
   PrintEndProc(procname);
   return out;
-end proc:
+end proc: # IsInsideJoint
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -3774,7 +3821,7 @@ IsInsideSupport := proc(
 
   PrintEndProc(procname);
   return out;
-end proc:
+end proc: # IsInsideSupport
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -3800,7 +3847,7 @@ IsInsideRod := proc(
 
   PrintEndProc(procname);
   return out;
-end proc:
+end proc: # IsInsideRod
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -3826,7 +3873,7 @@ IsInsideBeam := proc(
 
   PrintEndProc(procname);
   return out;
-end proc:
+end proc: # IsInsideBeam
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -3857,7 +3904,7 @@ IsInsideStructure := proc(
 
   PrintEndProc(procname);
   return out;
-end proc:
+end proc: # IsInsideStructure
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
