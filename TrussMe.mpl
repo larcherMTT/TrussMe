@@ -440,21 +440,9 @@ IsEarth := proc(
 
   description "Test if an object <obj> is the EARTH object";
 
-  local out;
   PrintStartProc(procname);
-
-  if type(obj, table) and
-     (obj[parse("type")] = EARTH) and
-     (obj[parse("length")] = 0) and
-     (obj[parse("frame")] = ground) and
-     (obj[parse("admissible_loads")] = [1, 1, 1, 1, 1, 1]) then
-    out := true;
-  else
-    out := false;
-  end if:
-
   PrintEndProc(procname);
-  return out;
+  return evalb(obj[parse("type")] = EARTH);
 end proc: # IsEarth
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -526,6 +514,8 @@ ListPadding := proc(
 
   if (nops(out) < n) then
     out := out union [seq(value, i = (1..n-nops(out)))];
+  elif (nops(out) > n) then
+    out := out[1..n];
   end if:
 
   PrintEndProc(procname);
@@ -623,7 +613,8 @@ end proc: # GetObjsByType
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 Simplify := proc(
-  obj::anything, # Expression to be simplified
+  obj::anything,         # Expression to be simplified
+  opt::anything := NULL, # Options
   $)::anything;
 
   description "Simplify an algebraic expression <obj>";
@@ -632,7 +623,7 @@ Simplify := proc(
   PrintStartProc(procname);
 
   try
-    timelimit(time_limit_simplify, simplify(obj));
+    timelimit(time_limit_simplify, simplify(obj, opt));
     out := %;
   catch :
     WARNING("Time limit of %1s exceeded for simplify operation, raw solutions "
@@ -958,23 +949,9 @@ IsMaterial := proc(
 
   description "Check if the input object <obj> is a MATERIAL object";
 
-  local out;
   PrintStartProc(procname);
-
-  if (obj[parse("type")] = MATERIAL) and
-     type(obj, table) and
-     type(obj[parse("name")], string) and
-     type(obj[parse("elastic_modulus")], algebraic) and
-     type(obj[parse("poisson_ratio")], algebraic) and
-     type(obj[parse("shear_modulus")], algebraic) and
-     type(obj[parse("density")], algebraic) then
-    out := true;
-  else
-    out := false;
-  end if;
-
   PrintEndProc(procname);
-  return out;
+  return evalb(obj[parse("type")] = MATERIAL);
 end proc: # IsMaterial
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1031,21 +1008,9 @@ IsForce := proc(
 
   description "Check if the object <obj> is a FORCE object";
 
-  local out;
   PrintStartProc(procname);
-
-  if (obj[parse("type")] = FORCE) and
-     type(obj, table) and
-     type(obj[parse("components")], list) and
-     type(obj[parse("coordinate")], {algebraic, list(algebraic)}) and
-     type(obj[parse("target")], string) then
-    out := true;
-  else
-    out := false;
-  end if;
-
   PrintEndProc(procname);
-  return out;
+  return evalb(obj[parse("type")] = FORCE);
 end proc: # IsForce
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1102,21 +1067,9 @@ IsMoment := proc(
 
   description "Check if the object <obj> is a MOMENT object";
 
-  local out;
   PrintStartProc(procname);
-
-  if (obj[parse("type")] = MOMENT) and
-     type(obj, table) and
-     type(obj[parse("components")], list) and
-     type(obj[parse("coordinate")], {algebraic, list(algebraic)}) and
-     type(obj[parse("target")], string) then
-    out := true;
-  else
-    out := false;
-  end if;
-
   PrintEndProc(procname);
-  return out;
+  return evalb(obj[parse("type")] = MOMENT);
 end proc: # IsMoment
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1169,20 +1122,9 @@ IsQForce := proc(
 
   description "Check if the object <obj> is a QFORCE object";
 
-  local out;
   PrintStartProc(procname);
-
-  if (obj[parse("type")] = QFORCE) and
-     type(obj, table) and
-     type(obj[parse("components")], procedure) and
-     type(obj[parse("target")], string) then
-    out := true;
-  else
-    out := false;
-  end if;
-
   PrintEndProc(procname);
-  return out;
+  return evalb(obj[parse("type")] = QFORCE);
 end proc: # IsQForce
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1229,20 +1171,9 @@ IsQMoment := proc(
 
   description "Check if the object <obj> is a QMOMENT object";
 
-  local out;
   PrintStartProc(procname);
-
-  if (obj[parse("type")] = QMOMENT) and
-     type(obj, table) and
-     type(obj[parse("components")], procedure) and
-     type(obj[parse("target")], string) then
-    out := true;
-  else
-    out := false;
-  end if;
-
   PrintEndProc(procname);
-  return out;
+  return evalb(obj[parse("type")] = QMOMENT);
 end proc: # IsQMoment
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1379,30 +1310,9 @@ IsSupport := proc(
 
   description "Check if the object <obj> is a SUPPORT object";
 
-  local out;
   PrintStartProc(procname);
-
-  if (obj[parse("type")] = SUPPORT) and
-     type(obj[parse("constrained_dof")], list) and
-     type(obj[parse("admissible_loads")], list) and
-     type(obj[parse("coordinates")], list) and
-     type(obj[parse("name")], string) and
-     type(obj[parse("frame")], FRAME) and
-     type(obj[parse("targets")], list({string})) and
-     type(obj[parse("variables")], list) and
-     type(obj[parse("forces")], list) and
-     type(obj[parse("moments")], list) and
-     type(obj[parse("constraint_loads")], list) and
-     type(obj[parse("support_reactions")], list) and
-     type(obj[parse("stiffness")], procedure) and
-     type(obj[parse("displacements")], list) then
-    out := true;
-  else
-    out := false;
-  end if;
-
   PrintEndProc(procname);
-  return out;
+  return evalb(obj[parse("type")] = SUPPORT);
 end proc: # IsSupport
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1640,31 +1550,9 @@ IsJoint := proc(
 
   description "Check if the objecy <obj> is a JOINT object";
 
-  local out;
   PrintStartProc(procname);
-
-  if (obj[parse("type")] = JOINT) and
-     type(obj, table) and
-     type(obj[parse("constrained_dof")], list) and
-     type(obj[parse("admissible_loads")], list) and
-     type(obj[parse("coordinates")], list) and
-     type(obj[parse("name")], string) and
-     type(obj[parse("frame")], FRAME) and
-     type(obj[parse("targets")], list({string})) and
-     type(obj[parse("shell_targets")], list({string})) and
-     type(obj[parse("variables")], list) and
-     type(obj[parse("forces")], list) and
-     type(obj[parse("moments")], list) and
-     type(obj[parse("constraint_loads")], list) and
-     type(obj[parse("stiffness")], procedure) and
-     type(obj[parse("displacements")], list) then
-    out := true;
-  else
-    out := false;
-  end if;
-
   PrintEndProc(procname);
-  return out;
+  return evalb(obj[parse("type")] = JOINT);
 end proc: # IsJoint
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1804,26 +1692,9 @@ IsRod := proc(
 
   description "Check if the object <obj> is a ROD object";
 
-  local out;
   PrintStartProc(procname);
-
-  if (obj[parse("type")] = ROD) and
-     type(obj, table) and
-     type(obj[parse("name")], string) and
-     type(obj[parse("length")], algebraic) and
-     type(obj[parse("area")], procedure) and
-     type(obj[parse("material")], MATERIAL) and
-     type(obj[parse("frame")], FRAME) and
-     type(obj[parse("admissible_loads")], list) and
-     type(obj[parse("internal_actions")], list) and
-     type(obj[parse("displacements")], list) then
-    out := true;
-  else
-    out := false;
-  end if;
-
   PrintEndProc(procname);
-  return out;
+  return evalb(obj[parse("type")] = ROD);
 end proc: # IsRod
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1979,28 +1850,9 @@ IsBeam := proc(
 
   description "Check if the object <obj> is a BEAM object";
 
-  local out;
   PrintStartProc(procname);
-
-  if (obj[parse("type")] = BEAM) and
-     type(obj, table) and
-     type(obj[parse("name")], string) and
-     type(obj[parse("length")], algebraic) and
-     type(obj[parse("area")], procedure) and
-     type(obj[parse("timo_shear_coeff")], procedure) and
-     type(obj[parse("material")], MATERIAL) and
-     type(obj[parse("inertias")], list(procedure)) and
-     type(obj[parse("frame")], FRAME) and
-     type(obj[parse("admissible_loads")], list) and
-     type(obj[parse("internal_actions")], list) and
-     type(obj[parse("displacements")], list) then
-    out := true;
-  else
-    out := false;
-  end if;
-
   PrintEndProc(procname);
-  return out;
+  return evalb(obj[parse("type")] = BEAM);
 end proc: # IsBeam
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -2056,23 +1908,9 @@ IsRigidBody := proc(
 
   description "Check if the object <obj> is a RIGID_BODY object";
 
-  local out;
   PrintStartProc(procname);
-
-  if (obj[parse("type")] = RIGID_BODY) and
-     type(obj, table) and
-     type(obj[parse("name")], string) and
-     type(obj[parse("frame")], FRAME) and
-     type(obj[parse("COM")], list(algebraic)) and
-     type(obj[parse("mass")], algebraic) and
-     type(obj[parse("admissible_loads")], list) then
-    out := true;
-  else
-    out := false;
-  end if;
-
   PrintEndProc(procname);
-  return out;
+  return evalb(obj[parse("type")] = RIGID_BODY);
 end proc: # IsRigidBody
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -2086,6 +1924,7 @@ ComputeSpringDisplacement := proc(
   "and spring stiffness <stiffness>";
 
   local x, out, Dx;
+  option remember;
   PrintStartProc(procname);
 
   #Physics[Assume](spring_load * Dx > 0);
@@ -2343,17 +2182,9 @@ IsStructure := proc(
 
   description "Check if the object <obj> is a STRUCTURE object";
 
-  local out;
   PrintStartProc(procname);
-
-  if (obj[parse("type")] = STRUCTURE) then
-    out := true;
-  else
-    out := false;
-  end if;
-
   PrintEndProc(procname);
-  return op(out);
+  return evalb(obj[parse("type")] = STRUCTURE);
 end proc: # IsStructure
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -2537,6 +2368,7 @@ NewtonEuler := proc(
     "integration <upper_lim>";
 
   local eq_T, eq_R, i, x, arm, out;
+  option remember;
   PrintStartProc(procname);
 
   eq_T := [0, 0, 0];
@@ -2603,7 +2435,7 @@ SolveStructure := proc(
 
   local g_load, S_obj, S_rigid, S_ext, S_support, S_joint, S_con_forces, vars,
     sol, obj, x, str_eq, str_vars, P_energy;
-
+  option remember;
   PrintStartProc(procname);
 
   # Clean structure
@@ -2792,6 +2624,7 @@ HyperstaticSolver := proc(
 
   local hyper_eq, hyper_load, hyper_comps, hyper_compliant_disp, hyper_support, i, obj,
         iso_vars, iso_sol, iso_eq, hyper_sol, P_energy, S_objs, E_objs, sol;
+  option remember;
   PrintStartProc(procname);
 
   # Parse input objects and find objects with internal actions property
@@ -2875,6 +2708,7 @@ ComputePotentialEnergy := proc(
     "objects <objs> and optional Timoshenko beam flag <timoshenko_beam>";
 
   local obj, P, x, f, FJX, FJY, FJZ, MJX, MJY, MJZ;
+  option remember;
   PrintStartProc(procname);
 
   P := 0;
@@ -3068,7 +2902,8 @@ IsostaticSolver := proc(
     "the structure objects <objs>, the external actions <exts> and the variables "
     "<vars> to solve";
 
-  local iso_eq, i, j, active_ext, iso_sol, A, B, rank_eq, iso_vars;
+  local iso_eq, i, j, active_ext, iso_sol, A, B, rank_eq, iso_vars, PivotStrategy;
+  option remember;
   PrintStartProc(procname);
 
   # Compute structure equations
@@ -3131,24 +2966,32 @@ IsostaticSolver := proc(
     #print(GraphTheory[DrawGraph](G));
     #print(GraphTheory[ConnectedComponents](G));
 
-    # Check rank
-    # rank_eq := LinearAlgebra[Rank](LinearAlgebra[GaussianElimination](A));
-    # if (rank_eq <> nops(iso_vars)) then
-    #   error "inconsistent system of equation, got %1 equations and %2 variables. "
-    #     "Rank of the system  wrt the system variables is %3. Check structure "
-    #     "supports and joints",
-    #     nops(iso_eq), nops(iso_vars), rank_eq;
-    # end if;
-    if (verbose_mode > 1) then
-      printf("%*sMessage (in IsostaticSolver) A matrix visualization of the linear system:\n", print_indent, "|   ");
-      print(plots[sparsematrixplot](A,matrixview));
-    end if;
-    # Solve structure equations
-    if (verbose_mode > 1) then
-      printf("%*sMessage (in IsostaticSolver) computing the structure reaction forces...\n", print_indent, "|   ");
-    end if;
-
     if nops(iso_eq) = nops(iso_vars) then
+      # Check rank
+      use LULEM in
+      if has(map(type, A, 'constant'), false) then
+        PivotStrategy := PivotStrategy_Sindets;
+      else
+        PivotStrategy := PivotStrategy_numeric;
+      end if;
+      LUD(A, '_Q', VeilingStrategy_n, PivotStrategy, ZeroStrategy_length);
+      ForgetVeil('_Q');
+      end use;
+      rank_eq := LinearAlgebra[Rank](%[3]);
+      if (rank_eq <> nops(iso_vars)) then
+        error "inconsistent system of equation, got %1 equations and %2 variables. "
+          "Rank of the system  wrt the system variables is %3. Check structure "
+          "supports and joints",
+          nops(iso_eq), nops(iso_vars), rank_eq;
+      end if;
+      if (verbose_mode > 1) then
+        printf("%*sMessage (in IsostaticSolver) A matrix visualization of the linear system:\n", print_indent, "|   ");
+        print(plots[sparsematrixplot](A,matrixview));
+      end if;
+      if (verbose_mode > 1) then
+        printf("%*sMessage (in IsostaticSolver) computing the structure reaction forces...\n", print_indent, "|   ");
+      end if;
+      # Solve structure equations (LinearSolver)
       iso_sol := LinearSolver(iso_eq, iso_vars);
     else
       if (not suppress_warnings) then
@@ -3156,6 +2999,7 @@ IsostaticSolver := proc(
           "consistent, trying to solve the system of equations anyway without "
           "LinearSolver");
       end if;
+      # Solve structure equations (solve)
       iso_sol := op(RealDomain[solve](iso_eq, iso_vars));
     end if;
 
@@ -3194,6 +3038,7 @@ ComputeInternalActions := proc(
     "objects with given external actions and structure solution";
 
   local i, j, active_ext, subs_ext;
+  option remember;
   PrintStartProc(procname);
 
   # Substitute structure solution into loads
@@ -3228,6 +3073,7 @@ InternalActions := proc(
     "function of the axial variable 'x'";
 
   local i, ia, N_sol, Ty_sol, Tz_sol, Mx_sol, My_sol, Mz_sol, x;
+  option remember;
   PrintStartProc(procname);
 
   N_sol  := 0;
@@ -3245,25 +3091,37 @@ InternalActions := proc(
   # Compute internal actions for concentrated loads as effect overlay
   for i from 1 to nops(exts) do
     if IsForce(exts[i]) then
-      N_sol  := `simplify/piecewise`(N_sol  - piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][1]), x);
-      Ty_sol := `simplify/piecewise`(Ty_sol + piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][2]), x);
-      Tz_sol := `simplify/piecewise`(Tz_sol + piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][3]), x);
-      My_sol := `simplify/piecewise`(My_sol + integrate(piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][3]), x = 0..x), x);
-      Mz_sol := `simplify/piecewise`(Mz_sol + integrate(piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][2]), x = 0..x), x);
+       print("Nconditions");
+       x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")];
+       print("NValue length:", length(exts[i][parse("components")][1]));
+       print("Nvalue");
+       exts[i][parse("components")][1];
+       print("Npiecewise");
+       piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][1]);
+       print("N");
+      N_sol  := Simplify(N_sol  - piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][1]), piecewise);
+       print("Ty");
+      Ty_sol := Simplify(Ty_sol + piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][2]), piecewise);
+        print("Tz");
+      Tz_sol := Simplify(Tz_sol + piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][3]), piecewise);
+        print("My");
+      My_sol := Simplify(My_sol + integrate(piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][3]), x = 0..x), piecewise);
+        print("Mz");
+      Mz_sol := Simplify(Mz_sol + integrate(piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][2]), x = 0..x), piecewise);
     elif IsMoment(exts[i]) then
-      Mx_sol := `simplify/piecewise`(Mx_sol - piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][1]), x);
-      My_sol := `simplify/piecewise`(My_sol + piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][2]), x);
-      Mz_sol := `simplify/piecewise`(Mz_sol - piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][3]), x);
+      Mx_sol := Simplify(Mx_sol - piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][1]), piecewise);
+      My_sol := Simplify(My_sol + piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][2]), piecewise);
+      Mz_sol := Simplify(Mz_sol - piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][3]), piecewise);
     elif IsQForce(exts[i]) then
-      N_sol  := `simplify/piecewise`(N_sol  - integrate(exts[i][parse("components")](x)[1], x = 0..x), x);
-      Ty_sol := `simplify/piecewise`(Ty_sol + integrate(exts[i][parse("components")](x)[2], x = 0..x), x);
-      Tz_sol := `simplify/piecewise`(Tz_sol + integrate(exts[i][parse("components")](x)[3], x = 0..x), x);
-      My_sol := `simplify/piecewise`(My_sol + integrate(integrate(exts[i][parse("components")](x)[3], x = 0..x), x = 0..x), x);
-      Mz_sol := `simplify/piecewise`(Mz_sol + integrate(integrate(exts[i][parse("components")](x)[2], x = 0..x), x = 0..x), x);
+      N_sol  := Simplify(N_sol  - integrate(exts[i][parse("components")](x)[1], x = 0..x), piecewise);
+      Ty_sol := Simplify(Ty_sol + integrate(exts[i][parse("components")](x)[2], x = 0..x), piecewise);
+      Tz_sol := Simplify(Tz_sol + integrate(exts[i][parse("components")](x)[3], x = 0..x), piecewise);
+      My_sol := Simplify(My_sol + integrate(integrate(exts[i][parse("components")](x)[3], x = 0..x), x = 0..x), piecewise);
+      Mz_sol := Simplify(Mz_sol + integrate(integrate(exts[i][parse("components")](x)[2], x = 0..x), x = 0..x), piecewise);
     elif IsQMoment(FMQ[i]) then
-      Mx_sol := `simplify/piecewise`(Mx_sol - integrate(exts[i][parse("components")](x)[1], x = 0..x), x);
-      My_sol := `simplify/piecewise`(My_sol + integrate(exts[i][parse("components")](x)[2], x = 0..x), x);
-      Mz_sol := `simplify/piecewise`(Mz_sol - integrate(exts[i][parse("components")](x)[3], x = 0..x), x);
+      Mx_sol := Simplify(Mx_sol - integrate(exts[i][parse("components")](x)[1], x = 0..x), piecewise);
+      My_sol := Simplify(My_sol + integrate(exts[i][parse("components")](x)[2], x = 0..x), piecewise);
+      Mz_sol := Simplify(Mz_sol - integrate(exts[i][parse("components")](x)[3], x = 0..x), piecewise);
     end if;
   end do;
 
@@ -3311,6 +3169,7 @@ ComputeDisplacements := proc(
   description "Compute the Structure displacements";
 
   local obj, x, X, disp, rx_sol, ry_sol, rz_sol, ux_sol, uy_sol, uz_sol;
+  option remember;
   PrintStartProc(procname);
 
   # Cicle on the structure objects
@@ -3382,6 +3241,7 @@ ComputePunctualDisplacement := proc(
 
   local out, struct_copy, obj, objs_names, dummy_loads, subs_obj, obj_coords,
     obj_targets, x, subs_null_dummy, disp, i, j;
+  option remember;
   PrintStartProc(procname);
 
   # Create a copy of the structure
@@ -3512,7 +3372,7 @@ LinearSolver := proc(
 
 description "Solve the linear system of equations <eqns> for the variables <vars>";
 
-  local sol, A, b, Q, PivotStrategy;
+  local sol, A, b, _Q, PivotStrategy;
   PrintStartProc(procname);
 
   # Matrix form of the linear system
@@ -3524,8 +3384,9 @@ description "Solve the linear system of equations <eqns> for the variables <vars
   else
     PivotStrategy := PivotStrategy_numeric;
   end if;
-  Solve(A, b, Q, VeilingStrategy_n, PivotStrategy, ZeroStrategy_length);
-  sol := convert(vars =~ SubsVeil(Q, %), list);
+  Solve(A, b, '_Q', VeilingStrategy_n, PivotStrategy, ZeroStrategy_length);
+  sol := convert(vars =~ SubsVeil('_Q', %), list);
+  ForgetVeil('_Q');
   end use;
 
   PrintEndProc(procname);
@@ -3589,15 +3450,15 @@ PlotRigidBody := proc(
   PrintStartProc(procname);
 
   lines := [];
-  P1 := Project(subs(op(data), obj[parse("COM")]), obj[parse("frame")], ground);
+  P1 := subs(op(data), Project([op(obj[parse("COM")]), 1], obj[parse("frame")], ground));
   for js in joints do
     member(obj[parse("name")], js[parse("targets")], 'idx');
-    P2 := Project(subs(op(data), [op(js[parse("coordinates")][idx]), 1]), obj[parse("frame")], ground);
+    P2 := subs(op(data), Project([op(js[parse("coordinates")][idx]), 1], obj[parse("frame")], ground));
     lines := lines union [plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 6)];
   end do;
 
   for load in c_loads do
-    P2 :=  Project(subs(op(data), [op(load[parse("coordinate")]), 1]), obj[parse("frame")], ground);
+    P2 :=  subs(op(data), Project([op(load[parse("coordinate")]), 1], obj[parse("frame")], ground));
     lines := lines union [plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 6)];
   end do;
 
@@ -3622,7 +3483,7 @@ PlotBeam := proc(
   PrintStartProc(procname);
 
   P1 := subs(op(data), Origin(obj[parse("frame")]));
-  P2 :=  Project(subs(op(data), [obj[parse("length")], 0, 0, 1]), obj[parse("frame")], ground);
+  P2 := subs(op(data), Project([obj[parse("length")], 0, 0, 1], obj[parse("frame")], ground));
 
   out := plots:-display(
     plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 6),
@@ -3647,11 +3508,11 @@ PlotRod := proc(
   PrintStartProc(procname);
 
   P1 := subs(op(data), Origin(obj[parse("frame")]));
-  P2 := Project(subs(op(data), [obj[parse("length")], 0, 0, 1]), obj[parse("frame")], ground);
+  P2 := subs(op(data), Project([obj[parse("length")], 0, 0, 1], obj[parse("frame")], ground));
 
   out := plots:-display(
     plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 4),
-    linestyle = dash, color = ObjectColor(obj));
+    linestyle = solid, color = ObjectColor(obj));
 
   PrintEndProc(procname);
   return out;
