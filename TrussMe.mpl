@@ -23,6 +23,8 @@ export  `union`,
         SetGravity,
         GetGravity,
         Show,
+        AssignData,
+        UnAssignData,
         Rotate,
         Translate,
         Project,
@@ -84,6 +86,8 @@ local   ModuleLoad,
         GetObjsByType,
         CopyStructure,
         Simplify,
+        Subs,
+        Diff,
         ComputeDOF,
         NewtonEuler,
         HyperstaticSolver,
@@ -118,6 +122,7 @@ local   ModuleLoad,
         print_indent,
         print_increment,
         ListPadding,
+        keep_veiled,
         Beam_color,
         Rod_color,
         RigidBody_color,
@@ -125,7 +130,8 @@ local   ModuleLoad,
         Support_color,
         CompliantJoint_color,
         Joint_color,
-        Earth_color;
+        Earth_color,
+        StoredData;
 
 option  package,
         load   = ModuleLoad,
@@ -196,6 +202,7 @@ ModuleUnload := proc()
   printf("Unloading 'TrussMe'\n");
   verbose_mode      := 1;
   suppress_warnings := false;
+  UnAssignData();
 
 end proc: # ModuleUnload
 
@@ -268,6 +275,7 @@ InitTrussMe := proc()
   CompliantJoint_color   := "LightSalmon";
   Joint_color            := "MediumSeaGreen";
   Earth_color            := "Firebrick";
+  StoredData             := [];
 
   earth := table({
     parse("type")             = EARTH,
@@ -596,7 +604,6 @@ GetObjsByType := proc(
   description "Get objects which type field is in <types> from a list/set of objects <objs>";
 
   local out, obj;
-  option remember;
   PrintStartProc(procname);
 
   out := [];
@@ -619,16 +626,18 @@ Simplify := proc(
 
   description "Simplify an algebraic expression <obj>";
 
-  local out;
+  local out, time_limit;
   PrintStartProc(procname);
 
+  time_limit := `if`(procname::indexed, op(procname), time_limit_simplify);
+
   try
-    timelimit(time_limit_simplify, simplify(obj, opt));
+    timelimit(time_limit, simplify(obj, opt));
     out := %;
   catch :
     WARNING("Time limit of %1s exceeded for simplify operation, raw solutions "
       "is returned. <time_limit> can be modified by setting it in "
-      "SetModuleOptions", time_limit_simplify);
+      "SetModuleOptions", time_limit);
     out := obj;
   end try:
 
@@ -636,6 +645,84 @@ Simplify := proc(
   return out;
 end proc: # Simplify
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  AssignData := proc(
+    x::{list, set}, # The list to be assigned
+    $)
+
+    description "Assign the list <x> to the local variable <StoredData>.";
+
+    StoredData := x;
+    return NULL;
+  end proc: # AssignData
+
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  UnAssignData := proc(
+    $)
+
+    description "Unassign the local variable <StoredData>.";
+
+    StoredData := [];
+    return NULL;
+  end proc: # UnAssignData
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Subs := proc()::anything;
+
+  description "Perform subs command neglecting sub-lists and sub-sets from the substitution list.";
+
+  local x, y, out;
+  PrintStartProc(procname);
+
+  map(x -> map(remove, y-> type(y, {list, set}), x), [_passed[1..-2]]);
+  out := subs(op(%), _passed[-1]);
+
+  PrintEndProc(procname);
+  return out;
+end proc; # Subs
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Diff := proc({veils := NULL})::anything;
+
+  description "Perform diff command on veiled expressions given the veiling list "
+              "<veils>.";
+
+  local out, subs_diff, d_vars, v2f, f2v, last;
+  PrintStartProc(procname);
+
+  if veils = NULL then
+    veils := [];
+    last := -1
+  else
+    last := -2;
+  end if:
+
+  # Get the variables to be differentiated
+  d_vars := _passed[2..last];
+
+  # Veil to functions substitution list
+  v2f := map(x -> lhs(x) =~ lhs(x)(d_vars), veils);
+
+  # Function to veils substitution list
+  f2v := rhs~(v2f) =~ lhs~(v2f);
+
+  subs(v2f, veils);
+  diff(lhs~(%), d_vars) =~ Simplify(diff(rhs~(%), d_vars));
+  subs_diff := lhs~(%) =~ Simplify(subs(op(ListTools[Reverse](%)),rhs~(%))):
+
+  # Compute the derivative of the veiled expression
+  subs(subs_diff, diff(subs(v2f, _passed[1]), d_vars));
+
+  # Substitute back the veils
+  out := subs(f2v, %);
+
+  PrintEndProc(procname);
+  return out;
+end proc; # Diff
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -1207,7 +1294,7 @@ MakeSupport := proc(
   for i from 1 to nops(objs) do
     if IsRod(objs[i]) and
         (ListPadding(obj_coords[i], 3) <> [0, 0, 0]) and
-        (ListPadding(obj_coords[i]^~2, 3) <> [objs[i][parse("length")]^~2, 0, 0]) then
+        (ListPadding(eval(obj_coords[i]^~2), 3) <> [eval(objs[i][parse("length")]^~2), 0, 0]) then
       error "SUPPORT objects can only be applied at extremes of ROD objects"
     end if;
     if IsRod(objs[i]) and (constrained_dof[4..6] <> [0, 0, 0]) then
@@ -1391,7 +1478,7 @@ MakeJoint := proc(
   for i from 1 to nops(objs) do
     if IsRod(objs[i]) and
         (ListPadding(obj_coords[i], 3) <> [0, 0, 0]) and
-        (ListPadding(obj_coords[i]^~2, 3) <> [objs[i][parse("length")]^~2, 0, 0]) then
+        (ListPadding(eval(obj_coords[i]^~2), 3) <> [eval(objs[i][parse("length")]^~2), 0, 0]) then
       error "JOINT objects can only be applied at extremes of ROD objects";
     end if;
     if IsRod(objs[i]) and (constrained_dof[4..6] <> [0, 0, 0]) then
@@ -1924,7 +2011,6 @@ ComputeSpringDisplacement := proc(
   "and spring stiffness <stiffness>";
 
   local x, out, Dx;
-  option remember;
   PrintStartProc(procname);
 
   #Physics[Assume](spring_load * Dx > 0);
@@ -2037,7 +2123,7 @@ ComputeJointDisplacements := proc(
             end if;
           end do;
         end if;
-      disp := ComputeSpringDisplacement(subs(sol, jnt_load[i]),
+      disp := ComputeSpringDisplacement(Subs(sol, jnt_load[i]),
         (x -> obj[parse("stiffness")](x)[i]));
       jnt_disp := jnt_disp union [disp_vec[i] = disp];
     end if;
@@ -2163,7 +2249,8 @@ MakeStructure := proc(
     parse("hyperstatic_displacements") = hyper_disp,
     parse("equations")                 = [],
     parse("variables")                 = [],
-    parse("potential_energy")          = 0,
+    parse("potential_energy")          = NULL,
+    parse("veils")                     = [],
     parse("support_reactions_solved")  = false,
     parse("internal_actions_solved")   = false,
     parse("displacement_solved")       = false,
@@ -2199,9 +2286,14 @@ CleanStructure := proc(
   PrintStartProc(procname);
 
   # Clean internal variables
+  obj[parse("equations")]                := [];
+  obj[parse("variables")]                := [];
+  obj[parse("potential_energy")]         := NULL;
+  obj[parse("veils")]                    := [];
   obj[parse("support_reactions_solved")] := false;
   obj[parse("internal_actions_solved")]  := false;
   obj[parse("displacement_solved")]      := false;
+  obj[parse("potential_energy_solved")]  := false;
 
   # Clean objects
   for i from 1 to nops(obj[parse("objects")]) do
@@ -2271,7 +2363,7 @@ ComputeDOF := proc(
       printf("%*sDONE\n", print_indent, "|   ");
     end if;
   else
-    error "unconnected elements detected in the structure";
+    WARNING("unconnected elements detected in the structure");
   end if;
 
   if (verbose_mode > 0) then
@@ -2368,7 +2460,6 @@ NewtonEuler := proc(
     "integration <upper_lim>";
 
   local eq_T, eq_R, i, x, arm, out;
-  option remember;
   PrintStartProc(procname);
 
   eq_T := [0, 0, 0];
@@ -2424,18 +2515,19 @@ SolveStructure := proc(
     compute_displacements::boolean    := false, # Displacement computation flag
     compute_potential_energy::boolean := false, # Potential energy computation flag
     timoshenko_beam::boolean          := false, # Timoshenko beam flag
-    implicit::boolean                 := false  # Implicit solution flag
+    implicit::boolean                 := false, # Implicit solution flag
+    unveil_results::boolean           := true   # Unveil results flag
   }, $)
 
   description "Solve the static equilibrium of a structure with inputs: "
     "structure <struct>, optional compute internal action enabling flag "
     "<compute_internal_actions>, optional compute displacement enabling flag "
-    "<compute_displacements>, optional Timoshenko beam flag <timoshenko_beam>, and "
-    "optional implicit solution flag <implicit>";
+    "<compute_displacements>, optional Timoshenko beam flag <timoshenko_beam>, "
+    "optional implicit solution flag <implicit>, and optional unveil results "
+    "flag <unveil_results>";
 
   local g_load, S_obj, S_rigid, S_ext, S_support, S_joint, S_con_forces, vars,
     sol, obj, x, str_eq, str_vars, P_energy;
-  option remember;
   PrintStartProc(procname);
 
   # Clean structure
@@ -2468,6 +2560,9 @@ SolveStructure := proc(
 
   S_ext := struct[parse("external_actions")];
 
+  # Set module local variable keep_veiled
+  keep_veiled := not unveil_results;
+
   # Solve isostatic structure
   if (struct[dof] >= 0) then
 
@@ -2492,15 +2587,13 @@ SolveStructure := proc(
     if (verbose_mode > 0) then
       printf("%*sDONE\n", print_indent, "|   ");
       if (verbose_mode > 1) then
-        printf("Message (in SolveStructure) solutions:\n");
-        print(<sol>);
         printf("%*sMessage (in SolveStructure) updating support reactions fields...\n", print_indent, "|   ");
       end if;
     end if;
     # Update support reactions properties
     for obj in S_support do
       obj[parse("support_reactions")] := [
-        seq(lhs(obj[parse("support_reactions")][j]) = subs(sol, rhs(obj[parse("support_reactions")][j])),
+        seq(lhs(obj[parse("support_reactions")][j]) = Subs(sol, rhs(obj[parse("support_reactions")][j])),
         j = 1..nops(obj[parse("support_reactions")]))
       ];
     end do;
@@ -2552,11 +2645,16 @@ SolveStructure := proc(
       printf("%*sMessage (in SolveStructure) updating support reactions fields...\n", print_indent, "|   ");
     end if;
     for obj in S_support do
-    obj[parse("support_reactions")] := subs(sol, obj[parse("support_reactions")]);
+    obj[parse("support_reactions")] := Subs(sol, obj[parse("support_reactions")]);
     end do;
     if (verbose_mode > 0) then
       printf("%*sDONE\n", print_indent, "|   ");
     end if;
+  end if;
+
+  # Set veils
+  if keep_veiled then
+    struct[parse("veils")] := sol[-1];
   end if;
 
   # Set support reactions solved flag
@@ -2624,7 +2722,6 @@ HyperstaticSolver := proc(
 
   local hyper_eq, hyper_load, hyper_comps, hyper_compliant_disp, hyper_support, i, obj,
         iso_vars, iso_sol, iso_eq, hyper_sol, P_energy, S_objs, E_objs, sol;
-  option remember;
   PrintStartProc(procname);
 
   # Parse input objects and find objects with internal actions property
@@ -2654,12 +2751,12 @@ HyperstaticSolver := proc(
   # Simplify
   P_energy := Simplify(P_energy);
 
-  hyper_eq := [];
-
-  for i from 1 to nops(hyper_vars) do
-    # Compose the hyperstatic equation
-    hyper_eq := hyper_eq union [diff(P_energy, hyper_vars[i]) = hyper_disp[i]];
-  end do;
+  # Compute the hyperstatic equation
+  if keep_veiled then
+    hyper_eq := Diff~(P_energy, hyper_vars) =~ hyper_disp, parse("veils") = iso_sol[-1];
+  else
+    hyper_eq := diff~(P_energy, hyper_vars) =~ hyper_disp;
+  end if;
 
   # Check for implicit solution flag
   if (implicit) then
@@ -2699,7 +2796,7 @@ ComputePotentialEnergy := proc(
     list({BEAM, ROD, SUPPORT, JOINT}),
     set( {BEAM, ROD, SUPPORT, JOINT})
   },
-  sol::{list(`=`),set(`=`)} := [], # Substitutions
+  sol::{list, set} := [], # Substitutions
   {
     timoshenko_beam := false # Timoshenko beam flag
   }, $)
@@ -2708,7 +2805,6 @@ ComputePotentialEnergy := proc(
     "objects <objs> and optional Timoshenko beam flag <timoshenko_beam>";
 
   local obj, P, x, f, FJX, FJY, FJZ, MJX, MJY, MJZ;
-  option remember;
   PrintStartProc(procname);
 
   P := 0;
@@ -2769,37 +2865,37 @@ ComputePotentialEnergy := proc(
       if (subs(obj[parse("support_reactions")], FX) <> 0) and
           (obj[parse("stiffness")](x)[1] <> infinity) and
           (obj[parse("constrained_dof")][1] <> 0) then
-        P := P + subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-FX, (x -> obj[parse("stiffness")](x)[1])));
+        P := P + Subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-FX, (x -> obj[parse("stiffness")](x)[1])));
       end if;
       # Support reaction Fy contribution
       if (subs(obj[parse("support_reactions")], FY) <> 0) and
           (obj[parse("stiffness")](x)[2] <> infinity) and
           (obj[parse("constrained_dof")][2] <> 0) then
-        P := P + subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-FY, (x -> obj[parse("stiffness")](x)[2])));
+        P := P + Subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-FY, (x -> obj[parse("stiffness")](x)[2])));
       end if;
       # Support reaction Fz contribution
       if (subs(obj[parse("support_reactions")], FZ) <> 0) and
           (obj[parse("stiffness")](x)[3] <> infinity) and
           (obj[parse("constrained_dof")][3] <> 0) then
-        P := P + subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-FZ, (x -> obj[parse("stiffness")](x)[3])));
+        P := P + Subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-FZ, (x -> obj[parse("stiffness")](x)[3])));
       end if;
       # Support reaction Mx contribution
       if (subs(obj[parse("support_reactions")], MX) <> 0) and
           (obj[parse("stiffness")](x)[4] <> infinity) and
           (obj[parse("constrained_dof")][4] <> 0) then
-        P := P + subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-MX, (x -> obj[parse("stiffness")](x)[4])));
+        P := P + Subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-MX, (x -> obj[parse("stiffness")](x)[4])));
       end if;
       # Support reaction My contribution
       if (subs(obj[parse("support_reactions")], MY) <> 0) and
           (obj[parse("stiffness")](x)[5] <> infinity) and
           (obj[parse("constrained_dof")][5] <> 0) then
-        P := P + subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-MY, (x -> obj[parse("stiffness")](x)[5])));
+        P := P + Subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-MY, (x -> obj[parse("stiffness")](x)[5])));
       end if;
       # Support reaction Mz contribution
       if (subs(obj[parse("support_reactions")], MZ) <> 0) and
           (obj[parse("stiffness")](x)[6] <> infinity) and
           (obj[parse("constrained_dof")][6] <> 0) then
-        P := P + subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-MZ, (x -> obj[parse("stiffness")](x)[6])));
+        P := P + Subs(obj[parse("support_reactions")], sol, ComputeSpringEnergy(-MZ, (x -> obj[parse("stiffness")](x)[6])));
       end if;
     elif IsCompliantJoint(obj) then
       # Joint forces along X axis
@@ -2812,7 +2908,7 @@ ComputePotentialEnergy := proc(
             FJX := FJX + f[parse("components")][1];
           end if;
         end do;
-        P := P + subs(sol, ComputeSpringEnergy(FJX, (x -> obj[parse("stiffness")](x)[1])));
+        P := P + Subs(sol, ComputeSpringEnergy(FJX, (x -> obj[parse("stiffness")](x)[1])));
       end if;
       # Joint forces along Y axis
       if (obj[parse("stiffness")](x)[2] <> infinity) and
@@ -2824,7 +2920,7 @@ ComputePotentialEnergy := proc(
             FJY := FJY + f[parse("components")][2];
           end if;
         end do;
-        P := P + subs(sol, ComputeSpringEnergy(FJY, (x -> obj[parse("stiffness")](x)[2])));
+        P := P + Subs(sol, ComputeSpringEnergy(FJY, (x -> obj[parse("stiffness")](x)[2])));
       end if;
       # Joint forces along Z axis
       if (obj[parse("stiffness")](x)[3] <> infinity) and
@@ -2836,7 +2932,7 @@ ComputePotentialEnergy := proc(
             FJZ := FJZ + f[parse("components")][3];
           end if;
         end do;
-        P := P + subs(sol, ComputeSpringEnergy(FJZ, (x -> obj[parse("stiffness")](x)[3])));
+        P := P + Subs(sol, ComputeSpringEnergy(FJZ, (x -> obj[parse("stiffness")](x)[3])));
       end if;
       # Joint moments along X axis
       if (obj[parse("stiffness")](x)[4] <> infinity) and
@@ -2848,7 +2944,7 @@ ComputePotentialEnergy := proc(
             MJX := MJX + f[parse("components")][1];
           end if;
         end do;
-        P := P + subs(sol, ComputeSpringEnergy(MJX, (x -> obj[parse("stiffness")](x)[4])));
+        P := P + Subs(sol, ComputeSpringEnergy(MJX, (x -> obj[parse("stiffness")](x)[4])));
       end if;
       # Joint moments along Y axis
       if (obj[parse("stiffness")](x)[5] <> infinity) and
@@ -2860,7 +2956,7 @@ ComputePotentialEnergy := proc(
             MJY := MJY + f[parse("components")][2];
           end if;
         end do;
-        P := P + subs(sol, ComputeSpringEnergy(MJY, (x -> obj[parse("stiffness")](x)[5])));
+        P := P + Subs(sol, ComputeSpringEnergy(MJY, (x -> obj[parse("stiffness")](x)[5])));
       end if;
       # Joint moments along Z axis
       if (obj[parse("stiffness")](x)[6] <> infinity) and
@@ -2872,7 +2968,7 @@ ComputePotentialEnergy := proc(
             MJZ := MJZ + f[parse("components")][3];
           end if;
         end do;
-        P := P + subs(sol, ComputeSpringEnergy(MJZ, (x -> obj[parse("stiffness")](x)[6])));
+        P := P + Subs(sol, ComputeSpringEnergy(MJZ, (x -> obj[parse("stiffness")](x)[6])));
       end if;
     end if;
   end do;
@@ -2903,7 +2999,6 @@ IsostaticSolver := proc(
     "<vars> to solve";
 
   local iso_eq, i, j, active_ext, iso_sol, A, B, rank_eq, iso_vars, PivotStrategy;
-  option remember;
   PrintStartProc(procname);
 
   # Compute structure equations
@@ -2968,22 +3063,24 @@ IsostaticSolver := proc(
 
     if nops(iso_eq) = nops(iso_vars) then
       # Check rank
-      use LULEM in
-      if has(map(type, A, 'constant'), false) then
-        PivotStrategy := PivotStrategy_Sindets;
-      else
-        PivotStrategy := PivotStrategy_numeric;
-      end if;
-      LUD(A, '_Q', VeilingStrategy_n, PivotStrategy, ZeroStrategy_length);
-      ForgetVeil('_Q');
-      end use;
-      rank_eq := LinearAlgebra[Rank](%[3]);
-      if (rank_eq <> nops(iso_vars)) then
-        error "inconsistent system of equation, got %1 equations and %2 variables. "
-          "Rank of the system  wrt the system variables is %3. Check structure "
-          "supports and joints",
-          nops(iso_eq), nops(iso_vars), rank_eq;
-      end if;
+      # use LULEM in
+      # LULEM[AssignData](StoredData);
+      # if has(map(type, A, 'constant'), false) then
+      #   PivotStrategy := PivotStrategy_Slength;
+      # else
+      #   PivotStrategy := PivotStrategy_numeric;
+      # end if;
+      # LUD(A, '_Q', VeilingStrategy_n, PivotStrategy, ZeroStrategy_length);
+      # ForgetVeil('_Q');
+      # LULEM[UnAssignData]();
+      # end use;
+      # rank_eq := LinearAlgebra[Rank](%[3]);
+      # if (rank_eq <> nops(iso_vars)) then
+      #   error "inconsistent system of equation, got %1 equations and %2 variables. "
+      #     "Rank of the system  wrt the system variables is %3. Check structure "
+      #     "supports and joints",
+      #     nops(iso_eq), nops(iso_vars), rank_eq;
+      # end if;
       if (verbose_mode > 1) then
         printf("%*sMessage (in IsostaticSolver) A matrix visualization of the linear system:\n", print_indent, "|   ");
         print(plots[sparsematrixplot](A,matrixview));
@@ -3001,6 +3098,10 @@ IsostaticSolver := proc(
       end if;
       # Solve structure equations (solve)
       iso_sol := op(RealDomain[solve](iso_eq, iso_vars));
+      # append an empty list to the solution if the keep_veiled flag is set to true
+      if keep_veiled then
+        iso_sol := iso_sol union [[]];
+      end if;
     end if;
 
     if iso_sol = NULL then
@@ -3038,11 +3139,10 @@ ComputeInternalActions := proc(
     "objects with given external actions and structure solution";
 
   local i, j, active_ext, subs_ext;
-  option remember;
   PrintStartProc(procname);
 
   # Substitute structure solution into loads
-  subs_ext := map2(subs, sol, map(op,exts));
+  subs_ext := map2(Subs, sol, map(op, exts));
 
   for i from 1 to nops(objs) do
     # Extract active loads
@@ -3073,7 +3173,6 @@ InternalActions := proc(
     "function of the axial variable 'x'";
 
   local i, ia, N_sol, Ty_sol, Tz_sol, Mx_sol, My_sol, Mz_sol, x;
-  option remember;
   PrintStartProc(procname);
 
   N_sol  := 0;
@@ -3091,22 +3190,10 @@ InternalActions := proc(
   # Compute internal actions for concentrated loads as effect overlay
   for i from 1 to nops(exts) do
     if IsForce(exts[i]) then
-       print("Nconditions");
-       x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")];
-       print("NValue length:", length(exts[i][parse("components")][1]));
-       print("Nvalue");
-       exts[i][parse("components")][1];
-       print("Npiecewise");
-       piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][1]);
-       print("N");
       N_sol  := Simplify(N_sol  - piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][1]), piecewise);
-       print("Ty");
       Ty_sol := Simplify(Ty_sol + piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][2]), piecewise);
-        print("Tz");
       Tz_sol := Simplify(Tz_sol + piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][3]), piecewise);
-        print("My");
       My_sol := Simplify(My_sol + integrate(piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][3]), x = 0..x), piecewise);
-        print("Mz");
       Mz_sol := Simplify(Mz_sol + integrate(piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][2]), x = 0..x), piecewise);
     elif IsMoment(exts[i]) then
       Mx_sol := Simplify(Mx_sol - piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][1]), piecewise);
@@ -3169,7 +3256,6 @@ ComputeDisplacements := proc(
   description "Compute the Structure displacements";
 
   local obj, x, X, disp, rx_sol, ry_sol, rz_sol, ux_sol, uy_sol, uz_sol;
-  option remember;
   PrintStartProc(procname);
 
   # Cicle on the structure objects
@@ -3232,17 +3318,23 @@ ComputePunctualDisplacement := proc(
   directions::list, # Displacement directions defined in obj reference frame
   RFs::list,        # Reference frames for the directions
   {
-    timoshenko_beam::boolean := false # Timoshenko beam flag
+    timoshenko_beam::boolean := false, # Timoshenko beam flag
+    unveil_results::boolean  := true   # Unveil results flag
   },
   $)::list;
 
   description "Compute the Structure <struct> punctual displacements of the "
-    "object <obj> at the coordinates <coords> in the directions <directions>";
+    "object <obj> at the coordinates <coords> in the directions <directions>. "
+    "The directions are defined in the reference frame <RFs>. Optional argument "
+    "<timoshenko_beam> is a boolean flag to use Timoshenko beam model, <unveil_results> "
+    "is a boolean flag to unveil the results.";
 
   local out, struct_copy, obj, objs_names, dummy_loads, subs_obj, obj_coords,
     obj_targets, x, subs_null_dummy, disp, i, j;
-  option remember;
   PrintStartProc(procname);
+
+  # Set module local variable keep_veiled
+  keep_veiled := not unveil_results;
 
   # Create a copy of the structure
   struct_copy := CopyStructure(struct);
@@ -3302,35 +3394,56 @@ ComputePunctualDisplacement := proc(
     struct_copy[parse("external_actions")] := struct_copy[parse("external_actions")] union dummy_loads;
   end do;
 
+  StoredData := StoredData union subs_null_dummy;
+
   # Solve the structure copy
   SolveStructure(
     struct_copy,
     parse("compute_internal_actions") = false,
-    parse("compute_displacements") = false,
+    parse("compute_displacements")    = false,
     parse("compute_potential_energy") = true,
-    parse("timoshenko_beam") = timoshenko_beam,
-    parse("implicit") = false);
+    parse("timoshenko_beam")          = timoshenko_beam,
+    parse("implicit")                 = false,
+    parse("unveil_results")           = unveil_results
+    );
 
   # Compute punctual displacements
   out := [];
   for i from 1 to nops(objs_names) do
-    disp := [0,0,0,0,0,0];
-    disp[1] := ux = subs(subs_null_dummy, diff(struct_copy[parse("potential_energy")], dFx_||i));
-    disp[2] := uy = subs(subs_null_dummy, diff(struct_copy[parse("potential_energy")], dFy_||i));
-    disp[3] := uz = subs(subs_null_dummy, diff(struct_copy[parse("potential_energy")], dFz_||i));
-    disp[4] := rx = subs(subs_null_dummy, diff(struct_copy[parse("potential_energy")], dMx_||i));
-    disp[5] := ry = subs(subs_null_dummy, diff(struct_copy[parse("potential_energy")], dMy_||i));
-    disp[6] := rz = subs(subs_null_dummy, diff(struct_copy[parse("potential_energy")], dMz_||i));
-
+    disp := [];
+    if directions[i,1] = 1 then
+      disp := disp union [ux = subs(subs_null_dummy, Diff(struct_copy[parse("potential_energy")], dFx_||i, parse("veils") = struct_copy[parse("veils")]))];
+    end if;
+    if directions[i,2] = 1 then
+      disp := disp union [uy = subs(subs_null_dummy, Diff(struct_copy[parse("potential_energy")], dFy_||i, parse("veils") = struct_copy[parse("veils")]))];
+    end if;
+    if directions[i,3] = 1 then
+      disp := disp union [uz = subs(subs_null_dummy, Diff(struct_copy[parse("potential_energy")], dFz_||i, parse("veils") = struct_copy[parse("veils")]))];
+    end if;
+    if directions[i,4] = 1 then
+      disp := disp union [rx = subs(subs_null_dummy, Diff(struct_copy[parse("potential_energy")], dMx_||i, parse("veils") = struct_copy[parse("veils")]))];
+    end if;
+    if directions[i,5] = 1 then
+      disp := disp union [ry = subs(subs_null_dummy, Diff(struct_copy[parse("potential_energy")], dMy_||i, parse("veils") = struct_copy[parse("veils")]))];
+    end if;
+    if directions[i,6] = 1 then
+      disp := disp union [rz = subs(subs_null_dummy, Diff(struct_copy[parse("potential_energy")], dMz_||i, parse("veils") = struct_copy[parse("veils")]))];
+    end if;
     # Select displacement relative to desired directions and add to the list of displacements
-    out := out union [disp[select(x -> x <> 0, [seq(j, j=1..6)] *~ directions[i])]];
+    out := out union [disp];
   end do;
+
+   struct_copy[parse("veils")] := subs(subs_null_dummy,  struct_copy[parse("veils")]);
 
   # Simplify output
   out := Simplify(out);
 
   PrintEndProc(procname);
-  return out;
+  if _nresults = 1 then
+    return out;
+  else
+    return out, struct_copy[parse("veils")];
+  end if;
 end proc: # ComputePunctualDisplacement
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -3372,21 +3485,31 @@ LinearSolver := proc(
 
 description "Solve the linear system of equations <eqns> for the variables <vars>";
 
-  local sol, A, b, _Q, PivotStrategy;
+  local sol, sol_tmp, A, b, _Q, PivotStrategy;
   PrintStartProc(procname);
 
   # Matrix form of the linear system
   A, b := LinearAlgebra[GenerateMatrix](eqns, vars);
 
   use LULEM in
+  LULEM[AssignData](StoredData);
   if has(map(type, A, 'constant'), false) then
-    PivotStrategy := PivotStrategy_Sindets;
+    PivotStrategy := PivotStrategy_Slength;
   else
     PivotStrategy := PivotStrategy_numeric;
   end if;
-  Solve(A, b, '_Q', VeilingStrategy_n, PivotStrategy, ZeroStrategy_length);
-  sol := convert(vars =~ SubsVeil('_Q', %), list);
+  sol_tmp := Solve(A, b, '_Q', VeilingStrategy_n, PivotStrategy, ZeroStrategy_length);
+  if keep_veiled then
+    # Remove indexed type from veils
+    ListVeil('_Q');
+    lhs~(%) =~ map2(op,0,lhs~(%)) ||~ __ ||~ (op~(lhs~(%)));
+    # Add veils to solution
+    sol := convert(vars =~ subs(%, sol_tmp), list) union [subs(%,%%)];
+  else
+    sol := convert(vars =~ SubsVeil('_Q', sol_tmp), list);
+  end if;
   ForgetVeil('_Q');
+  LULEM[UnAssignData]();
   end use;
 
   PrintEndProc(procname);
