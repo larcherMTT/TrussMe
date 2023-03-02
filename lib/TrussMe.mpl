@@ -66,6 +66,7 @@ export  `union`,
         IsStructure,
         SolveStructure,
         PlotStructure,
+        PlotDeformedStructure,
         CleanJoint,
         CleanSupport,
         CleanRod,
@@ -104,12 +105,18 @@ local   ModuleLoad,
         ComputeSpringEnergy,
         ComputeSupportDisplacements,
         ComputeJointDisplacements,
+        ComputeObjectFramelDisplacements,
         ObjectColor,
         PlotRigidBody,
+        PlotDeformedRigidBody,
         PlotBeam,
+        PlotDeformedBeam,
         PlotRod,
+        PlotDeformedRod,
         PlotJoint,
+        PlotDeformedJoint,
         PlotSupport,
+        PlotDeformedSupport,
         IsInsideJoint,
         IsInsideSupport,
         IsInsideBeam,
@@ -131,7 +138,8 @@ local   ModuleLoad,
         CompliantJoint_color,
         Joint_color,
         Earth_color,
-        StoredData;
+        StoredData,
+        veiling_label;
 
 option  package,
         load   = ModuleLoad,
@@ -276,6 +284,7 @@ InitTrussMe := proc()
   Joint_color            := "MediumSeaGreen";
   Earth_color            := "Firebrick";
   StoredData             := [];
+  veiling_label          := '_V';
 
   earth := table({
     parse("type")             = EARTH,
@@ -504,26 +513,32 @@ end proc: # Norm2
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 ListPadding := proc(
-  list::{list, algebraic}, # List to be padded
-  n::integer,              # Number of elements of the final list
-  value::algebraic := 0,   # Value to be used for padding
-  $)::list;
+  lst::{list, Vector, algebraic}, # List to be padded
+  n::integer,                      # Number of elements of the final list
+  value::algebraic := 0,           # Value to be used for padding
+  $)::{list, Vector};
 
   description "Pad a list <list> with <value> to have <n> elements";
 
   local i, out;
   PrintStartProc(procname);
 
-  if type(list, algebraic) then
-    out := [list];
+  if type(lst, algebraic) then
+    out := [lst];
+  elif type(lst, Vector) then
+    out := [op(convert(lst, list))];
   else
-    out := list;
+    out := lst;
   end if:
 
   if (nops(out) < n) then
     out := out union [seq(value, i = (1..n-nops(out)))];
   elif (nops(out) > n) then
     out := out[1..n];
+  end if:
+
+  if type(lst, Vector) then
+    out := convert(out, Vector);
   end if:
 
   PrintEndProc(procname);
@@ -890,7 +905,7 @@ end proc: # IsVector
 Uvec := proc(
   axis::symbol,        # Axis of the unit vector
   RF::FRAME := ground, # Reference frame
-  $)::vector;
+  $)::Vector;
 
   description "Extract the unit vector of the reference frame <RF> along the "
     "given <axis>";
@@ -916,7 +931,7 @@ end proc: # Uvec
 
 UvecX := proc(
   RF::FRAME := ground, # Reference frame
-  $)::vector;
+  $)::Vector;
 
   description "Extract the x-axis unit vector of the reference frame <RF>";
 
@@ -933,7 +948,7 @@ end proc: # UvecX
 
 UvecY := proc(
   RF::FRAME := ground, # Reference frame
-  $)::vector;
+  $)::Vector;
 
   description "Extract the y-axis unit vector of the reference frame <RF>";
 
@@ -950,7 +965,7 @@ end proc: # UvecY
 
 UvecZ := proc(
   RF::FRAME := ground, # Reference frame
-  $)::vector;
+  $)::Vector;
 
   description "Extract the z-axis unit vector of the reference frame <RF>";
 
@@ -966,10 +981,10 @@ end proc: # UvecZ
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 Project := proc(
-  x::{list, vector}, # Object to be projected
+  x::{list, Vector}, # Object to be projected
   RF_ini::FRAME,     # Reference frame from which the object is expressed
   RF_end::FRAME,     # Reference frame to which the object will be expressed
-  $)::{list, vector};
+  $)::{list, Vector};
 
   description "Project <x,y,z>, or vector <x,y,z,0>, or point <x,y,z,1> from "
     "reference frame <RF_ini> to reference frame <RF_end>";
@@ -983,14 +998,23 @@ Project := proc(
      not (nops(x) = 4) then
     error "invalid input vector/point <x> detected";
   end if;
-  x_tmp := <ListPadding(x, 4)>;
+  x_tmp := ListPadding(convert(x, Vector), 4);
 
-  if has(map(evalb, evala(simplify(RF_end)) =~ evala(simplify(RF_ini))), false) then
+  try
+    # try to compare RF_end and RF_ini
+    # FIXME: problems with floats (floats not handled error)
+    map(evalb, evala(simplify(RF_end)) =~ evala(simplify(RF_ini)));
+  catch:
+    map(evalb, (RF_end) =~ (RF_ini));
+  end try;
+  if has(%, false) then
     InverseFrame(RF_end).RF_ini.x_tmp;
     out := Simplify([seq(%[i], i = 1..nops(x))]);
   else
-    out := x;
+    out := x_tmp[1..nops(x)];
   end if;
+
+  out := convert(out, whattype(x));
 
   PrintEndProc(procname);
   return out;
@@ -1338,7 +1362,8 @@ MakeSupport := proc(
     parse("constraint_loads")         = [],
     parse("support_reactions")        = [], # Expressed in support reference frame
     parse("stiffness")                = S_stiffness,
-    parse("displacements")            = []
+    parse("displacements")            = [],
+    parse("frame_displacements")      = LinearAlgebra[IdentityMatrix](4,4)
     });
 
   # Build the temporary joint
@@ -1522,7 +1547,8 @@ MakeJoint := proc(
     parse("moments")                  = [],
     parse("constraint_loads")         = [],
     parse("stiffness")                = J_stiffness,
-    parse("displacements")            = []
+    parse("displacements")            = [],
+    parse("frame_displacements")      = LinearAlgebra[IdentityMatrix](4,4)
     });
 
   # Check if joint position on each object is the same
@@ -1756,15 +1782,16 @@ MakeRod := proc(
   end if;
 
   out := table({
-    parse("type")             = ROD,
-    parse("name")             = name,
-    parse("length")           = ell,
-    parse("area")             = area_proc,
-    parse("material")         = material,
-    parse("frame")            = RF,
-    parse("admissible_loads") = [1, 0, 0, 0, 0, 0],
-    parse("internal_actions") = [],
-    parse("displacements")    = []
+    parse("type")                = ROD,
+    parse("name")                = name,
+    parse("length")              = ell,
+    parse("area")                = area_proc,
+    parse("material")            = material,
+    parse("frame")               = RF,
+    parse("admissible_loads")    = [1, 0, 0, 0, 0, 0],
+    parse("internal_actions")    = [],
+    parse("displacements")       = [],
+    parse("frame_displacements") = LinearAlgebra[IdentityMatrix](4,4)
     });
 
   PrintEndProc(procname);
@@ -1912,17 +1939,18 @@ MakeBeam := proc(
   end if;
 
   out := table({
-    parse("type")             = BEAM,
-    parse("name")             = name,
-    parse("length")           = ell,
-    parse("area")             = area_proc,
-    parse("timo_shear_coeff") = timo_shear_coeff_proc,
-    parse("material")         = material,
-    parse("inertias")         = [I_xx_proc, I_yy_proc, I_zz_proc],
-    parse("frame")            = RF,
-    parse("admissible_loads") = [1, 1, 1, 1, 1, 1],
-    parse("internal_actions") = [],
-    parse("displacements")    = []
+    parse("type")                = BEAM,
+    parse("name")                = name,
+    parse("length")              = ell,
+    parse("area")                = area_proc,
+    parse("timo_shear_coeff")    = timo_shear_coeff_proc,
+    parse("material")            = material,
+    parse("inertias")            = [I_xx_proc, I_yy_proc, I_zz_proc],
+    parse("frame")               = RF,
+    parse("admissible_loads")    = [1, 1, 1, 1, 1, 1],
+    parse("internal_actions")    = [],
+    parse("displacements")       = [],
+    parse("frame_displacements") = LinearAlgebra[IdentityMatrix](4,4)
     });
 
   PrintEndProc(procname);
@@ -1975,12 +2003,13 @@ MakeRigidBody := proc(
   PrintStartProc(procname);
 
   out := table({
-    parse("type") = RIGID_BODY,
-    parse("name") = name,
-    parse("frame") = RF,
-    parse("COM") = COM,
-    parse("mass") = mass,
-    parse("admissible_loads") = [1, 1, 1, 1, 1, 1]
+    parse("type")                = RIGID_BODY,
+    parse("name")                = name,
+    parse("frame")               = RF,
+    parse("COM")                 = COM,
+    parse("mass")                = mass,
+    parse("admissible_loads")    = [1, 1, 1, 1, 1, 1],
+    parse("frame_displacements") = LinearAlgebra[IdentityMatrix](4,4)
     });
 
   PrintEndProc(procname);
@@ -2240,21 +2269,22 @@ MakeStructure := proc(
   end if;
 
   out := table({
-    parse("type")                      = STRUCTURE,
-    parse("objects")                   = objs,
-    parse("external_actions")          = S_ext,
-    parse("dof")                       = num_dof,
-    parse("connections_graph")         = Graph,
-    parse("hyperstatic_variables")     = hyper_vars,
-    parse("hyperstatic_displacements") = hyper_disp,
-    parse("equations")                 = [],
-    parse("variables")                 = [],
-    parse("potential_energy")          = NULL,
-    parse("veils")                     = [],
-    parse("support_reactions_solved")  = false,
-    parse("internal_actions_solved")   = false,
-    parse("displacement_solved")       = false,
-    parse("potential_energy_solved")   = false
+    parse("type")                       = STRUCTURE,
+    parse("objects")                    = objs,
+    parse("external_actions")           = S_ext,
+    parse("dof")                        = num_dof,
+    parse("connections_graph")          = Graph,
+    parse("hyperstatic_variables")      = hyper_vars,
+    parse("hyperstatic_displacements")  = hyper_disp,
+    parse("equations")                  = [],
+    parse("variables")                  = [],
+    parse("potential_energy")           = NULL,
+    parse("veils")                      = [],
+    parse("support_reactions_solved")   = false,
+    parse("internal_actions_solved")    = false,
+    parse("displacements_solved")       = false,
+    parse("potential_energy_solved")    = false,
+    parse("frame_displacements_solved") = false
     });
 
   PrintEndProc(procname);
@@ -2286,14 +2316,15 @@ CleanStructure := proc(
   PrintStartProc(procname);
 
   # Clean internal variables
-  obj[parse("equations")]                := [];
-  obj[parse("variables")]                := [];
-  obj[parse("potential_energy")]         := NULL;
-  obj[parse("veils")]                    := [];
-  obj[parse("support_reactions_solved")] := false;
-  obj[parse("internal_actions_solved")]  := false;
-  obj[parse("displacement_solved")]      := false;
-  obj[parse("potential_energy_solved")]  := false;
+  obj[parse("equations")]                 := [];
+  obj[parse("variables")]                 := [];
+  obj[parse("potential_energy")]          := NULL;
+  obj[parse("veils")]                     := [];
+  obj[parse("support_reactions_solved")]  := false;
+  obj[parse("internal_actions_solved")]   := false;
+  obj[parse("displacements_solved")]      := false;
+  obj[parse("potential_energy_solved")]   := false;
+  obj[parse("frame_displacements_solved")]:= false;
 
   # Clean objects
   for i from 1 to nops(obj[parse("objects")]) do
@@ -2511,12 +2542,14 @@ end proc: # NewtonEuler
 SolveStructure := proc(
   struct::STRUCTURE, # Structure object
   {
-    compute_internal_actions::boolean := false, # Internal actions computation flag
-    compute_displacements::boolean    := false, # Displacement computation flag
-    compute_potential_energy::boolean := false, # Potential energy computation flag
-    timoshenko_beam::boolean          := false, # Timoshenko beam flag
-    implicit::boolean                 := false, # Implicit solution flag
-    unveil_results::boolean           := true   # Unveil results flag
+    compute_internal_actions::boolean    := false, # Internal actions computation flag
+    compute_displacements::boolean       := false, # Displacement computation flag
+    compute_potential_energy::boolean    := false, # Potential energy computation flag
+    compute_frame_displacements::boolean := false, # Frame displacements computation flag
+    timoshenko_beam::boolean             := false, # Timoshenko beam flag
+    implicit::boolean                    := false, # Implicit solution flag
+    unveil_results::boolean              := true,  # Unveil results flag
+    dummy_vars::{list, set}              := []     # Dummy variables
   }, $)
 
   description "Solve the static equilibrium of a structure with inputs: "
@@ -2527,11 +2560,15 @@ SolveStructure := proc(
     "flag <unveil_results>";
 
   local g_load, S_obj, S_rigid, S_ext, S_support, S_joint, S_con_forces, vars,
-    sol, obj, x, str_eq, str_vars, P_energy;
+    sol, obj, x, str_eq, str_vars, P_energy, veiling_idx, veils;
   PrintStartProc(procname);
 
   # Clean structure
   CleanStructure(struct);
+
+  # Set veiling_label
+  veiling_idx := 1;
+  veiling_label := cat('_V', veiling_idx);
 
   # Parsing inputs
   S_obj        := {};
@@ -2652,9 +2689,11 @@ SolveStructure := proc(
     end if;
   end if;
 
-  # Set veils
+  # Add veils
   if keep_veiled then
-    struct[parse("veils")] := sol[-1];
+    struct[parse("veils")] := struct[parse("veils")] union sol[-1];
+    veiling_idx            := veiling_idx + 1;
+    veiling_label          := cat('_V', veiling_idx);
   end if;
 
   # Set support reactions solved flag
@@ -2676,7 +2715,8 @@ SolveStructure := proc(
     end if;
     P_energy := ComputePotentialEnergy(
       S_obj union S_support union S_joint, sol,
-      parse("timoshenko_beam") = timoshenko_beam);
+      parse("timoshenko_beam") = timoshenko_beam,
+      parse("dummy_vars") = dummy_vars);
     # Update structure energy
     struct[parse("potential_energy")] := P_energy;
     # Set potential energy computed flag
@@ -2684,12 +2724,27 @@ SolveStructure := proc(
   end if;
 
   # Compute displacements
-  if (compute_displacements) and not struct[parse("displacement_solved")] then
+  if (compute_displacements) and (not struct[parse("displacements_solved")]) then
     ComputeDisplacements(
       S_obj union S_joint union S_support, S_ext union S_con_forces, sol
       );
     # Set displacements computed flag
-    struct[parse("displacement_solved")] := true;
+    struct[parse("displacements_solved")] := true;
+  end if;
+
+  if (compute_frame_displacements) and (not struct[parse("frame_displacements_solved")]) then
+    veils := ComputeObjectFramelDisplacements(struct,
+                                                    parse("timoshenko_beam") = timoshenko_beam,
+                                                    parse("unveil_results") = unveil_results);
+    # Set frame displacements computed flag
+    struct[parse("frame_displacements_solved")] := true;
+
+    # Add veils
+    if keep_veiled then
+      struct[parse("veils")] := struct[parse("veils")] union veils;
+      veiling_idx            := veiling_idx + 1;
+      veiling_label          := cat('_V', veiling_idx);
+    end if;
   end if;
 
   PrintEndProc(procname);
@@ -2747,7 +2802,7 @@ HyperstaticSolver := proc(
     ];
 
   # Compute structure internal energy
-  P_energy := ComputePotentialEnergy(E_objs, iso_sol, parse("timoshenko_beam") = timoshenko_beam);
+  P_energy := ComputePotentialEnergy(E_objs, iso_sol, parse("timoshenko_beam") = timoshenko_beam, parse("dummy_vars") = hyper_vars);
   # Simplify
   P_energy := Simplify(P_energy);
 
@@ -2798,14 +2853,17 @@ ComputePotentialEnergy := proc(
   },
   sol::{list, set} := [], # Substitutions
   {
-    timoshenko_beam := false # Timoshenko beam flag
+    timoshenko_beam::boolean := false, # Timoshenko beam flag
+    dummy_vars::{list, set}  := []     # Dummy variables
   }, $)
 
   description "Compute the internal potential energy of the structure given the "
     "objects <objs> and optional Timoshenko beam flag <timoshenko_beam>";
 
-  local obj, P, x, f, FJX, FJY, FJZ, MJX, MJY, MJZ;
+  local dummy_vars_subs, obj, P, x, f, tmp, FJX, FJY, FJZ, MJX, MJY, MJZ;
   PrintStartProc(procname);
+
+  dummy_vars_subs := dummy_vars =~ [seq(0, i = 1..nops(dummy_vars))];
 
   P := 0;
   for obj in objs do
@@ -2813,52 +2871,65 @@ ComputePotentialEnergy := proc(
       # Normal action N contribution
       if (member(N, map(lhs, obj[parse("internal_actions")]))) and
           (subs(obj[parse("internal_actions")](x), N(x)) <> 0) then
+        tmp := subs(obj[parse("internal_actions")](x), N(x));
+        #subs(dummy_vars_subs, %);
         P := P + integrate(
-          subs(obj[parse("internal_actions")](x),
-            N(x)^2/(2*obj[parse("material")][parse("elastic_modulus")]*obj[parse("area")](x))
-          ), x = 0..obj[parse("length")]);
+            eval((tmp) * tmp)/(2*obj[parse("material")][parse("elastic_modulus")]*obj[parse("area")](x)),
+            #eval((%%) * %%)/(2*obj[parse("material")][parse("elastic_modulus")]*obj[parse("area")](x)),
+            x = 0..obj[parse("length")]);
       end if;
       if timoshenko_beam then
         # Shear action Ty contribution
         if (member(Ty, map(lhs, obj[parse("internal_actions")]))) and
             (subs(obj[parse("internal_actions")](x), Ty(x)) <> 0) then
+          tmp := subs(obj[parse("internal_actions")](x), Ty(x));
+          #subs(dummy_vars_subs, %);
           P := P + integrate(
-            subs(obj[parse("internal_actions")](x),
-              Ty(x)^2/(2*obj[parse("timo_shear_coeff")](x)[1]*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x))
-            ), x = 0..obj[parse("length")]);
+              eval((tmp) * tmp)/(2*obj[parse("timo_shear_coeff")](x)[1]*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x)),
+              #eval((%%) * %%)/(2*obj[parse("timo_shear_coeff")](x)[1]*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x)),
+              x = 0..obj[parse("length")]);
         end if;
         # Shear action Tz contribution
         if (member(Tz, map(lhs, obj[parse("internal_actions")]))) and
             (subs(obj[parse("internal_actions")](x), Tz(x)) <> 0) then
+          tmp := subs(obj[parse("internal_actions")](x), Tz(x));
+          #subs(dummy_vars_subs, %);
           P := P + integrate(
-            subs(obj[parse("internal_actions")](x),
-              Tz(x)^2/(2*obj[parse("timo_shear_coeff")](x)[2]*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x))
-            ), x = 0..obj[parse("length")]);
+              eval((tmp) * tmp)/(2*obj[parse("timo_shear_coeff")](x)[2]*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x)),
+              #eval((%%) * %%)/(2*obj[parse("timo_shear_coeff")](x)[2]*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x)),
+              x = 0..obj[parse("length")]);
         end if;
       end if;
       # Bending moment action Mx contribution
       if (member(Mx, map(lhs, obj[parse("internal_actions")]))) and
           (subs(obj[parse("internal_actions")](x), Mx(x)) <> 0) then
+        tmp := subs(obj[parse("internal_actions")](x), Mx(x));
+        #subs(dummy_vars_subs, %);
         P := P + integrate(
-          subs(obj[parse("internal_actions")](x),
-            Mx(x)^2/(2*obj[parse("material")][parse("shear_modulus")]*obj[parse("inertias")][1](x))
-          ), x = 0..obj[parse("length")]);
+            eval((tmp) * tmp)/(2*obj[parse("material")][parse("shear_modulus")]*obj[parse("inertias")][1](x)),
+            #eval((%%) * %%)/(2*obj[parse("material")][parse("shear_modulus")]*obj[parse("inertias")][1](x)),
+            x = 0..obj[parse("length")]);
           end if;
       # Bending moment action My contribution
       if (member(My, map(lhs, obj[parse("internal_actions")]))) and
           (subs(obj[parse("internal_actions")](x), My(x)) <> 0) then
+        tmp := subs(obj[parse("internal_actions")](x), My(x));
+        #subs(dummy_vars_subs, %);
         P := P + integrate(
-          subs(obj[parse("internal_actions")](x),
-            My(x)^2/(2*obj[parse("material")][parse("elastic_modulus")]*obj[parse("inertias")][3](x))
-          ), x = 0..obj[parse("length")]);
+            eval((tmp) * tmp)/(2*obj[parse("material")][parse("elastic_modulus")]*obj[parse("inertias")][2](x)),
+            #eval((%%) * %%)/(2*obj[parse("material")][parse("elastic_modulus")]*obj[parse("inertias")][2](x)),
+            x = 0..obj[parse("length")]);
       end if;
       # Bending moment action Mz contribution
       if (member(Mz, map(lhs, obj[parse("internal_actions")]))) and
           (subs(obj[parse("internal_actions")](x), Mz(x)) <> 0) then
+        subs(obj[parse("internal_actions")](x), Mz(x)); print(%);
+        tmp := subs(dummy_vars_subs, %); print(%);
+        #print(%% - %);
         P := P + integrate(
-          subs(obj[parse("internal_actions")](x),
-            Mz(x)^2/(2*obj[parse("material")][parse("elastic_modulus")]*obj[parse("inertias")][2](x))
-          ), x = 0..obj[parse("length")]);
+            eval((tmp) * tmp)/(2*obj[parse("material")][parse("elastic_modulus")]*obj[parse("inertias")][3](x)),
+            #eval((%%) * %%)/(2*obj[parse("material")][parse("elastic_modulus")]*obj[parse("inertias")][3](x)),
+            x = 0..obj[parse("length")]);
       end if;
     elif IsCompliantSupport(obj) then
       # Support reaction Fx contribution
@@ -2998,7 +3069,7 @@ IsostaticSolver := proc(
     "the structure objects <objs>, the external actions <exts> and the variables "
     "<vars> to solve";
 
-  local iso_eq, i, j, active_ext, iso_sol, A, B, rank_eq, iso_vars, PivotStrategy;
+  local iso_eq, iso_eq_tmp, exts_comps, x, i, j, active_ext, iso_sol, A, B, rank_eq, iso_vars, PivotStrategy;
   PrintStartProc(procname);
 
   # Compute structure equations
@@ -3025,18 +3096,29 @@ IsostaticSolver := proc(
   # Remove NULL equations
   iso_eq := remove(x -> x = 0, Simplify(iso_eq));
 
-  # Remove non used variables
-  iso_vars := vars;
-  for i from 1 to nops(vars) do
-    if (has(iso_eq, vars[i])) = false then
-      iso_vars := remove(x -> x = vars[i], iso_vars);
-      if (not suppress_warnings) then
-        WARNING(
-          "Message (in IsostaticSolver) %1 was removed from variables because it "
-          "is not used in the equations", vars[i]);
-      end if;
+  # Remove equation related to rigid body motions
+  # FIXME: for qloads should be different (this check can be skipped)
+  iso_eq_tmp := iso_eq;
+  exts_comps := map(x -> op(x[parse("components")]), GetObjsByType({FORCE, MOMENT}, exts));
+  iso_eq := remove(x -> (member(0., (abs~(exts_comps) -~ abs(x)) *~ 1.) and (not member(0., (abs~(vars) -~ abs(x)) *~ 1.))), iso_eq_tmp);
+  if (not suppress_warnings) then
+    if (nops(iso_eq_tmp) <> nops(iso_eq)) then
+      WARNING("Message (in IsostaticSolver) the following list of equations were "
+        "removed because they are related to rigid body motions:\n%1",
+        convert(iso_eq_tmp *~ 1., set) minus convert(iso_eq *~ 1., set));
     end if;
-  end do;
+  end if;
+
+  # Remove non used variables
+  iso_vars := remove(x -> (not has(iso_eq, x)), vars);
+  if (not suppress_warnings) then
+    if nops(iso_vars) <> nops(vars) then
+      WARNING(
+        "Message (in IsostaticSolver) the following list of variables were removed "
+        "because they are not used in the structure equilibrium equations:\n%1",
+        convert(vars, set) minus convert(iso_vars, set));
+    end
+  end if;
 
   if (verbose_mode > 1) then
     printf("%*sDONE\n", print_indent, "|   ");
@@ -3184,7 +3266,7 @@ InternalActions := proc(
 
   # Assumptions
   # NOTE: assumptions higly help readability of the solution and improve
-  # computation, but results must be considered valid only in the assumed range
+  # computation time, but results must be considered valid only in the assumed range
   Physics[Assume](x > 0, x < obj[parse("length")]);
 
   # Compute internal actions for concentrated loads as effect overlay
@@ -3193,21 +3275,21 @@ InternalActions := proc(
       N_sol  := Simplify(N_sol  - piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][1]), piecewise);
       Ty_sol := Simplify(Ty_sol + piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][2]), piecewise);
       Tz_sol := Simplify(Tz_sol + piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][3]), piecewise);
-      My_sol := Simplify(My_sol + integrate(piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][3]), x = 0..x), piecewise);
+      My_sol := Simplify(My_sol - integrate(piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][3]), x = 0..x), piecewise);
       Mz_sol := Simplify(Mz_sol + integrate(piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][2]), x = 0..x), piecewise);
     elif IsMoment(exts[i]) then
       Mx_sol := Simplify(Mx_sol - piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][1]), piecewise);
-      My_sol := Simplify(My_sol + piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][2]), piecewise);
+      My_sol := Simplify(My_sol - piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][2]), piecewise);
       Mz_sol := Simplify(Mz_sol - piecewise(x >= exts[i][parse("coordinate")][1] and x <= obj[parse("length")], exts[i][parse("components")][3]), piecewise);
     elif IsQForce(exts[i]) then
       N_sol  := Simplify(N_sol  - integrate(exts[i][parse("components")](x)[1], x = 0..x), piecewise);
       Ty_sol := Simplify(Ty_sol + integrate(exts[i][parse("components")](x)[2], x = 0..x), piecewise);
       Tz_sol := Simplify(Tz_sol + integrate(exts[i][parse("components")](x)[3], x = 0..x), piecewise);
-      My_sol := Simplify(My_sol + integrate(integrate(exts[i][parse("components")](x)[3], x = 0..x), x = 0..x), piecewise);
+      My_sol := Simplify(My_sol - integrate(integrate(exts[i][parse("components")](x)[3], x = 0..x), x = 0..x), piecewise);
       Mz_sol := Simplify(Mz_sol + integrate(integrate(exts[i][parse("components")](x)[2], x = 0..x), x = 0..x), piecewise);
     elif IsQMoment(FMQ[i]) then
       Mx_sol := Simplify(Mx_sol - integrate(exts[i][parse("components")](x)[1], x = 0..x), piecewise);
-      My_sol := Simplify(My_sol + integrate(exts[i][parse("components")](x)[2], x = 0..x), piecewise);
+      My_sol := Simplify(My_sol - integrate(exts[i][parse("components")](x)[2], x = 0..x), piecewise);
       Mz_sol := Simplify(Mz_sol - integrate(exts[i][parse("components")](x)[3], x = 0..x), piecewise);
     end if;
   end do;
@@ -3262,13 +3344,14 @@ ComputeDisplacements := proc(
   for obj in objs do
     # Beam
     if IsBeam(obj) then
+      #Physics[Assume](X > 0, X < obj[parse("length")]);
       # Compute displacements
-      rx_sol := integrate(subs(obj[parse("internal_actions")](x), Mx(x)/(obj[parse("material")][parse("shear_modulus")]*obj[parse("inertias")][1](x))), x = 0..X);
-      ry_sol := integrate(subs(obj[parse("internal_actions")](x), My(x)/(obj[parse("material")][parse("elastic_modulus")]*obj[parse("inertias")][2](x))), x = 0..X);
-      rz_sol := integrate(subs(obj[parse("internal_actions")](x), Mz(x)/(obj[parse("material")][parse("elastic_modulus")]*obj[parse("inertias")][3](x))), x = 0..X);
-      ux_sol := integrate(subs(obj[parse("internal_actions")](x), N(x)/(obj[parse("material")][parse("elastic_modulus")]*obj[parse("area")](x))), x = 0..X);
-      uy_sol := integrate(eval(rz_sol, X = x), x = 0..X);
-      uz_sol := integrate(eval(ry_sol, X = x), x = 0..X);
+      rx_sol :=  integrate(subs(obj[parse("internal_actions")](x), Mx(x)/(obj[parse("material")][parse("shear_modulus")]*obj[parse("inertias")][1](x))), x = 0..X);
+      ry_sol :=  integrate(subs(obj[parse("internal_actions")](x), My(x)/(obj[parse("material")][parse("elastic_modulus")]*obj[parse("inertias")][2](x))), x = 0..X);
+      rz_sol :=  integrate(subs(obj[parse("internal_actions")](x), Mz(x)/(obj[parse("material")][parse("elastic_modulus")]*obj[parse("inertias")][3](x))), x = 0..X);
+      ux_sol :=  integrate(subs(obj[parse("internal_actions")](x), N(x)/(obj[parse("material")][parse("elastic_modulus")]*obj[parse("area")](x))), x = 0..X);
+      uy_sol :=  integrate(eval(rz_sol, X = x), x = 0..X);
+      uz_sol := -integrate(eval(ry_sol, X = x), x = 0..X);
       if timoshenko_beam then
         uy_sol := uy_sol + integrate(subs(obj[parse("internal_actions")](x), Ty(x)/(obj[parse("timo_shear_coeff")](x)[1]*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x))), x = 0..X);
         uz_sol := uz_sol + integrate(subs(obj[parse("internal_actions")](x), Tz(x)/(obj[parse("timo_shear_coeff")](x)[2]*obj[parse("material")][parse("shear_modulus")]*obj[parse("area")](x))), x = 0..X);
@@ -3283,6 +3366,7 @@ ComputeDisplacements := proc(
 
     # Rod
     elif IsRod(obj) then
+      #Physics[Assume](X > 0, X < obj[parse("length")]);
       # Compute displacements
       ux_sol := integrate(subs(obj[parse("internal_actions")](x), N(x)/(obj[parse("material")][parse("elastic_modulus")]*obj[parse("area")](x))), x = 0..X);
       disp := [
@@ -3347,7 +3431,7 @@ ComputePunctualDisplacement := proc(
     if IsRod(obj) then
       subs_obj := MakeBeam(obj[parse("name")], obj[parse("length")], obj[parse("frame")], parse("area") = obj[parse("area")], parse("material") = obj[parse("material")]);
       # Remove load on unconstrained direction
-      subs_obj[parse("admissible_loads")] = [1,1,0,1,1];
+      subs_obj[parse("admissible_loads")] := [1,1,1,0,1,1];
       # Replace object in struct_copy
       struct_copy[parse("objects")] := remove(x -> x[parse("name")] = obj[parse("name")], struct_copy[parse("objects")]);
       struct_copy[parse("objects")] := struct_copy[parse("objects")] union {eval(subs_obj)};
@@ -3386,7 +3470,7 @@ ComputePunctualDisplacement := proc(
     `if`(directions[i,6] = 1, dummy_Mz_||i = MakeMoment([0,0,dMz_||i], coords[i], GetObjByName(objs_names[i], struct_copy[parse("objects")]), RFs[i]), dummy_Mz_||i = NULL)
     ];
     assign(%);
-    dummy_loads := [dummy_Fx_||i, dummy_Fy_||i, dummy_Fz_||i, dummy_Mx_||i, dummy_My_||i, dummy_Mz_||i];
+    dummy_loads := [dummy_Fx_||i, dummy_Fy_||i, dummy_Fz_||i, dummy_Mx_||i, dummy_My_||i, dummy_Mz_||i];# print(op(lhs~(%%%)));
 
     # null dummy loads substitution list
     subs_null_dummy := subs_null_dummy union ([dFx_||i, dFy_||i, dFz_||i, dMx_||i, dMy_||i, dMz_||i] =~ [0,0,0,0,0,0]);
@@ -3404,7 +3488,8 @@ ComputePunctualDisplacement := proc(
     parse("compute_potential_energy") = true,
     parse("timoshenko_beam")          = timoshenko_beam,
     parse("implicit")                 = false,
-    parse("unveil_results")           = unveil_results
+    parse("unveil_results")           = unveil_results,
+    parse("dummy_vars")               = lhs~(subs_null_dummy)
     );
 
   # Compute punctual displacements
@@ -3448,6 +3533,45 @@ end proc: # ComputePunctualDisplacement
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+ComputeObjectFramelDisplacements := proc(
+  struct::STRUCTURE, # Structure to compute the total displacements
+  {
+    timoshenko_beam::boolean := false, # Timoshenko beam flag
+    unveil_results::boolean  := true   # Unveil results flag
+  },
+  $)::STRUCTRURE;
+
+description "Compute the total displacements of the structure <struct>.";
+
+  local i, disp, veils, objs;
+  PrintStartProc(procname);
+
+  # Compute punctual displacements at origin for all the structure objects
+  # FIXME: this is overkill, we should compute only the displacements in the direction of joints dof (and not eve all of them)
+  disp, veils := ComputePunctualDisplacement(struct,
+                                             convert(struct[parse("objects")],list),
+                                             [seq([0,0,0], i = 1..nops(struct[parse("objects")]))],
+                                             [seq([1,1,1,1,1,1], i = 1..nops(struct[parse("objects")]))],
+                                             map(x-> x[frame], convert(struct[parse("objects")],list)),
+                                             parse("timoshenko_beam") = timoshenko_beam,
+                                             parse("unveil_results")  = unveil_results
+                                             ):
+
+  # Update objects <frame_displacements>
+  for i from 1 to nops(struct[parse("objects")]) do
+    # FIXME: not all displacement are necessarily computed
+    struct[parse("objects")][i][parse("frame_displacements")] := Translate(op(subs(disp[i], [ux, uy, uz]))).
+                                                                 Rotate('X', subs(disp[i], rx)).
+                                                                 Rotate('Y', subs(disp[i], ry)).
+                                                                 Rotate('Z', subs(disp[i], rz));
+  end do;
+
+  PrintEndProc(procname);
+  return veils;
+end proc; # ComputeObjectFramelDisplacements
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 CopyStructure := proc(
   struct::STRUCTURE, # Structure to copy
   $)::STRUCTURE;
@@ -3478,6 +3602,45 @@ end proc: # CopyStructure
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+# LinearSolver := proc(
+#   eqns::{list, set}, # Equations
+#   vars::{list, set}, # Variables
+#   $)::list;
+
+# description "Solve the linear system of equations <eqns> for the variables <vars>";
+
+#   local sol, sol_tmp, A, b, _Q, PivotingStrategy;
+#   PrintStartProc(procname);
+
+#   # Matrix form of the linear system
+#   A, b := LinearAlgebra[GenerateMatrix](eqns, vars);
+
+#   use LULEM in
+#   LULEM[SetVerbosity](false);
+#   LULEM[AssignData](StoredData);
+#   if has(map(type, A, 'constant'), false) then
+#     PivotingStrategy := PivotingStrategy_Slength;
+#   else
+#     PivotingStrategy := PivotingStrategy_numeric;
+#   end if;
+#   sol_tmp := SolveLU(A, b, veiling_label, VeilingStrategy_n, PivotingStrategy, ZeroStrategy_length);
+#   if keep_veiled then
+#     # Remove indexed type from veils
+#     LEM[ListVeil](veiling_label);
+#     lhs~(%) =~ map2(op,0,lhs~(%)) ||~ __ ||~ (op~(lhs~(%)));
+#     # Add veils to solution
+#     sol := convert(vars =~ subs(%, sol_tmp), list) union [subs(%,%%)];
+#   else
+#     sol := convert(vars =~ LEM[SubsVeil](sol_tmp, veiling_label), list);
+#   end if;
+#   ForgetVeil(veiling_label);
+#   LULEM[ForgetData]();
+#   end use;
+
+#   PrintEndProc(procname);
+#   return Simplify(sol);
+# end proc: # LinearSolver
+
 LinearSolver := proc(
   eqns::{list, set}, # Equations
   vars::{list, set}, # Variables
@@ -3485,7 +3648,7 @@ LinearSolver := proc(
 
 description "Solve the linear system of equations <eqns> for the variables <vars>";
 
-  local sol, sol_tmp, A, b, _Q, PivotStrategy;
+  local sol, sol_tmp, A, b, _Q, PivotingStrategy;
   PrintStartProc(procname);
 
   # Matrix form of the linear system
@@ -3494,21 +3657,21 @@ description "Solve the linear system of equations <eqns> for the variables <vars
   use LULEM in
   LULEM[AssignData](StoredData);
   if has(map(type, A, 'constant'), false) then
-    PivotStrategy := PivotStrategy_Slength;
+    PivotingStrategy := PivotStrategy_Slength;
   else
-    PivotStrategy := PivotStrategy_numeric;
+    PivotingStrategy := PivotStrategy_numeric;
   end if;
-  sol_tmp := Solve(A, b, '_Q', VeilingStrategy_n, PivotStrategy, ZeroStrategy_length);
+  sol_tmp := Solve(A, b, veiling_label, VeilingStrategy_n, PivotingStrategy, ZeroStrategy_length);
   if keep_veiled then
     # Remove indexed type from veils
-    ListVeil('_Q');
+    ListVeil(veiling_label);
     lhs~(%) =~ map2(op,0,lhs~(%)) ||~ __ ||~ (op~(lhs~(%)));
     # Add veils to solution
     sol := convert(vars =~ subs(%, sol_tmp), list) union [subs(%,%%)];
   else
-    sol := convert(vars =~ SubsVeil('_Q', sol_tmp), list);
+    sol := convert(vars =~ SubsVeil(veiling_label, sol_tmp), list);
   end if;
-  ForgetVeil('_Q');
+  ForgetVeil(veiling_label);
   LULEM[UnAssignData]();
   end use;
 
@@ -3567,7 +3730,7 @@ PlotRigidBody := proc(
   },
   $)::procedure;
 
-  description "Plot a the RIGID_BODY object <obj>";
+  description "Plot the RIGID_BODY object <obj>";
 
   local P1, P2, js, idx, lines, load, out;
   PrintStartProc(procname);
@@ -3585,11 +3748,54 @@ PlotRigidBody := proc(
     lines := lines union [plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 6)];
   end do;
 
-  out := plots:-display(lines, linestyle = solid, color = ObjectColor(obj));
+  out := plots:-display(lines, linestyle = solid, color = ObjectColor(obj), parse("scaling") = constrained);
 
   PrintEndProc(procname);
   return out;
 end proc: # PlotRigidBody
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+PlotDeformedRigidBody := proc(
+  obj::RIGID_BODY, # Rigid body to be plot
+  joints::{ # Joint and support objects
+    list({SUPPORT, JOINT}),
+    set({SUPPORT, JOINT})
+  },
+  c_loads::{ # Concentrated loads
+    list({FORCE, MOMENT}),
+    set({FORCE, MOMENT})
+  },
+  {
+    data::{list(`=`),set(`=`)} := [], # Substitutions
+    scaling::real              := 1.0 # Scaling factor
+  },
+  $)::procedure;
+
+  description "Plot the deformed RIGID_BODY object <obj>";
+
+  local P1, P2, rfd, js, idx, lines, load, out;
+  PrintStartProc(procname);
+
+  lines := [];
+  rfd := obj[parse("frame")] . ((obj[parse("frame_displacements")] - LinearAlgebra[IdentityMatrix](4)) *~ scaling + LinearAlgebra[IdentityMatrix](4));
+  P1 := subs(op(data), Project([op(obj[parse("COM")]), 1], rdf, ground));
+  for js in joints do
+    member(obj[parse("name")], js[parse("targets")], 'idx');
+    P2 := subs(op(data), Project([op(js[parse("coordinates")][idx]), 1], rfd, ground));
+    lines := lines union [plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 6)];
+  end do;
+
+  for load in c_loads do
+    P2 :=  subs(op(data), Project([op(load[parse("coordinate")]), 1], rfd, ground));
+    lines := lines union [plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 6)];
+  end do;
+
+  out := plots:-display(lines, linestyle = solid, color = ObjectColor(obj), parse("scaling") = constrained);
+
+  PrintEndProc(procname);
+  return out;
+end proc: # PlotDeformedRigidBody
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -3600,7 +3806,7 @@ PlotBeam := proc(
   },
   $)::procedure;
 
-  description "Plot a the BEAM object <obj>";
+  description "Plot the BEAM object <obj>";
 
   local P1, P2, out;
   PrintStartProc(procname);
@@ -3610,11 +3816,38 @@ PlotBeam := proc(
 
   out := plots:-display(
     plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 6),
-    linestyle = solid, color = ObjectColor(obj));
+    linestyle = solid, color = ObjectColor(obj), parse("scaling") = constrained);
 
   PrintEndProc(procname);
   return out;
 end proc: # PlotBeam
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+PlotDeformedBeam := proc(
+  obj::BEAM, # Beam to be plot
+  {
+    data::{list(`=`),set(`=`)} := [], # Substitutions
+    scaling::numeric           := 1   # Scaling factor
+  },
+  $)::procedure;
+
+  description "Plot the BEAM object <obj>";
+
+  local sc, rfd, x, out;
+  PrintStartProc(procname);
+
+  rfd := subs(op(data), obj[parse("frame")] . ((obj[parse("frame_displacements")] - LinearAlgebra[IdentityMatrix](4)) *~ scaling + LinearAlgebra[IdentityMatrix](4)));
+
+  sc := subs(op(data), Project(subs(obj[parse("displacements")](x), [x, 0, 0, 0] +~ [ux(x) *~ scaling, uy(x) *~ scaling, uz(x) *~ scaling, 1]), rfd, ground)[1..3]);
+
+  out := plots:-display(
+    plots:-spacecurve(sc, x = subs(op(data), 0..obj[parse("length")]), thickness = 6),
+    linestyle = solid, color = ObjectColor(obj), parse("scaling") = constrained);
+
+  PrintEndProc(procname);
+  return out;
+end proc: # PlotDeformedBeam
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -3625,7 +3858,7 @@ PlotRod := proc(
   },
   $)::procedure;
 
-  description "Plot a the ROD object <obj>";
+  description "Plot the ROD object <obj>";
 
   local P1, P2, out;
   PrintStartProc(procname);
@@ -3635,11 +3868,39 @@ PlotRod := proc(
 
   out := plots:-display(
     plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 4),
-    linestyle = solid, color = ObjectColor(obj));
+    linestyle = solid, color = ObjectColor(obj), parse("scaling") = constrained);
 
   PrintEndProc(procname);
   return out;
 end proc: # PlotRod
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+PlotDeformedRod := proc(
+  obj::ROD, # Rod to be plot
+  {
+    data::{list(`=`),set(`=`)} := [], # Substitutions
+    scaling::numeric           := 1   # Scaling factor
+  },
+  $)::procedure;
+
+  description "Plot the ROD object <obj>";
+
+  local P1, P2, rfd, out;
+  PrintStartProc(procname);
+
+  rfd := obj[parse("frame")] . ((obj[parse("frame_displacements")] - LinearAlgebra[IdentityMatrix](4)) *~ scaling + LinearAlgebra[IdentityMatrix](4));
+
+  P1 := subs(op(data), Origin(rfd));
+  P2 := subs(op(data), Project([obj[parse("length")] + subs(obj[parse("displacements")](obj[parse("length")]), ux(obj[parse("length")]) *~ scaling), 0, 0, 1], rfd, ground));
+
+  out := plots:-display(
+    plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 4),
+    linestyle = solid, color = ObjectColor(obj), parse("scaling") = constrained);
+
+  PrintEndProc(procname);
+  return out;
+end proc: # PlotDeformedRod
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -3654,7 +3915,7 @@ PlotJoint := proc(
   },
   $)::procedure;
 
-  description "Plot a the JOINT object <obj>";
+  description "Plot the JOINT object <obj>";
 
   local O, out;
   PrintStartProc(procname);
@@ -3666,11 +3927,49 @@ PlotJoint := proc(
 
   out := plots:-display(
     plottools:-point(convert(O[1..3], list), symbol='solidsphere', symbolsize = 20),
-    linestyle = solid, color = ObjectColor(obj));
+    linestyle = solid, color = ObjectColor(obj), parse("scaling") = constrained);
 
   PrintEndProc(procname);
   return out;
 end proc: # PlotJoint
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+PlotDeformedJoint := proc(
+  obj::JOINT, # Joint to be plot
+  targets::{ # Joint targets
+    list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
+    set({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
+  },
+  {
+    data::{list(`=`),set(`=`)} := [], # Substitutions
+    scaling::numeric           := 1   # Scaling factor
+  },
+  $)::procedure;
+
+  description "Plot the JOINT object <obj>";
+
+  local O, rfd, out;
+  PrintStartProc(procname);
+  #TODO: add compliant joint deformation
+
+  rfd := ((obj[parse("frame_displacements")] - LinearAlgebra[IdentityMatrix](4)) *~ scaling + LinearAlgebra[IdentityMatrix](4));
+
+  # FIXME: joint target may be a joint itself
+  O := subs(op(data), Origin(
+     GetObjByName(obj[parse("targets")][1], targets)[parse("frame")].
+     Translate(op(ListPadding(obj[parse("coordinates")][1],3))))[1..3] +~
+     Project(Origin(rfd)[1..3], obj[parse("frame")], ground)
+    );
+
+
+  out := plots:-display(
+    plottools:-point(convert(O, list), symbol='solidsphere', symbolsize = 20),
+    linestyle = solid, color = ObjectColor(obj), parse("scaling") = constrained);
+
+  PrintEndProc(procname);
+  return out;
+end proc: # PlotDeformedJoint
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -3684,6 +3983,8 @@ PlotSupport := proc(
     data::{list(`=`),set(`=`)} := [] # Substitutions
   },
   $)::procedure;
+
+  description "Plot the SUPPORT object <obj>";
 
   local O, out;
   PrintStartProc(procname);
@@ -3702,7 +4003,7 @@ PlotSupport := proc(
 
   out := plots:-display(
     plottools:-point(convert(O[1..3], list), symbol='solidbox', symbolsize = 20),
-    linestyle = solid, color = ObjectColor(obj));
+    linestyle = solid, color = ObjectColor(obj), parse("scaling") = constrained);
 
   PrintEndProc(procname);
   return out;
@@ -3710,38 +4011,129 @@ end proc: # PlotSupport
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+PlotDeformedSupport := proc(
+  obj::SUPPORT, # Support to be plotted
+  targets::{ # Support targets
+    list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
+    set({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
+  },
+  {
+    data::{list(`=`),set(`=`)} := [], # Substitutions
+    scaling::numeric           := 1   # Scaling factor
+  },
+  $)::procedure;
+
+  description "Plot the deformed SUPPORT object <obj>";
+
+  local O, out;
+  PrintStartProc(procname);
+  #TODO: add compliant support deformation
+
+  if (nops(obj[parse("targets")]) > 1) then
+    O := subs(op(data), Origin(
+      GetObjByName(obj[parse("targets")][2], targets)[parse("frame")].
+      Translate(op(ListPadding(obj[parse("coordinates")][2],3)))
+      ));
+  else
+    O := subs(op(data), Origin(
+      earth[parse("frame")].
+      Translate(op(ListPadding(obj[parse("coordinates")][1],3)))
+      ));
+  end if;
+
+  out := plots:-display(
+    plottools:-point(convert(O[1..3], list), symbol='solidbox', symbolsize = 20),
+    linestyle = solid, color = ObjectColor(obj), parse("scaling") = constrained);
+
+  PrintEndProc(procname);
+  return out;
+end proc: # PlotDeformedSupport
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 PlotStructure := proc(
   str::STRUCTURE,                   # Structure to be plotted
-  data::{list(`=`),set(`=`)} := [], # Substitutions
+  {
+    data::{list(`=`),set(`=`)} := [] # Substitutions
+  },
   $)::list(procedure);
 
-  description "Plot a the STRUCTURE object <obj>";
+  description "Plot the STRUCTURE object <str> given a list of substitutions <data>";
 
-  local out, rb_joints, rb_loads, obj;
+  local out, disp, rb_joints, rb_loads, obj;
   PrintStartProc(procname);
 
-  out := []:
+  disp := []:
   for obj in str[parse("objects")] do
     if IsBeam(obj) then
-      out := out union [PlotBeam(obj, parse("data") = data)];
+      disp := disp union [PlotBeam(obj, parse("data") = data)];
     elif IsRod(obj) then
-      out := out union [PlotRod(obj, parse("data") = data)];
+      disp := disp union [PlotRod(obj, parse("data") = data)];
     elif IsSupport(obj) then
-      out := out union [PlotSupport(obj, map(GetObjByName, obj[parse("targets")], str[parse("objects")]), parse("data") = data)];
+      disp := disp union [PlotSupport(obj, map(GetObjByName, obj[parse("targets")], str[parse("objects")]), parse("data") = data)];
     elif IsJoint(obj) then
-      out := out union [PlotJoint(obj, map(GetObjByName, obj[parse("targets")], str[parse("objects")]), parse("data") = data)];
+      disp := disp union [PlotJoint(obj, map(GetObjByName, obj[parse("targets")], str[parse("objects")]), parse("data") = data)];
     elif IsRigidBody(obj) then
       GetObjsByType(['JOINT', 'SUPPORT'], str[parse("objects")]);
       rb_joints := remove(x -> (not member(obj[parse("name")], x[parse("targets")])), %);
       GetObjsByType(['FORCE', 'MOMENT'], str[parse("external_actions")]);
       rb_loads := remove(x -> obj[parse("name")] <> x[parse("target")], %);
-      out := out union [PlotRigidBody(obj, rb_joints, rb_loads, parse("data") = data)];
+      disp := disp union [PlotRigidBody(obj, rb_joints, rb_loads, parse("data") = data)];
     end if;
   end do;
+
+  out := plots:-display(disp, axes = boxed, parse("scaling") = constrained, labels=['x', 'y', 'z']);
 
   PrintEndProc(procname);
   return out;
 end proc: # PlotStructure
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+PlotDeformedStructure := proc(
+  str::STRUCTURE,                   # Structure to be plotted
+  {
+    data::{list(`=`),set(`=`)} := [], # Substitutions
+    scaling::numeric := 1            # Scaling factor
+  },
+  $)::list(procedure);
+
+  description "Plot the deformed STRUCTURE object <str> given a list of "
+              "substitutions <data> and a scaling factor <scaling>";
+
+  local out, disp, rb_joints, rb_loads, obj;
+  PrintStartProc(procname);
+
+  # Check if displacements and frame displacements are solved
+  if (str[parse("displacements_solved")] = false) or
+      (str[parse("frame_displacements_solved")] = false) then
+    error("Displacements and frame displacements must be solved before plotting the deformed structure");
+  end if;
+
+  disp := []:
+  for obj in str[parse("objects")] do
+    if IsBeam(obj) then
+      disp := disp union [PlotDeformedBeam(obj, parse("data") = data, parse("scaling") = scaling)];
+    elif IsRod(obj) then
+      disp := disp union [PlotDeformedRod(obj, parse("data") = data, parse("scaling") = scaling)];
+    elif IsSupport(obj) then
+      disp := disp union [PlotDeformedSupport(obj, map(GetObjByName, obj[parse("targets")], str[parse("objects")]), parse("data") = data, parse("scaling") = scaling)];
+    elif IsJoint(obj) then
+      disp := disp union [PlotDeformedJoint(obj, map(GetObjByName, obj[parse("targets")], str[parse("objects")]), parse("data") = data, parse("scaling") = scaling)];
+    elif IsRigidBody(obj) then
+      GetObjsByType(['JOINT', 'SUPPORT'], str[parse("objects")]);
+      rb_joints := remove(x -> (not member(obj[parse("name")], x[parse("targets")])), %);
+      GetObjsByType(['FORCE', 'MOMENT'], str[parse("external_actions")]);
+      rb_loads := remove(x -> obj[parse("name")] <> x[parse("target")], %);
+      disp := disp union [PlotDeformedRigidBody(obj, rb_joints, rb_loads, parse("data") = data, parse("scaling") = scaling)];
+    end if;
+  end do;
+
+  out := plots:-display(disp, axes = boxed, parse("scaling") = constrained, labels=['x', 'y', 'z']);
+
+  PrintEndProc(procname);
+  return out;
+end proc: # PlotDeformedStructure
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
