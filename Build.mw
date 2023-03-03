@@ -105,6 +105,10 @@
 <Group view="code" labelreference="L515" drawlabel="true">
 <Input><Text-field prompt="&gt; " style="Maple Input" layout="Normal">restart:</Text-field>
 </Input>
+<Output><Text-field style="Line Printed Output" layout="Line Printed Output">Unloading 'TrussMe'
+Unloading 'TrussMe'
+</Text-field>
+</Output>
 </Group>
 <Group view="code" hide-input="false" labelreference="L695" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
 <Input><Text-field prompt="&gt; " style="Maple Input" layout="Normal">ds := kernelopts('dirsep'):</Text-field>
@@ -181,6 +185,9 @@ end proc:
 <Group view="code" labelreference="L710" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
 <Input><Text-field style="Text" layout="Normal">Generate module</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Normal">GEN(MODULE_NAME);</Text-field>
 </Input>
+<Output><Text-field style="Line Printed Output" layout="Line Printed Output">'LULEM' module version 1.1, BSD 3-Clause License - Copyright (C) 2023, D. Stocco, M. Larcher, E. Bertolazzi, W. Zhou, D. J. Jeffrey, J. Carette and R. M. Corless.
+Module 'TrussMe' version beta-0.0, Copyright (C) 2022-2023, M. Larcher &amp; D. Stocco, University of Trento 2022-2023</Text-field>
+</Output>
 </Group></Presentation-Block>
 </Section>
 <Section collapsed="false" isCollapsible="true" drawButton="true" MultipleChoiceAnswerIndex="-1" MultipleChoiceRandomizeChoices="false" TrueFalseAnswerIndex="-1" EssayAnswerRows="5" EssayAnswerColumns="60"><Title><Text-field style="Heading 1" layout="Heading 1">Create the Installer</Text-field></Title><Presentation-Block>
@@ -265,8 +272,6 @@ end proc:
 );
 </Text-field>
 </Input>
-<Output><Text-field style="HyperlinkError" layout="HyperlinkError"><Hyperlink linktarget="http://www.maplesoft.com/support/help/errors/view.aspx?path=Error,%20(in%20ProcessOptions)%20argument%20'target%20%3D%20INSTALL_MLA'%20invalid%3A%20rhs%20should%20be%20of%20type%20string" hyperlink="true"><Font style="HyperlinkError">Error, (in ProcessOptions) argument 'target = INSTALL_MLA' invalid: rhs should be of type string</Font></Hyperlink></Text-field>
-</Output>
 </Group>
 <Group view="code" hide-input="false" labelreference="L729" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
 <Input><Text-field prompt="&gt; " style="Maple Input" layout="Normal">#kernelopts(mapledir);
