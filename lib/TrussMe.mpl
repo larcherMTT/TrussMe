@@ -1,17 +1,13 @@
-# # # # # # # # # # # # # # # # # # # # # # # # #
-#      _____                   __  __           #
-#     |_   _| __ _   _ ___ ___|  \/  | ___      #
-#       | || '__| | | / __/ __| |\/| |/ _ \     #
-#       | || |  | |_| \__ \__ \ |  | |  __/     #
-#       |_||_|   \__,_|___/___/_|  |_|\___|     #
-#                                               #
-# A Maple Library for Truss Elements Structures #
-# # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#                     _____                   __  __                          #
+#                    |_   _| __ _   _ ___ ___|  \/  | ___                     #
+#                      | || '__| | | / __/ __| |\/| |/ _ \                    #
+#                      | || |  | |_| \__ \__ \ |  | |  __/                    #
+#                      |_||_|   \__,_|___/___/_|  |_|\___|                    #
+#                A Maple Library for Truss Elements Structures                #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 # Authors: Matteo Larcher and Davide Stocco
-# Date:    21/12/2022
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 TrussMe := module()
 
@@ -145,7 +141,7 @@ option  package,
         load   = ModuleLoad,
         unload = ModuleUnload;
 
-description "A Maple Library for Truss Elements Structures";
+description "A Maple Library for Truss Elements Structures.";
 
 #uses ; # add here the libraries used by the module
 
