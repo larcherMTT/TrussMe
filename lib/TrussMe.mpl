@@ -110,7 +110,7 @@ local   ModuleLoad,
         ComputeSpringEnergy,
         ComputeSupportDisplacements,
         ComputeJointDisplacements,
-        ComputeObjectFramelDisplacements,
+        ComputeObjectFrameDisplacements,
         ObjectColor,
         PlotRigidBody,
         PlotDeformedRigidBody,
@@ -2605,7 +2605,7 @@ SolveStructure := proc(
       S_con_forces := S_con_forces union obj["forces"] union obj["moments"];
       vars         := vars union obj["variables"];
     end if;
-    unassign('obj');
+    unassign('obj'); # FIXME: try to remove this line when the bug is fixed
   end do;
 
   S_ext := struct["external_actions"];
@@ -2746,7 +2746,7 @@ SolveStructure := proc(
   end if;
 
   if (compute_frame_displacements) and (not struct["frame_displacements_solved"]) then
-    veils := ComputeObjectFramelDisplacements(struct,
+    veils := ComputeObjectFrameDisplacements(struct,
                                               parse("timoshenko_beam") = timoshenko_beam,
                                               parse("unveil_results")  = unveil_results);
     # Set frame displacements computed flag
@@ -2817,8 +2817,8 @@ HyperstaticSolver := proc(
   # Compute structure internal energy
   P_energy := ComputePotentialEnergy(
     E_objs, iso_sol,
-    parse("timoshenko_beam") = timoshenko_beam,
-    parse("dummy_vars")      = hyper_vars
+    parse("timoshenko_beam") = timoshenko_beam#,
+    #parse("dummy_vars")      = hyper_vars
   );
   P_energy := Simplify(P_energy);
 
@@ -2841,8 +2841,8 @@ HyperstaticSolver := proc(
     end if;
     # Solve hyperstatic equations
     hyper_sol := op(RealDomain[solve](convert(hyper_eq, signum), hyper_vars));
-
-    if hyper_sol = NULL then
+    print("hyper_sol =", hyper_sol);
+    if (hyper_sol = NULL) then
       error "HyperstaticSolver: hyperstatic solution not found";
     end if;
 
@@ -2856,7 +2856,7 @@ HyperstaticSolver := proc(
   end if;
 
   PrintEndProc(procname);
-  if _nresults = 4 then
+  if (_nresults = 4) then
     return sol, iso_eq union hyper_eq, iso_vars union hyper_vars, P_energy;
   else
     return sol;
@@ -2890,10 +2890,11 @@ ComputePotentialEnergy := proc(
       # Normal action N contribution
       if (member(N, map(lhs, obj["internal_actions"]))) and
           (subs(obj["internal_actions"](x), N(x)) <> 0) then
-        subs(obj["internal_actions"](x), N(x));
+        subs(obj["internal_actions"](x), N(x)); print("1 = ", %);
         subs(dummy_vars_subs, %);
         P := P + integrate(
-            eval((%% - %) * %)/(2*obj["material"]["elastic_modulus"]*obj["area"](x)),
+            eval(`if`(nops(dummy_vars) > 0, (%% - %) * %, %%^2))/
+              (2*obj["material"]["elastic_modulus"]*obj["area"](x)),
             x = 0..obj["length"]);
       end if;
       if timoshenko_beam then
@@ -2903,7 +2904,8 @@ ComputePotentialEnergy := proc(
           subs(obj["internal_actions"](x), Ty(x));
           subs(dummy_vars_subs, %);
           P := P + integrate(
-              eval((%% - %) * %)/(2*obj["timo_shear_coeff"](x)[1]*obj["material"]["shear_modulus"]*obj["area"](x)),
+              eval(`if`(nops(dummy_vars) > 0, (%% - %) * %, %%^2))/
+                (2*obj["timo_shear_coeff"](x)[1]*obj["material"]["shear_modulus"]*obj["area"](x)),
               x = 0..obj["length"]);
         end if;
         # Shear action Tz contribution
@@ -2912,7 +2914,8 @@ ComputePotentialEnergy := proc(
           subs(obj["internal_actions"](x), Tz(x));
           subs(dummy_vars_subs, %);
           P := P + integrate(
-              eval((%% - %) * %)/(2*obj["timo_shear_coeff"](x)[2]*obj["material"]["shear_modulus"]*obj["area"](x)),
+              eval(`if`(nops(dummy_vars) > 0, (%% - %) * %, %%^2))/
+                (2*obj["timo_shear_coeff"](x)[2]*obj["material"]["shear_modulus"]*obj["area"](x)),
               x = 0..obj["length"]);
         end if;
       end if;
@@ -2922,7 +2925,8 @@ ComputePotentialEnergy := proc(
         subs(obj["internal_actions"](x), Mx(x));
         subs(dummy_vars_subs, %);
         P := P + integrate(
-            eval((%% - %) * %)/(2*obj["material"]["shear_modulus"]*obj["inertias"][1](x)),
+            eval(`if`(nops(dummy_vars) > 0, (%% - %) * %, %%^2))/
+              (2*obj["material"]["shear_modulus"]*obj["inertias"][1](x)),
             x = 0..obj["length"]);
           end if;
       # Bending moment action My contribution
@@ -2931,7 +2935,8 @@ ComputePotentialEnergy := proc(
         subs(obj["internal_actions"](x), My(x));
         subs(dummy_vars_subs, %);
         P := P + integrate(
-            eval((%% - %) * %)/(2*obj["material"]["elastic_modulus"]*obj["inertias"][2](x)),
+            eval(`if`(nops(dummy_vars) > 0, (%% - %) * %, %%^2))/
+              (2*obj["material"]["elastic_modulus"]*obj["inertias"][2](x)),
             x = 0..obj["length"]);
       end if;
       # Bending moment action Mz contribution
@@ -2940,7 +2945,8 @@ ComputePotentialEnergy := proc(
         subs(obj["internal_actions"](x), Mz(x));
         subs(dummy_vars_subs, %);
         P := P + integrate(
-            eval((%% - %) * %)/(2*obj["material"]["elastic_modulus"]*obj["inertias"][3](x)),
+            eval(`if`(nops(dummy_vars) > 0, (%% - %) * %, %%^2))/
+              (2*obj["material"]["elastic_modulus"]*obj["inertias"][3](x)),
             x = 0..obj["length"]);
       end if;
     elif IsCompliantSupport(obj) then
@@ -3150,31 +3156,9 @@ IsostaticSolver := proc(
     # Matrix form
     A, B := LinearAlgebra[GenerateMatrix](iso_eq, iso_vars);
     A := Matrix(A, storage = sparse);
-    #ADJ := eval(evalb~(A=~0),[true=1,false=0]);
-    #G:= GraphTheory[Graph](iso_vars, ADJ);
-    #print(GraphTheory[DrawGraph](G));
-    #print(GraphTheory[ConnectedComponents](G));
 
     if nops(iso_eq) = nops(iso_vars) then
-      # Check rank
-      # use LULEM in
-      # LULEM[AssignData](StoredData);
-      # if has(map(type, A, constant), false) then
-      #   PivotStrategy := PivotStrategy_Slength;
-      # else
-      #   PivotStrategy := PivotStrategy_numeric;
-      # end if;
-      # LUD(A, '_Q', VeilingStrategy_n, PivotStrategy, ZeroStrategy_length);
-      # ForgetVeil('_Q');
-      # LULEM[UnAssignData]();
-      # end use;
-      # rank_eq := LinearAlgebra[Rank](%[3]);
-      # if (rank_eq <> nops(iso_vars)) then
-      #   error "inconsistent system of equation, got %1 equations and %2 variables. "
-      #     "Rank of the system  wrt the system variables is %3. Check structure "
-      #     "supports and joints",
-      #     nops(iso_eq), nops(iso_vars), rank_eq;
-      # end if;
+
       if (verbose_mode > 1) then
         printf("%*sMessage (in IsostaticSolver) A matrix visualization of the linear system:\n", print_indent, "|   ");
         print(plots[sparsematrixplot](A,matrixview));
@@ -3485,19 +3469,9 @@ ComputePunctualDisplacement := proc(
     `if`(directions[i,6] = 1, MakeMoment([0,0,dMz_||i], coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL)
     ]);
 
-    #[
-    #`if`(directions[i,1] = 1, dummy_Fx_||i = MakeForce( [dFx_||i,0,0], coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), dummy_Fx_||i = NULL),
-    #`if`(directions[i,2] = 1, dummy_Fy_||i = MakeForce( [0,dFy_||i,0], coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), dummy_Fy_||i = NULL),
-    #`if`(directions[i,3] = 1, dummy_Fz_||i = MakeForce( [0,0,dFz_||i], coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), dummy_Fz_||i = NULL),
-    #`if`(directions[i,4] = 1, dummy_Mx_||i = MakeMoment([dMx_||i,0,0], coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), dummy_Mx_||i = NULL),
-    #`if`(directions[i,5] = 1, dummy_My_||i = MakeMoment([0,dMy_||i,0], coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), dummy_My_||i = NULL),
-    #`if`(directions[i,6] = 1, dummy_Mz_||i = MakeMoment([0,0,dMz_||i], coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), dummy_Mz_||i = NULL)
-    #];
-    #assign(%);
-    #dummy_loads := [dummy_Fx_||i, dummy_Fy_||i, dummy_Fz_||i, dummy_Mx_||i, dummy_My_||i, dummy_Mz_||i];
-
-    # null dummy loads substitution list
+    # Null dummy loads substitution list
     subs_null_dummy := subs_null_dummy union ([dFx_||i, dFy_||i, dFz_||i, dMx_||i, dMy_||i, dMz_||i] =~ [0, 0, 0, 0, 0, 0]);
+
     # Add dummy loads to the structure copy
     struct_copy["external_actions"] := struct_copy["external_actions"] union dummy_loads;
   end do;
@@ -3557,7 +3531,7 @@ end proc: # ComputePunctualDisplacement
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-ComputeObjectFramelDisplacements := proc(
+ComputeObjectFrameDisplacements := proc(
   struct::STRUCTURE, # Structure to compute the total displacements
   {
     timoshenko_beam::boolean := false, # Timoshenko beam flag
@@ -3571,11 +3545,12 @@ description "Compute the total displacements of the structure <struct>.";
   PrintStartProc(procname);
 
   # Compute punctual displacements at origin for all the structure objects
-  # FIXME: this is overkill, we should compute only the displacements in the direction of joints dof (and not eve all of them)
+  # FIXME: this is overkill, we should compute only the displacements in the
+  # direction of joints dof (and not even all of them)
   disp, veils := ComputePunctualDisplacement(struct,
                                              convert(struct["objects"],list),
-                                             [seq([0,0,0], i = 1..nops(struct["objects"]))],
-                                             [seq([1,1,1,1,1,1], i = 1..nops(struct["objects"]))],
+                                             [seq([0, 0, 0], i = 1..nops(struct["objects"]))],
+                                             [seq([1, 1, 1, 1, 1, 1], i = 1..nops(struct["objects"]))],
                                              map(x-> x["frame"], convert(struct["objects"], list)),
                                              parse("timoshenko_beam") = timoshenko_beam,
                                              parse("unveil_results")  = unveil_results
@@ -3585,14 +3560,14 @@ description "Compute the total displacements of the structure <struct>.";
   for i from 1 to nops(struct["objects"]) do
     # FIXME: not all displacement are necessarily computed
     struct["objects"][i]["frame_displacements"] := Translate(op(subs(disp[i], [ux, uy, uz]))).
-                                                               Rotate('X', subs(disp[i], rx)).
-                                                               Rotate('Y', subs(disp[i], ry)).
-                                                               Rotate('Z', subs(disp[i], rz));
+                                                             Rotate('X', subs(disp[i], rx)).
+                                                             Rotate('Y', subs(disp[i], ry)).
+                                                             Rotate('Z', subs(disp[i], rz));
   end do;
 
   PrintEndProc(procname);
   return veils;
-end proc; # ComputeObjectFramelDisplacements
+end proc; # ComputeObjectFrameDisplacements
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
