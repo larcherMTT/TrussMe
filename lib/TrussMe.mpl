@@ -2817,8 +2817,7 @@ HyperstaticSolver := proc(
   # Compute structure internal energy
   P_energy := ComputePotentialEnergy(
     E_objs, iso_sol,
-    parse("timoshenko_beam") = timoshenko_beam#,
-    #parse("dummy_vars")      = hyper_vars
+    parse("timoshenko_beam") = timoshenko_beam
   );
   P_energy := Simplify(P_energy);
 
@@ -2829,9 +2828,6 @@ HyperstaticSolver := proc(
     hyper_eq := diff~(P_energy, hyper_vars) =~ hyper_disp;
   end if;
 
-  print("hyper_eq" = (hyper_eq));
-  print("hyper_vars" = (hyper_vars));
-
   # Check for implicit solution flag
   if (implicit) then
     hyper_sol := iso_sol;
@@ -2841,7 +2837,6 @@ HyperstaticSolver := proc(
     end if;
     # Solve hyperstatic equations
     hyper_sol := op(RealDomain[solve](convert(hyper_eq, signum), hyper_vars));
-    print("hyper_sol =", hyper_sol);
     if (hyper_sol = NULL) then
       error "HyperstaticSolver: hyperstatic solution not found";
     end if;
@@ -2890,10 +2885,10 @@ ComputePotentialEnergy := proc(
       # Normal action N contribution
       if (member(N, map(lhs, obj["internal_actions"]))) and
           (subs(obj["internal_actions"](x), N(x)) <> 0) then
-        subs(obj["internal_actions"](x), N(x)); print("1 = ", %);
+        subs(obj["internal_actions"](x), N(x));
         subs(dummy_vars_subs, %);
         P := P + integrate(
-            eval(`if`(nops(dummy_vars) > 0, (%% - %) * %, %%^2))/
+            eval(`if`(nops(dummy_vars) > 0, 2 * (%% - %) * %, %%^2))/
               (2*obj["material"]["elastic_modulus"]*obj["area"](x)),
             x = 0..obj["length"]);
       end if;
@@ -2904,7 +2899,7 @@ ComputePotentialEnergy := proc(
           subs(obj["internal_actions"](x), Ty(x));
           subs(dummy_vars_subs, %);
           P := P + integrate(
-              eval(`if`(nops(dummy_vars) > 0, (%% - %) * %, %%^2))/
+              eval(`if`(nops(dummy_vars) > 0, 2 * (%% - %) * %, %%^2))/
                 (2*obj["timo_shear_coeff"](x)[1]*obj["material"]["shear_modulus"]*obj["area"](x)),
               x = 0..obj["length"]);
         end if;
@@ -2914,7 +2909,7 @@ ComputePotentialEnergy := proc(
           subs(obj["internal_actions"](x), Tz(x));
           subs(dummy_vars_subs, %);
           P := P + integrate(
-              eval(`if`(nops(dummy_vars) > 0, (%% - %) * %, %%^2))/
+              eval(`if`(nops(dummy_vars) > 0, 2 * (%% - %) * %, %%^2))/
                 (2*obj["timo_shear_coeff"](x)[2]*obj["material"]["shear_modulus"]*obj["area"](x)),
               x = 0..obj["length"]);
         end if;
@@ -2925,7 +2920,7 @@ ComputePotentialEnergy := proc(
         subs(obj["internal_actions"](x), Mx(x));
         subs(dummy_vars_subs, %);
         P := P + integrate(
-            eval(`if`(nops(dummy_vars) > 0, (%% - %) * %, %%^2))/
+            eval(`if`(nops(dummy_vars) > 0, 2 * (%% - %) * %, %%^2))/
               (2*obj["material"]["shear_modulus"]*obj["inertias"][1](x)),
             x = 0..obj["length"]);
           end if;
@@ -2935,7 +2930,7 @@ ComputePotentialEnergy := proc(
         subs(obj["internal_actions"](x), My(x));
         subs(dummy_vars_subs, %);
         P := P + integrate(
-            eval(`if`(nops(dummy_vars) > 0, (%% - %) * %, %%^2))/
+            eval(`if`(nops(dummy_vars) > 0, 2 * (%% - %) * %, %%^2))/
               (2*obj["material"]["elastic_modulus"]*obj["inertias"][2](x)),
             x = 0..obj["length"]);
       end if;
@@ -2945,7 +2940,7 @@ ComputePotentialEnergy := proc(
         subs(obj["internal_actions"](x), Mz(x));
         subs(dummy_vars_subs, %);
         P := P + integrate(
-            eval(`if`(nops(dummy_vars) > 0, (%% - %) * %, %%^2))/
+            eval(`if`(nops(dummy_vars) > 0, 2 * (%% - %) * %, %%^2))/
               (2*obj["material"]["elastic_modulus"]*obj["inertias"][3](x)),
             x = 0..obj["length"]);
       end if;
@@ -3161,13 +3156,14 @@ IsostaticSolver := proc(
 
       if (verbose_mode > 1) then
         printf("%*sMessage (in IsostaticSolver) A matrix visualization of the linear system:\n", print_indent, "|   ");
-        print(plots[sparsematrixplot](A,matrixview));
+        print(plots[sparsematrixplot](A, matrixview));
       end if;
       if (verbose_mode > 1) then
         printf("%*sMessage (in IsostaticSolver) computing the structure reaction forces...\n", print_indent, "|   ");
       end if;
       # Solve structure equations (LinearSolver)
       iso_sol := LinearSolver(iso_eq, iso_vars);
+      #iso_sol := op(RealDomain[solve](iso_eq, iso_vars));
     else
       if (not suppress_warnings) then
         WARNING("Message (in IsostaticSolver) the system of equations is not "
@@ -3220,10 +3216,7 @@ ComputeInternalActions := proc(
   PrintStartProc(procname);
 
   # Substitute structure solution into loads
-  #print("target", exts);
-  #subs_ext := map2(Subs, sol, map(op, exts));
   subs_ext := map(convert, map2(Subs, sol, map(op, exts)), table);
-  #print("target", subs_ext);
 
   for i from 1 to nops(objs) do
     # Extract active loads
@@ -3767,7 +3760,7 @@ PlotDeformedRigidBody := proc(
   },
   {
     data::{list(`=`),set(`=`)} := [], # Substitutions
-    scaling::real              := 1.0 # Scaling factor
+    scaling::{numeric}         := 1.0 # Scaling factor
   },
   $)::procedure;
 
@@ -3778,7 +3771,7 @@ PlotDeformedRigidBody := proc(
 
   lines := [];
   rfd := obj["frame"] . ((obj["frame_displacements"] - LinearAlgebra[IdentityMatrix](4)) *~ scaling + LinearAlgebra[IdentityMatrix](4));
-  P1 := subs(op(data), Project([op(obj["COM"]), 1], rdf, ground));
+  P1 := subs(op(data), Project([op(obj["COM"]), 1], rfd, ground));
   for js in joints do
     member(obj["name"], js["targets"], 'idx');
     P2 := subs(op(data), Project([op(js["coordinates"][idx]), 1], rfd, ground));
@@ -3961,7 +3954,6 @@ PlotDeformedJoint := proc(
      Project(Origin(rfd)[1..3], obj["frame"], ground)
     );
 
-
   out := plots:-display(
     plottools:-point(convert(O, list), symbol='solidsphere', symbolsize = 20),
     linestyle = solid, color = ObjectColor(obj), parse("scaling") = constrained);
@@ -4139,7 +4131,7 @@ end proc: # PlotDeformedStructure
 IsInsideJoint := proc(
   obj::JOINT,        # Joint object
   p::POINT,          # Point to be checked
-  tol::real := 1e-3, # Tolerance
+  tol::{numeric} := 1e-3, # Tolerance
   $)::boolean;
 
   description "Check if the point <p> is inside the JOINT <obj>";
@@ -4171,7 +4163,7 @@ end proc: # IsInsideJoint
 IsInsideSupport := proc(
   obj::SUPPORT,      # Support object
   p::POINT,          # Point to be checked
-  tol::real := 1e-3, # Tolerance
+  tol::{numeric} := 1e-3, # Tolerance
   $)::boolean;
 
   description "Check if the point <p> is inside the SUPPORT <obj>";
