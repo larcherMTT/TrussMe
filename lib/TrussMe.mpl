@@ -1741,9 +1741,10 @@ MakeRodPoints := proc(
     error "input points are the same";
   end if;
 
-  if (Norm2(vec) < 0) then
-    error "input vector is null";
-  end if;
+  # FIXME: does not work with symbolic vectors
+  # if (Norm2(vec) < 0) then
+  #   error "input vector is null";
+  # end if;
 
   ell := Norm2(point2 - point1);
   ex  := (point2 - point1) /~ ell;
@@ -1865,9 +1866,10 @@ MakeBeamPoints := proc(
     error "input points are the same";
   end if;
 
-  if (Norm2(vec) < 0) then
-    error "input vector is null";
-  end if;
+  # FIXME: does not work with symbolic vectors
+  # if (Norm2(vec) < 0) then
+  #   error "input vector is null";
+  # end if;
 
   ell := Norm2(point2 - point1);
   ex  := (point2 - point1) /~ ell;
@@ -1882,14 +1884,14 @@ MakeBeamPoints := proc(
          <ez[1],     ez[2],     ez[3],     0>|
          <point1[1], point1[2], point1[3], 1>>;
 
-  out := MakeBeam(name, ell, Simplify(RF), {
-    area             = area,
-    timo_shear_coeff = timo_shear_coeff,
-    material         = material,
-    I_xx             = I_xx,
-    I_yy             = I_yy,
-    I_zz             = I_zz
-    });
+  out := MakeBeam(name, ell, Simplify(RF),
+    parse("area")             = area,
+    parse("timo_shear_coeff") = timo_shear_coeff,
+    parse("material")         = material,
+    parse("I_xx")             = I_xx,
+    parse("I_yy")             = I_yy,
+    parse("I_zz")             = I_zz
+    );
 
   PrintEndProc(procname);
   return op(out);
@@ -2000,8 +2002,8 @@ MakeRigidBody := proc(
   name::{string},        # Object name
   RF::{FRAME} := ground, # Reference frame
   {
-    COM::{list(algebraic)} := Origin(RF)[1..3], # COM position in RF (default: Origin(RF))
-    mass::{algebraic}      := 0                 # Mass (kg)
+    COM::{list(algebraic)} := convert(Origin(RF)[1..3], list), # COM position in RF (default: Origin(RF))
+    mass::{algebraic}      := 0                                # Mass (kg)
   },
   $)::{RIGID_BODY};
 
