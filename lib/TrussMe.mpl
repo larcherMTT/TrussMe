@@ -791,8 +791,8 @@ end proc: # IsFrame
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 Rotate := proc(
-  axis::{symbol},     # Rotation axis
-  angle::{algebraic}, # Rotation angle (rad)
+  axis::{symbol, string}, # Rotation axis
+  angle::{algebraic},     # Rotation angle (rad)
   $)::{FRAME};
 
   description "Transformation matrix corresponding to the rotation <angle> "
@@ -801,17 +801,17 @@ Rotate := proc(
   local out;
   PrintStartProc(procname);
 
-  if (axis = 'X') then
+  if (axis = 'X') or (axis = "X") then
     out := <<1, 0,           0,          0>|
             <0, cos(angle),  sin(angle), 0>|
             <0, -sin(angle), cos(angle), 0>|
             <0, 0,           0,          1>>;
-  elif (axis = 'Y') then
+  elif (axis = 'Y') or (axis = "Y") then
     out := <<cos(angle), 0, -sin(angle), 0>|
             <0,          1, 0,           0>|
             <sin(angle), 0, cos(angle),  0>|
             <0,          0, 0,           1>>;
-  elif (axis = 'Z') then
+  elif (axis = 'Z') or (axis = "Z") then
     out := <<cos(angle),  sin(angle), 0, 0>|
             <-sin(angle), cos(angle), 0, 0>|
             <0,           0,          1, 0>|
@@ -2873,7 +2873,7 @@ ComputePotentialEnergy := proc(
   description "Compute the internal potential energy of the structure given the "
     "objects <objs> and optional Timoshenko beam flag <timoshenko_beam>.";
 
-  local dummy_vars_subs, obj, P, x, f, tmp, FJX, FJY, FJZ, MJX, MJY, MJZ;
+  local dummy_vars_subs, obj, P, x, f, FJX, FJY, FJZ, MJX, MJY, MJZ;
   PrintStartProc(procname);
 
   dummy_vars_subs := dummy_vars =~ [seq(0, i = 1..nops(dummy_vars))];
@@ -3161,8 +3161,8 @@ IsostaticSolver := proc(
         printf("%*sMessage (in IsostaticSolver) computing the structure reaction forces...\n", print_indent, "|   ");
       end if;
       # Solve structure equations (LinearSolver)
-      iso_sol := LinearSolver(iso_eq, iso_vars);
-      #iso_sol := op(RealDomain[solve](iso_eq, iso_vars));
+      #iso_sol := LinearSolver(iso_eq, iso_vars);
+      iso_sol := op(RealDomain[solve](iso_eq, iso_vars)); # FIXME: this is a temporary fix (use LULEM when stable)
     else
       if (not suppress_warnings) then
         WARNING("Message (in IsostaticSolver) the system of equations is not "
@@ -3406,8 +3406,11 @@ ComputePunctualDisplacement := proc(
     "is a boolean flag to unveil the results.";
 
   local out, struct_copy, obj, objs_names, dummy_loads, subs_obj, obj_coords,
-    obj_targets, x, subs_null_dummy, disp, i, j;
+    obj_targets, x, subs_null_dummy, disp, i, j, d_coords;
   PrintStartProc(procname);
+
+  # Substitute -1 entries of coords with the corresponding object length
+  d_coords := [seq(`if`(coords[i] = -1, objs[i]["length"], coords[i]), i = 1..nops(coords))];
 
   # Set module local variable keep_veiled
   keep_veiled := not unveil_results;
@@ -3454,12 +3457,12 @@ ComputePunctualDisplacement := proc(
   subs_null_dummy := [];
   for i from 1 to nops(objs_names) do
     dummy_loads := eval~([
-    `if`(directions[i,1] = 1, MakeForce( [dFx_||i,0,0], coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
-    `if`(directions[i,2] = 1, MakeForce( [0,dFy_||i,0], coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
-    `if`(directions[i,3] = 1, MakeForce( [0,0,dFz_||i], coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
-    `if`(directions[i,4] = 1, MakeMoment([dMx_||i,0,0], coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
-    `if`(directions[i,5] = 1, MakeMoment([0,dMy_||i,0], coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
-    `if`(directions[i,6] = 1, MakeMoment([0,0,dMz_||i], coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL)
+    `if`(directions[i,1] = 1, MakeForce( [dFx_||i,0,0], d_coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
+    `if`(directions[i,2] = 1, MakeForce( [0,dFy_||i,0], d_coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
+    `if`(directions[i,3] = 1, MakeForce( [0,0,dFz_||i], d_coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
+    `if`(directions[i,4] = 1, MakeMoment([dMx_||i,0,0], d_coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
+    `if`(directions[i,5] = 1, MakeMoment([0,dMy_||i,0], d_coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
+    `if`(directions[i,6] = 1, MakeMoment([0,0,dMz_||i], d_coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL)
     ]);
 
     # Null dummy loads substitution list
@@ -3534,7 +3537,7 @@ ComputeObjectFrameDisplacements := proc(
 
 description "Compute the total displacements of the structure <struct>.";
 
-  local i, disp, veils, objs;
+  local i, RF_nt, nx, ny, nz, theta, subs_n, subs_t, disp, veils, objs;
   PrintStartProc(procname);
 
   # Compute punctual displacements at origin for all the structure objects
@@ -3552,10 +3555,16 @@ description "Compute the total displacements of the structure <struct>.";
   # Update objects <frame_displacements>
   for i from 1 to nops(struct["objects"]) do
     # FIXME: not all displacement are necessarily computed
+    # Rotation about generic axis
+    RF_nt  := Matrix(4, 4, [[-nx^2*cos(theta) + nx^2 + cos(theta), -nx*ny*cos(theta) - sin(theta)*nz + nx*ny, -nx*nz*cos(theta) + sin(theta)*ny + nx*nz, 0], [-nx*ny*cos(theta) + sin(theta)*nz + nx*ny, (-nx^2 + nz^2 + 1)*cos(theta) + nx^2 - nz^2, -sin(theta)*nx - ny*nz*(cos(theta) - 1), 0], [-nx*nz*cos(theta) - sin(theta)*ny + nx*nz, sin(theta)*nx - ny*nz*(cos(theta) - 1), -cos(theta)*(-2*nx^2 + nz^2) - 2*nx^2 + nz^2 + 1, 0], [0, 0, 0, 1]]);
+    if subs(disp[i],Norm2([rx, ry, rz])) <> 0. and subs(disp[i],Norm2([rx, ry, rz])) <> 0 then
+      subs_n := [nx, ny, nz] =~ subs(disp[i], [rx, ry, rz] /~ Norm2([rx, ry, rz]));
+    else
+      subs_n := [nx, ny, nz] =~ [0, 0, 1];
+    end if;
+    subs_t := theta = subs(disp[i], Norm2([rx, ry, rz]));
     struct["objects"][i]["frame_displacements"] := Translate(op(subs(disp[i], [ux, uy, uz]))).
-                                                             Rotate('X', subs(disp[i], rx)).
-                                                             Rotate('Y', subs(disp[i], ry)).
-                                                             Rotate('Z', subs(disp[i], rz));
+                                                   subs(subs_n, subs_t, RF_nt);
   end do;
 
   PrintEndProc(procname);
@@ -3607,8 +3616,6 @@ LinearSolver := proc(
 
   # Matrix form of the linear system
   A, b := LinearAlgebra[GenerateMatrix](eqns, vars);
-
-  print (A, b);
 
   use LULEM in
   LULEM[SetVerbosity](false);
@@ -4052,7 +4059,7 @@ PlotDeformedStructure := proc(
   str::{STRUCTURE},                   # Structure to be plotted
   {
     data::{list(`=`),set(`=`)} := [], # Substitutions
-    scaling::numeric := 1             # Scaling factor
+    scaling::{numeric}         := 1   # Scaling factor
   },
   $)::{list(procedure)};
 
