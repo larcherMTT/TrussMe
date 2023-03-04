@@ -169,11 +169,10 @@ ModuleLoad := proc()
   local i;
 
   # Display module init message
-  printf(cat(
-    "'TrussMe' module version beta-0.0, ",
-    "Copyright (C) 2022-2023, Matteo Larcher and Davide Stocco, ",
-    "University of Trento 2022-2023.\n"
-    ));
+  printf(
+    "'TrussMe' module version beta-0.0, BSD 3-Clause License - "
+    "Copyright (c) 2023, Matteo Larcher and Davide Stocco.\n"
+  );
 
   # Library path
   lib_base_path := null;
@@ -2705,8 +2704,8 @@ SolveStructure := proc(
   # Add veils
   if keep_veiled then
     struct["veils"] := struct["veils"] union sol[-1];
-    veiling_idx            := veiling_idx + 1;
-    veiling_label          := cat('_V', veiling_idx);
+    veiling_idx     := veiling_idx + 1;
+    veiling_label   := cat('_V', veiling_idx);
   end if;
 
   # Set support reactions solved flag
@@ -2872,7 +2871,7 @@ ComputePotentialEnergy := proc(
   }, $)
 
   description "Compute the internal potential energy of the structure given the "
-    "objects <objs> and optional Timoshenko beam flag <timoshenko_beam>";
+    "objects <objs> and optional Timoshenko beam flag <timoshenko_beam>.";
 
   local dummy_vars_subs, obj, P, x, f, tmp, FJX, FJY, FJZ, MJX, MJY, MJZ;
   PrintStartProc(procname);
@@ -3072,15 +3071,15 @@ IsostaticSolver := proc(
     list({FORCE, MOMENT, QFORCE, QMOMENT}),
     set( {FORCE, MOMENT, QFORCE, QMOMENT})
   },
-  vars::list, # Variables to solve
+  vars::{list}, # Variables to solve
   {
-    implicit::boolean := false  # Implicit solution
+    implicit::{boolean} := false  # Implicit solution
   },
   $)
 
   description "Solve the isostatic structure equilibrium equation system given "
     "the structure objects <objs>, the external actions <exts> and the variables "
-    "<vars> to solve";
+    "<vars> to solve.";
 
   local iso_eq, iso_eq_tmp, exts_comps, x, i, j, active_ext, iso_sol, A, B, rank_eq, iso_vars, PivotStrategy;
   PrintStartProc(procname);
@@ -3210,7 +3209,7 @@ ComputeInternalActions := proc(
   $)::{nothing};
 
   description "Programmatic computation of internal actions for structure"
-    "objects with given external actions and structure solution";
+    "objects with given external actions and structure solution.";
 
   local i, j, active_ext, subs_ext;
   PrintStartProc(procname);
@@ -3240,11 +3239,12 @@ InternalActions := proc(
   exts::{           # External actions
     list({FORCE, MOMENT, QFORCE, QMOMENT}),
     set( {FORCE, MOMENT, QFORCE, QMOMENT})
-  }, $)::nothing;
+  },
+  $)::{nothing};
 
   description "Programmatic computation of internal actions for structure "
     "object with given external actions, it returns the internal actions as "
-    "function of the axial variable 'x'";
+    "function of the axial variable 'x'.";
 
   local i, ia, N_sol, Ty_sol, Tz_sol, Mx_sol, My_sol, Mz_sol, x;
   PrintStartProc(procname);
@@ -3324,10 +3324,10 @@ ComputeDisplacements := proc(
   },
   sol::{list, set}, # Solution of the structure
   {
-    timoshenko_beam::boolean := false # Timoshenko beam flag
-  }, $)::nothing;
+    timoshenko_beam::{boolean} := false # Timoshenko beam flag
+  }, $)::{nothing};
 
-  description "Compute the Structure displacements";
+  description "Compute the structure displacements and rotations.";
 
   local obj, x, X, disp, rx_sol, ry_sol, rz_sol, ux_sol, uy_sol, uz_sol;
   PrintStartProc(procname);
@@ -3390,14 +3390,14 @@ ComputePunctualDisplacement := proc(
   objs::{ # Object on which the coordinates are defined
     list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
   },
-  coords::list,     # Punctual coordinates defined in obj reference frame
-  directions::list, # Displacement directions defined in obj reference frame
-  RFs::list,        # Reference frames for the directions
+  coords::{list},     # Punctual coordinates defined in obj reference frame
+  directions::{list}, # Displacement directions defined in obj reference frame
+  RFs::{list},        # Reference frames for the directions
   {
-    timoshenko_beam::boolean := false, # Timoshenko beam flag
-    unveil_results::boolean  := true   # Unveil results flag
+    timoshenko_beam::{boolean} := false, # Timoshenko beam flag
+    unveil_results::{boolean}  := true   # Unveil results flag
   },
-  $)::list;
+  $)::{list};
 
   description "Compute the Structure <struct> punctual displacements of the "
     "object <obj> at the coordinates <coords> in the directions <directions>. "
@@ -3527,10 +3527,10 @@ end proc: # ComputePunctualDisplacement
 ComputeObjectFrameDisplacements := proc(
   struct::STRUCTURE, # Structure to compute the total displacements
   {
-    timoshenko_beam::boolean := false, # Timoshenko beam flag
-    unveil_results::boolean  := true   # Unveil results flag
+    timoshenko_beam::{boolean} := false, # Timoshenko beam flag
+    unveil_results::{boolean}  := true   # Unveil results flag
   },
-  $)::STRUCTRURE;
+  $)::{STRUCTRURE};
 
 description "Compute the total displacements of the structure <struct>.";
 
@@ -3565,10 +3565,10 @@ end proc; # ComputeObjectFrameDisplacements
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 CopyStructure := proc(
-  struct::STRUCTURE, # Structure to copy
-  $)::STRUCTURE;
+  struct::{STRUCTURE}, # Structure to copy
+  $)::{STRUCTURE};
 
-description "Create a copy of the structure <struct> and its objects";
+description "Create a copy of the structure <struct> and its objects.";
 
   local struct_copy, obj, action;
   PrintStartProc(procname);
@@ -3592,92 +3592,59 @@ description "Create a copy of the structure <struct> and its objects";
   return struct_copy;
 end proc: # CopyStructure
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-# LinearSolver := proc(
-#   eqns::{list, set}, # Equations
-#   vars::{list, set}, # Variables
-#   $)::list;
-
-# description "Solve the linear system of equations <eqns> for the variables <vars>";
-
-#   local sol, sol_tmp, A, b, _Q, PivotingStrategy;
-#   PrintStartProc(procname);
-
-#   # Matrix form of the linear system
-#   A, b := LinearAlgebra[GenerateMatrix](eqns, vars);
-
-#   use LULEM in
-#   LULEM[SetVerbosity](false);
-#   LULEM[AssignData](StoredData);
-#   if has(map(type, A, constant), false) then
-#     PivotingStrategy := PivotingStrategy_Slength;
-#   else
-#     PivotingStrategy := PivotingStrategy_numeric;
-#   end if;
-#   sol_tmp := SolveLU(A, b, veiling_label, VeilingStrategy_n, PivotingStrategy, ZeroStrategy_length);
-#   if keep_veiled then
-#     # Remove indexed type from veils
-#     LEM[ListVeil](veiling_label);
-#     lhs~(%) =~ map2(op,0,lhs~(%)) ||~ __ ||~ (op~(lhs~(%)));
-#     # Add veils to solution
-#     sol := convert(vars =~ subs(%, sol_tmp), list) union [subs(%,%%)];
-#   else
-#     sol := convert(vars =~ LEM[SubsVeil](sol_tmp, veiling_label), list);
-#   end if;
-#   ForgetVeil(veiling_label);
-#   LULEM[ForgetData]();
-#   end use;
-
-#   PrintEndProc(procname);
-#   return Simplify(sol);
-# end proc: # LinearSolver
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 LinearSolver := proc(
   eqns::{list, set}, # Equations
   vars::{list, set}, # Variables
-  $)::list;
+  $)::{list};
 
-description "Solve the linear system of equations <eqns> for the variables <vars>";
+  description "Solve the linear system of equations <eqns> for the variables "
+  "<vars>.";
 
-  local sol, sol_tmp, A, b, _Q, PivotingStrategy;
+  local T, sol, sol_tmp, A, b, _Q, PivotingStrategy;
   PrintStartProc(procname);
 
   # Matrix form of the linear system
   A, b := LinearAlgebra[GenerateMatrix](eqns, vars);
 
+  print (A, b);
+
   use LULEM in
+  LULEM[SetVerbosity](false);
   LULEM[AssignData](StoredData);
   if has(map(type, A, constant), false) then
-    PivotingStrategy := PivotStrategy_Slength;
+    PivotingStrategy := PivotingStrategy_Slength;
   else
-    PivotingStrategy := PivotStrategy_numeric;
+    PivotingStrategy := PivotingStrategy_numeric;
   end if;
-  sol_tmp := Solve(A, b, veiling_label, VeilingStrategy_n, PivotingStrategy, ZeroStrategy_length);
+  T := LU(A, veiling_label, VeilingStrategy_n, PivotingStrategy_Sindets);
+  printf("Solved with rank: %d\n", T["rank"]);
+  sol_tmp := SolveLinearSystem(T, b, veiling_label, VeilingStrategy_n);
   if keep_veiled then
     # Remove indexed type from veils
-    ListVeil(veiling_label);
+    LEM[ListVeil](veiling_label);
     lhs~(%) =~ map2(op,0,lhs~(%)) ||~ __ ||~ (op~(lhs~(%)));
     # Add veils to solution
     sol := convert(vars =~ subs(%, sol_tmp), list) union [subs(%,%%)];
   else
-    sol := convert(vars =~ SubsVeil(veiling_label, sol_tmp), list);
+    sol := convert(vars =~ LEM[SubsVeil](sol_tmp, veiling_label), list);
   end if;
   ForgetVeil(veiling_label);
-  LULEM[UnAssignData]();
+  LULEM[ForgetData]();
   end use;
 
   PrintEndProc(procname);
   return Simplify(sol);
 end proc: # LinearSolver
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 ObjectColor := proc(
   obj::{BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH}, # Object to be colored
-  $)::string;
+  $)::{string};
 
-description "Return the color of the object <obj>";
+description "Return the color of the object <obj>.";
 
   local color;
   PrintStartProc(procname);
@@ -3720,9 +3687,9 @@ PlotRigidBody := proc(
   {
     data::{list(`=`),set(`=`)} := [] # Substitutions
   },
-  $)::procedure;
+  $)::{procedure};
 
-  description "Plot the RIGID_BODY object <obj>";
+  description "Plot the RIGID_BODY object <obj>.";
 
   local P1, P2, js, idx, lines, load, out;
   PrintStartProc(procname);
@@ -3762,9 +3729,9 @@ PlotDeformedRigidBody := proc(
     data::{list(`=`),set(`=`)} := [], # Substitutions
     scaling::{numeric}         := 1.0 # Scaling factor
   },
-  $)::procedure;
+  $)::{procedure};
 
-  description "Plot the deformed RIGID_BODY object <obj>";
+  description "Plot the deformed RIGID_BODY object <obj>.";
 
   local P1, P2, rfd, js, idx, lines, load, out;
   PrintStartProc(procname);
@@ -3792,13 +3759,13 @@ end proc: # PlotDeformedRigidBody
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PlotBeam := proc(
-  obj::BEAM, # Beam to be plot
+  obj::{BEAM}, # Beam to be plot
   {
     data::{list(`=`),set(`=`)} := [] # Substitutions
   },
-  $)::procedure;
+  $)::{procedure};
 
-  description "Plot the BEAM object <obj>";
+  description "Plot the BEAM object <obj>.";
 
   local P1, P2, out;
   PrintStartProc(procname);
@@ -3817,14 +3784,14 @@ end proc: # PlotBeam
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PlotDeformedBeam := proc(
-  obj::BEAM, # Beam to be plot
+  obj::{BEAM}, # Beam to be plot
   {
     data::{list(`=`),set(`=`)} := [], # Substitutions
-    scaling::numeric           := 1   # Scaling factor
+    scaling::{numeric}         := 1   # Scaling factor
   },
-  $)::procedure;
+  $)::{procedure};
 
-  description "Plot the BEAM object <obj>";
+  description "Plot the BEAM object <obj>.";
 
   local sc, rfd, x, out;
   PrintStartProc(procname);
@@ -3844,13 +3811,13 @@ end proc: # PlotDeformedBeam
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PlotRod := proc(
-  obj::ROD, # Rod to be plot
+  obj::{ROD}, # Rod to be plot
   {
     data::{list(`=`),set(`=`)} := [] # Substitutions
   },
-  $)::procedure;
+  $)::{procedure};
 
-  description "Plot the ROD object <obj>";
+  description "Plot the ROD object <obj>.";
 
   local P1, P2, out;
   PrintStartProc(procname);
@@ -3869,14 +3836,14 @@ end proc: # PlotRod
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PlotDeformedRod := proc(
-  obj::ROD, # Rod to be plot
+  obj::{ROD}, # Rod to be plot
   {
     data::{list(`=`),set(`=`)} := [], # Substitutions
-    scaling::numeric           := 1   # Scaling factor
+    scaling::{numeric}         := 1   # Scaling factor
   },
-  $)::procedure;
+  $)::{procedure};
 
-  description "Plot the ROD object <obj>";
+  description "Plot the ROD object <obj>.";
 
   local P1, P2, rfd, out;
   PrintStartProc(procname);
@@ -3897,7 +3864,7 @@ end proc: # PlotDeformedRod
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PlotJoint := proc(
-  obj::JOINT, # Joint to be plot
+  obj::{JOINT}, # Joint to be plot
   targets::{ # Joint targets
     list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
     set({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
@@ -3905,9 +3872,9 @@ PlotJoint := proc(
   {
     data::{list(`=`),set(`=`)} := [] # Substitutions
   },
-  $)::procedure;
+  $)::{procedure};
 
-  description "Plot the JOINT object <obj>";
+  description "Plot the JOINT object <obj>.";
 
   local O, out;
   PrintStartProc(procname);
@@ -3928,18 +3895,18 @@ end proc: # PlotJoint
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PlotDeformedJoint := proc(
-  obj::JOINT, # Joint to be plot
+  obj::{JOINT}, # Joint to be plot
   targets::{ # Joint targets
     list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
     set({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
   },
   {
     data::{list(`=`),set(`=`)} := [], # Substitutions
-    scaling::numeric           := 1   # Scaling factor
+    scaling::{numeric}         := 1   # Scaling factor
   },
-  $)::procedure;
+  $)::{procedure};
 
-  description "Plot the JOINT object <obj>";
+  description "Plot the JOINT object <obj>.";
 
   local O, rfd, out;
   PrintStartProc(procname);
@@ -3965,7 +3932,7 @@ end proc: # PlotDeformedJoint
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PlotSupport := proc(
-  obj::SUPPORT, # Support to be plotted
+  obj::{SUPPORT}, # Support to be plotted
   targets::{ # Support targets
     list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
     set({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
@@ -3973,9 +3940,9 @@ PlotSupport := proc(
   {
     data::{list(`=`),set(`=`)} := [] # Substitutions
   },
-  $)::procedure;
+  $)::{procedure};
 
-  description "Plot the SUPPORT object <obj>";
+  description "Plot the SUPPORT object <obj>.";
 
   local O, out;
   PrintStartProc(procname);
@@ -4003,18 +3970,18 @@ end proc: # PlotSupport
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PlotDeformedSupport := proc(
-  obj::SUPPORT, # Support to be plotted
+  obj::{SUPPORT}, # Support to be plotted
   targets::{ # Support targets
     list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
     set({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
   },
   {
     data::{list(`=`),set(`=`)} := [], # Substitutions
-    scaling::numeric           := 1   # Scaling factor
+    scaling::{numeric}         := 1   # Scaling factor
   },
-  $)::procedure;
+  $)::{procedure};
 
-  description "Plot the deformed SUPPORT object <obj>";
+  description "Plot the deformed SUPPORT object <obj>.";
 
   local O, out;
   PrintStartProc(procname);
@@ -4043,13 +4010,13 @@ end proc: # PlotDeformedSupport
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PlotStructure := proc(
-  str::STRUCTURE,                   # Structure to be plotted
+  str::{STRUCTURE},                  # Structure to be plotted
   {
     data::{list(`=`),set(`=`)} := [] # Substitutions
   },
-  $)::list(procedure);
+  $)::{list(procedure)};
 
-  description "Plot the STRUCTURE object <str> given a list of substitutions <data>";
+  description "Plot the STRUCTURE object <str> given a list of substitutions <data>.";
 
   local out, disp, rb_joints, rb_loads, obj;
   PrintStartProc(procname);
@@ -4082,15 +4049,15 @@ end proc: # PlotStructure
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PlotDeformedStructure := proc(
-  str::STRUCTURE,                   # Structure to be plotted
+  str::{STRUCTURE},                   # Structure to be plotted
   {
     data::{list(`=`),set(`=`)} := [], # Substitutions
-    scaling::numeric := 1            # Scaling factor
+    scaling::numeric := 1             # Scaling factor
   },
-  $)::list(procedure);
+  $)::{list(procedure)};
 
   description "Plot the deformed STRUCTURE object <str> given a list of "
-              "substitutions <data> and a scaling factor <scaling>";
+              "substitutions <data> and a scaling factor <scaling>.";
 
   local out, disp, rb_joints, rb_loads, obj;
   PrintStartProc(procname);
@@ -4129,12 +4096,12 @@ end proc: # PlotDeformedStructure
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsInsideJoint := proc(
-  obj::JOINT,        # Joint object
-  p::POINT,          # Point to be checked
+  obj::{JOINT},           # Joint object
+  p::{POINT},             # Point to be checked
   tol::{numeric} := 1e-3, # Tolerance
-  $)::boolean;
+  $)::{boolean};
 
-  description "Check if the point <p> is inside the JOINT <obj>";
+  description "Check if the point <p> is inside the JOINT <obj>.";
 
   local O, out;
   PrintStartProc(procname);
@@ -4161,12 +4128,12 @@ end proc: # IsInsideJoint
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsInsideSupport := proc(
-  obj::SUPPORT,      # Support object
-  p::POINT,          # Point to be checked
+  obj::{SUPPORT},         # Support object
+  p::{POINT},             # Point to be checked
   tol::{numeric} := 1e-3, # Tolerance
-  $)::boolean;
+  $)::{boolean};
 
-  description "Check if the point <p> is inside the SUPPORT <obj>";
+  description "Check if the point <p> is inside the SUPPORT <obj>.";
 
   local O, out;
   PrintStartProc(procname);
@@ -4193,11 +4160,11 @@ end proc: # IsInsideSupport
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsInsideRod := proc(
-  obj::ROD, # Rod object
-  p::POINT, # Point to be checked
-  $)::boolean;
+  obj::{ROD}, # Rod object
+  p::{POINT}, # Point to be checked
+  $)::{boolean};
 
-  description "Check if the point <p> is inside the ROD <obj>";
+  description "Check if the point <p> is inside the ROD <obj>.";
 
   local O, V, W, out;
   PrintStartProc(procname);
@@ -4219,11 +4186,11 @@ end proc: # IsInsideRod
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsInsideBeam := proc(
-  obj::BEAM, # Beam object
-  p::POINT,  # Point to be checked
-  $)::boolean;
+  obj::{BEAM}, # Beam object
+  p::{POINT},  # Point to be checked
+  $)::{boolean};
 
-  description "Check if the point <p> is inside the BEAM <obj>";
+  description "Check if the point <p> is inside the BEAM <obj>.";
 
   local O, V, W, out;
   PrintStartProc(procname);
@@ -4245,11 +4212,11 @@ end proc: # IsInsideBeam
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 IsInsideStructure := proc(
-  obj::STRUCTURE, # Structure object
-  p::POINT,       # Point to be checked
-  $)::boolean;
+  obj::{STRUCTURE}, # Structure object
+  p::{POINT},       # Point to be checked
+  $)::{boolean};
 
-  description "Check if the point <p> is inside the STRUCTURE <obj>";
+  description "Check if the point <p> is inside the STRUCTURE <obj>.";
 
   local i, out;
   PrintStartProc(procname);
