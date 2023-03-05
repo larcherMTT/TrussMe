@@ -3620,27 +3620,27 @@ LinearSolver := proc(
   A, b := LinearAlgebra[GenerateMatrix](eqns, vars);
 
   use LULEM in
-  LULEM[SetVerbosity](false);
-  LULEM[AssignData](StoredData);
+  LULEM[SetVerbosity](true);
+  #LULEM[AssignData](StoredData);
   if has(map(type, A, constant), false) then
     PivotingStrategy := PivotingStrategy_Slength;
   else
     PivotingStrategy := PivotingStrategy_numeric;
   end if;
-  T := LU(A, veiling_label, VeilingStrategy_n, PivotingStrategy_Sindets);
+  T := LU(A, veiling_label, VeilingStrategy_n);
   printf("Solved with rank: %d\n", T["rank"]);
   sol_tmp := SolveLinearSystem(T, b, veiling_label, VeilingStrategy_n);
   if keep_veiled then
     # Remove indexed type from veils
-    LEM[ListVeil](veiling_label);
+    LEM[VeilList](veiling_label);
     lhs~(%) =~ map2(op,0,lhs~(%)) ||~ __ ||~ (op~(lhs~(%)));
     # Add veils to solution
     sol := convert(vars =~ subs(%, sol_tmp), list) union [subs(%,%%)];
   else
-    sol := convert(vars =~ LEM[SubsVeil](sol_tmp, veiling_label), list);
+    sol := convert(vars =~ LEM[VeilSubs](sol_tmp, veiling_label), list);
   end if;
   ForgetVeil(veiling_label);
-  LULEM[ForgetData]();
+  #LULEM[ForgetData]();
   end use;
 
   PrintEndProc(procname);
