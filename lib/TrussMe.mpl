@@ -20,6 +20,8 @@
 
 TrussMe := module()
 
+# TODO: Hide module content with dummy procedures as procname := proc(inputs); _procname(inputs); end proc;
+#       So the source code is not visible by showstat and showsource commands.
 export  `union`,
         SetModuleOptions,
         PrintStartProc,
@@ -604,7 +606,7 @@ GetObjByName := proc(
 
   for obj in objs do
     if (obj["name"] = name) then
-      out := obj;
+      out := eval(obj); # Do not remove eval
       break;
     end if;
   end do;
@@ -629,7 +631,7 @@ GetObjsByType := proc(
   out := [];
   for obj in objs do
     if (obj::convert(types, set)) then
-      out := out union [obj];
+      out := out union [eval(obj)]; # Do not remove eval
     end if;
   end do;
 
@@ -663,7 +665,7 @@ Simplify := proc(
   end try:
 
   PrintEndProc(procname);
-  return out;
+  return eval(out);
 end proc: # Simplify
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1511,10 +1513,15 @@ MakeJoint := proc(
   obj_coords := [seq(`if`(coords[i] = -1, objs[i]["length"], coords[i]), i = 1..nops(coords))];
 
   for i from 1 to nops(objs) do
-    if IsRod(objs[i]) and
-        (ListPadding(obj_coords[i], 3) <> [0, 0, 0]) and
-        (ListPadding(eval(obj_coords[i]^~2), 3) <> [eval(objs[i]["length"]^~2), 0, 0]) then
-      error "JOINT objects can only be applied at extremes of ROD objects";
+    if IsRod(objs[i]) then
+      # x coordinate of the joint location
+      Simplify(ListPadding(eval(obj_coords[i]), 3))[1];
+      # x coordinate of the joint location minus target length
+      Simplify(eval(%^2) - eval(objs[i]["length"]^~2))[1];
+      if  %% <> 0 and %% <> 0. and
+          % <> 0 and % <> 0. then
+        error "JOINT objects can only be applied at extremes of ROD objects";
+      end if;
     end if;
     if IsRod(objs[i]) and (constrained_dof[4..6] <> [0, 0, 0]) then
       error "ROD objects supports can only have translational constraints";
@@ -2002,8 +2009,8 @@ MakeRigidBody := proc(
   name::{string},        # Object name
   RF::{FRAME} := ground, # Reference frame
   {
-    COM::{list(algebraic)} := convert(Origin(RF)[1..3], list), # COM position in RF (default: Origin(RF))
-    mass::{algebraic}      := 0                                # Mass (kg)
+    COM::{list(algebraic)} := [0, 0, 0], # COM position in RF (default: [0, 0, 0])
+    mass::{algebraic}      := 0          # Mass (kg)
   },
   $)::{RIGID_BODY};
 
@@ -2286,8 +2293,8 @@ MakeStructure := proc(
     "external_actions"           = S_ext,
     "dof"                        = num_dof,
     "connections_graph"          = Graph,
-    "hyperstatic_variables"      = hyper_vars,
-    "hyperstatic_displacements"  = hyper_disp,
+    "hyperstatic_variables"      = convert(hyper_vars, list),
+    "hyperstatic_displacements"  = convert(hyper_disp, list),
     "equations"                  = [],
     "variables"                  = [],
     "potential_energy"           = NULL,
@@ -2407,6 +2414,7 @@ ComputeDOF := proc(
       printf("%*sDONE\n", print_indent, "|   ");
     end if;
   else
+    print(GraphTheory[DrawGraph](G), layout = tree);
     WARNING("unconnected elements detected in the structure");
   end if;
 
@@ -2663,7 +2671,7 @@ SolveStructure := proc(
       printf("%*sMessage (in SolveStructure) solving the hyperstatic structure\n", print_indent, "|   ");
     end if;
     sol, str_eq, str_vars, P_energy := HyperstaticSolver(
-      S_obj union S_joint union S_support,
+      S_obj union S_rigid union S_joint union S_support,
       S_ext union S_con_forces,
       vars,
       struct["hyperstatic_variables"],
@@ -2704,7 +2712,7 @@ SolveStructure := proc(
   end if;
 
   # Add veils
-  if keep_veiled then
+  if keep_veiled and type(sol[-1], list) then
     struct["veils"] := struct["veils"] union sol[-1];
     veiling_idx     := veiling_idx + 1;
     veiling_label   := cat('_V', veiling_idx);
@@ -3100,7 +3108,6 @@ IsostaticSolver := proc(
       end if;
     end do;
     iso_eq := iso_eq union NewtonEuler(active_ext, objs[i]);
-
     # Add joints and supports constraint equations
     if IsSupport(objs[i]) or IsJoint(objs[i]) then
       iso_eq := iso_eq union objs[i]["constraint_loads"];
@@ -3114,7 +3121,8 @@ IsostaticSolver := proc(
   # FIXME: for qloads should be different (this check can be skipped)
   iso_eq_tmp := iso_eq;
   exts_comps := map(x -> op(x["components"]), GetObjsByType({FORCE, MOMENT}, exts));
-  iso_eq := remove(x -> (member(0., (abs~(exts_comps) -~ abs(x)) *~ 1.) and (not member(0., (abs~(vars) -~ abs(x)) *~ 1.))), iso_eq_tmp);
+  #iso_eq := remove(x -> (member(0., (abs~(exts_comps) -~ abs(x)) *~ 1.) and (not member(0., (abs~(vars) -~ abs(x)) *~ 1.))), iso_eq_tmp);
+  iso_eq := remove(x -> (member(0., (abs~(exts_comps) -~ abs(x)) *~ 1.) and (not has(vars, indets(x)))), iso_eq_tmp);
   if (not suppress_warnings) then
     if (nops(iso_eq_tmp) <> nops(iso_eq)) then
       WARNING("Message (in IsostaticSolver) the following list of equations were "
@@ -3408,7 +3416,7 @@ ComputePunctualDisplacement := proc(
     "is a boolean flag to unveil the results.";
 
   local out, struct_copy, obj, objs_names, dummy_loads, subs_obj, obj_coords,
-    obj_targets, x, subs_null_dummy, disp, i, j, d_coords;
+    obj_targets, x, subs_null_dummy, disp, i, j, d_coords, sw_tmp;
   PrintStartProc(procname);
 
   # Substitute -1 entries of coords with the corresponding object length
@@ -3422,6 +3430,10 @@ ComputePunctualDisplacement := proc(
 
   # Get objects names
   objs_names := GetNames(objs);
+
+  # Disable warnings temporarily FIXME: this is a temporary fix
+  sw_tmp := suppress_warnings;
+  suppress_warnings := true;
 
   # Replace Rods with Beams to be able to compute the displacements in all directions
   for obj in map(GetObjByName, objs_names, struct_copy["objects"]) do
@@ -3487,6 +3499,9 @@ ComputePunctualDisplacement := proc(
     parse("unveil_results")           = unveil_results,
     parse("dummy_vars")               = lhs~(subs_null_dummy)
     );
+
+  # Enable warnings
+  suppress_warnings := sw_tmp;
 
   # Compute punctual displacements
   out := [];
@@ -3627,9 +3642,9 @@ LinearSolver := proc(
   else
     PivotingStrategy := PivotingStrategy_numeric;
   end if;
-  T := LU(A, veiling_label, VeilingStrategy_n);
+  T := LU(A, veiling_label);
   printf("Solved with rank: %d\n", T["rank"]);
-  sol_tmp := SolveLinearSystem(T, b, veiling_label, VeilingStrategy_n);
+  sol_tmp := SolveLinearSystem(T, b, veiling_label);
   if keep_veiled then
     # Remove indexed type from veils
     LEM[VeilList](veiling_label);
@@ -3746,7 +3761,7 @@ PlotDeformedRigidBody := proc(
   PrintStartProc(procname);
 
   lines := [];
-  rfd := obj["frame"] . ((obj["frame_displacements"] - LinearAlgebra[IdentityMatrix](4)) *~ scaling + LinearAlgebra[IdentityMatrix](4));
+  rfd := subs(op(data), obj["frame"] . ((obj["frame_displacements"] - LinearAlgebra[IdentityMatrix](4)) *~ scaling + LinearAlgebra[IdentityMatrix](4)));
   P1 := subs(op(data), Project([op(obj["COM"]), 1], rfd, ground));
   for js in joints do
     member(obj["name"], js["targets"], 'idx');
