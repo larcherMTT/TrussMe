@@ -507,7 +507,7 @@ Norm2 := proc(
 
   description "Compute the norm of a vector <obj>.";
 
-  local out;
+  local out, x;
   PrintStartProc(procname);
 
   out := sqrt(add(x, x in obj^~2));
@@ -574,7 +574,7 @@ GetNames := proc(
 
   description "Get names of a list/set of objects <objs>.";
 
-  local out;
+  local out, i;
   PrintStartProc(procname);
 
   if type(objs, 'set') then
@@ -612,7 +612,7 @@ GetObjByName := proc(
   end do;
 
   PrintEndProc(procname);
-  return out;
+  return eval(out);
 end proc: # GetObjByName
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -636,7 +636,7 @@ GetObjsByType := proc(
   end do;
 
   PrintEndProc(procname);
-  return out;
+  return eval(out);
 end proc: # GetObjsByType
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -665,7 +665,7 @@ Simplify := proc(
   end try:
 
   PrintEndProc(procname);
-  return eval(out);
+  return out;
 end proc: # Simplify
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -715,13 +715,14 @@ Diff := proc({veils := NULL})::anything;
   description "Perform diff command on veiled expressions given the veiling list "
     "<veils>.";
 
-  local out, subs_diff, d_vars, v2f, f2v, last;
+  local out, subs_diff, d_vars, v2f, f2v, last, veils_copy;
   PrintStartProc(procname);
 
   if (veils = NULL) then
-    veils := [];
+    veils_copy := [];
     last := -1
   else
+    veils_copy := veils;
     last := -2;
   end if;
 
@@ -729,12 +730,12 @@ Diff := proc({veils := NULL})::anything;
   d_vars := _passed[2..last];
 
   # Veil to functions substitution list
-  v2f := map(x -> lhs(x) =~ lhs(x)(d_vars), veils);
+  v2f := map(x -> lhs(x) =~ lhs(x)(d_vars), veils_copy);
 
   # Function to veils substitution list
   f2v := rhs~(v2f) =~ lhs~(v2f);
 
-  subs(v2f, veils);
+  subs(v2f, veils_copy);
   diff(lhs~(%), d_vars) =~ Simplify(diff(rhs~(%), d_vars));
   subs_diff := lhs~(%) =~ Simplify(subs(op(ListTools[Reverse](%)),rhs~(%))):
 
@@ -998,7 +999,7 @@ Project := proc(
   description "Project <x,y,z>, or vector <x,y,z,0>, or point <x,y,z,1> from "
     "reference frame <RF_ini> to reference frame <RF_end>.";
 
-  local x_tmp, out;
+  local x_tmp, out, i;
 
   PrintStartProc(procname);
 
@@ -1326,10 +1327,15 @@ MakeSupport := proc(
   obj_coords := [seq(`if`(coords[i] = -1, objs[i]["length"], coords[i]), i = 1..nops(coords))];
 
   for i from 1 to nops(objs) do
-    if IsRod(objs[i]) and
-        (ListPadding(obj_coords[i], 3) <> [0, 0, 0]) and
-        (ListPadding(eval(obj_coords[i]^~2), 3) <> [eval(objs[i]["length"]^~2), 0, 0]) then
-      error "SUPPORT objects can only be applied at extremes of ROD objects"
+    if IsRod(objs[i]) then
+      # x coordinate of the joint location
+      Simplify(ListPadding(eval(obj_coords[i]), 3))[1];
+      # x coordinate of the joint location minus target length
+      Simplify(eval(%^2) - eval(objs[i]["length"]^~2));
+      if  %% <> 0 and %% <> 0. and
+          % <> 0 and % <> 0. then
+        error "SUPPORT objects can only be applied at extremes of ROD objects"
+      end if;
     end if;
     if IsRod(objs[i]) and (constrained_dof[4..6] <> [0, 0, 0]) then
       error "ROD objects supports can only have translational constraints"
@@ -1513,11 +1519,12 @@ MakeJoint := proc(
   obj_coords := [seq(`if`(coords[i] = -1, objs[i]["length"], coords[i]), i = 1..nops(coords))];
 
   for i from 1 to nops(objs) do
+
     if IsRod(objs[i]) then
       # x coordinate of the joint location
       Simplify(ListPadding(eval(obj_coords[i]), 3))[1];
       # x coordinate of the joint location minus target length
-      Simplify(eval(%^2) - eval(objs[i]["length"]^~2))[1];
+      Simplify(eval(%^2) - eval(objs[i]["length"]^~2));
       if  %% <> 0 and %% <> 0. and
           % <> 0 and % <> 0. then
         error "JOINT objects can only be applied at extremes of ROD objects";
@@ -2582,7 +2589,7 @@ SolveStructure := proc(
     "flag <unveil_results>.";
 
   local g_load, S_obj, S_rigid, S_ext, S_support, S_joint, S_con_forces, vars,
-    sol, obj, x, str_eq, str_vars, P_energy, veiling_idx, veils;
+    sol, obj, x, str_eq, str_vars, P_energy, veiling_idx, veils, i;
   PrintStartProc(procname);
 
   # Clean structure
@@ -2652,8 +2659,8 @@ SolveStructure := proc(
     # Update support reactions properties
     for obj in S_support do
       obj["support_reactions"] := [
-        seq(lhs(obj["support_reactions"][j]) = Subs(sol, rhs(obj["support_reactions"][j])),
-        j = 1..nops(obj["support_reactions"]))
+        seq(lhs(obj["support_reactions"][i]) = Subs(sol, rhs(obj["support_reactions"][i])),
+        i = 1..nops(obj["support_reactions"]))
       ];
     end do;
     if (verbose_mode > 0) then
@@ -2831,8 +2838,8 @@ HyperstaticSolver := proc(
   P_energy := Simplify(P_energy);
 
   # Compute the hyperstatic equation
-  if keep_veiled then
-    hyper_eq := Diff~(P_energy, hyper_vars) =~ hyper_disp, parse("veils") = iso_sol[-1];
+  if keep_veiled and type(iso_sol[-1], list) then
+    hyper_eq := Diff~(P_energy, hyper_vars, parse("veils") = iso_sol[-1]) =~ hyper_disp;
   else
     hyper_eq := diff~(P_energy, hyper_vars) =~ hyper_disp;
   end if;
@@ -2883,7 +2890,7 @@ ComputePotentialEnergy := proc(
   description "Compute the internal potential energy of the structure given the "
     "objects <objs> and optional Timoshenko beam flag <timoshenko_beam>.";
 
-  local dummy_vars_subs, obj, P, x, f, FJX, FJY, FJZ, MJX, MJY, MJZ;
+  local dummy_vars_subs, obj, P, x, f, FJX, FJY, FJZ, MJX, MJY, MJZ, i;
   PrintStartProc(procname);
 
   dummy_vars_subs := dummy_vars =~ [seq(0, i = 1..nops(dummy_vars))];
