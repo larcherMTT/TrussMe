@@ -3310,8 +3310,8 @@ InternalActions := proc(
       N_sol  := N_sol  - Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][1]), piecewise);
       Ty_sol := Ty_sol + Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]), piecewise);
       Tz_sol := Tz_sol + Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]), piecewise);
-      My_sol := My_sol - Simplify(integrate(piecewise(xx >= exts[i]["coordinate"][1] and xx <= obj["length"], exts[i]["components"][3]), xx = 0..x), piecewise);
-      Mz_sol := Mz_sol + Simplify(integrate(piecewise(xx >= exts[i]["coordinate"][1] and xx <= obj["length"], exts[i]["components"][2]), xx = 0..x), piecewise);
+      My_sol := My_sol - Simplify(integrate(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]), x = 0..x), piecewise);
+      Mz_sol := Mz_sol + Simplify(integrate(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]), x = 0..x), piecewise);
     elif IsMoment(exts[i]) then
       Mx_sol := Mx_sol - Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][1]), piecewise);
       My_sol := My_sol - Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]), piecewise);
@@ -3419,28 +3419,28 @@ ComputeDisplacements := proc(
 
   description "Compute the structure displacements and rotations.";
 
-  local obj, x, X, disp, rx_sol, ry_sol, rz_sol, ux_sol, uy_sol, uz_sol;
+  local obj, x, disp, rx_sol, ry_sol, rz_sol, ux_sol, uy_sol, uz_sol;
   PrintStartProc(procname);
 
   # Cicle on the structure objects
   for obj in objs do
     # Beam
     if IsBeam(obj) then
-      Physics[Assume](X > 0, X < obj["length"]);
+      Physics[Assume](x > 0, x < obj["length"]);
       # Compute displacements
-      rx_sol :=  integrate(subs(obj["internal_actions"](x), Mx(x)/(obj["material"]["shear_modulus"]*obj["inertias"][1](x))), x = 0..X);
-      ry_sol :=  integrate(subs(obj["internal_actions"](x), My(x)/(obj["material"]["elastic_modulus"]*obj["inertias"][2](x))), x = 0..X);
-      rz_sol :=  integrate(subs(obj["internal_actions"](x), Mz(x)/(obj["material"]["elastic_modulus"]*obj["inertias"][3](x))), x = 0..X);
-      ux_sol :=  integrate(subs(obj["internal_actions"](x), N(x)/(obj["material"]["elastic_modulus"]*obj["area"](x))), x = 0..X);
-      uy_sol :=  integrate(eval(rz_sol, X = x), x = 0..X);
-      uz_sol := -integrate(eval(ry_sol, X = x), x = 0..X);
+      rx_sol :=  integrate(subs(obj["internal_actions"](x), Mx(x)/(obj["material"]["shear_modulus"]*obj["inertias"][1](x))), x = 0..x);
+      ry_sol :=  integrate(subs(obj["internal_actions"](x), My(x)/(obj["material"]["elastic_modulus"]*obj["inertias"][2](x))), x = 0..x);
+      rz_sol :=  integrate(subs(obj["internal_actions"](x), Mz(x)/(obj["material"]["elastic_modulus"]*obj["inertias"][3](x))), x = 0..x);
+      ux_sol :=  integrate(subs(obj["internal_actions"](x), N(x)/(obj["material"]["elastic_modulus"]*obj["area"](x))), x = 0..x);
+      uy_sol :=  integrate(rz_sol, x = 0..x);
+      uz_sol := -integrate(ry_sol, x = 0..x);
       if timoshenko_beam then
-        uy_sol := uy_sol + integrate(subs(obj["internal_actions"](x), Ty(x)/(obj["timo_shear_coeff"](x)[1]*obj["material"]["shear_modulus"]*obj["area"](x))), x = 0..X);
-        uz_sol := uz_sol + integrate(subs(obj["internal_actions"](x), Tz(x)/(obj["timo_shear_coeff"](x)[2]*obj["material"]["shear_modulus"]*obj["area"](x))), x = 0..X);
+        uy_sol := uy_sol + integrate(subs(obj["internal_actions"](x), Ty(x)/(obj["timo_shear_coeff"](x)[1]*obj["material"]["shear_modulus"]*obj["area"](x))), x = 0..x);
+        uz_sol := uz_sol + integrate(subs(obj["internal_actions"](x), Tz(x)/(obj["timo_shear_coeff"](x)[2]*obj["material"]["shear_modulus"]*obj["area"](x))), x = 0..x);
       end if;
       disp := [
-        ux = unapply(ux_sol, X), uy = unapply(uy_sol, X), uz = unapply(uz_sol, X),
-        rx = unapply(rx_sol, X), ry = unapply(ry_sol, X), rz = unapply(rz_sol, X)
+        ux = unapply(ux_sol, x), uy = unapply(uy_sol, x), uz = unapply(uz_sol, x),
+        rx = unapply(rx_sol, x), ry = unapply(ry_sol, x), rz = unapply(rz_sol, x)
       ];
 
       # Update object displacements
@@ -3448,11 +3448,11 @@ ComputeDisplacements := proc(
 
     # Rod
     elif IsRod(obj) then
-      Physics[Assume](X > 0, X < obj["length"]);
+      Physics[Assume](x > 0, x < obj["length"]);
       # Compute displacements
-      ux_sol := integrate(subs(obj["internal_actions"](x), N(x)/(obj["material"]["elastic_modulus"]*obj["area"](x))), x = 0..X);
+      ux_sol := integrate(subs(obj["internal_actions"](x), N(x)/(obj["material"]["elastic_modulus"]*obj["area"](x))), x = 0..x);
       disp := [
-        ux = unapply(ux_sol, X)
+        ux = unapply(ux_sol, x)
       ];
 
       # Update object displacements
