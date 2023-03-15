@@ -424,7 +424,7 @@ end proc: # SetModuleOptions
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PrintStartProc := proc(
-  proc_name::{procedure}, # Procedure name
+  proc_name::{procedure, indexed}, # Procedure name
   $)::{nothing};
 
   description "Print the start message of a procedure with name <proc_name>.";
@@ -442,7 +442,7 @@ end proc: # PrintStartProc
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 PrintEndProc := proc(
-  proc_name::{procedure}, # Procedure name
+  proc_name::{procedure, indexed}, # Procedure name
   $)::{nothing};
 
   description "Print the end message of a procedure with name <proc_name>.";
@@ -1522,9 +1522,9 @@ MakeJoint := proc(
 
     if IsRod(objs[i]) then
       # x coordinate of the joint location
-      Simplify(ListPadding(eval(obj_coords[i]), 3))[1];
+      ListPadding(eval(obj_coords[i]), 3)[1];
       # x coordinate of the joint location minus target length
-      Simplify(eval(%^2) - eval(objs[i]["length"]^~2));
+      eval(eval(%^2) - eval(objs[i]["length"]^~2));
       if  %% <> 0 and %% <> 0. and
           % <> 0 and % <> 0. then
         error "JOINT objects can only be applied at extremes of ROD objects";
@@ -2068,16 +2068,26 @@ ComputeSpringDisplacement := proc(
   local x, out, Dx;
   PrintStartProc(procname);
 
-  #Physics[Assume](spring_load * Dx > 0);
+  # Physics[Assume](spring_load * Dx >= 0);
 
+  # This works even for negative Dx
   out := RealDomain[solve](
-    spring_load = convert(integrate(spring_stiffness(x), x = 0..Dx), signum), Dx
+    spring_load = Simplify(integrate(spring_stiffness(x), x = 0..Dx)), Dx, useassumptions = true
     );
 
-  if nops([out]) > 1 then
-    out := convert([out], piecewise);
-  else
-    out := convert(out, piecewise);
+  ##print("DISP EQ: ", spring_load = Simplify(integrate(spring_stiffness(x), x = 0..Dx)));
+
+  #SolveTools:-Engine({
+  #  spring_load = Simplify(integrate(spring_stiffness(x), x = 0..Dx))}, {Dx}, explicit):
+
+  ##print("DISP SOL: ", %);
+  #out := subs(Simplify(remove(x-> has(x,I), op~(%))), Dx); # FIXME deal with multiple solutions
+  ##print("DISP SOL OUT: ", %);
+
+  # Remove weird list notation inside a picewise function
+  # FIXME: This works only if out is a single piece piecewise function
+  if type(out, 'piecewise') then
+    out := piecewise(op(map(x -> `if`(type(x, list), op(x), x), convert(out, list))));
   end if;
 
   PrintEndProc(procname);
@@ -2098,7 +2108,10 @@ ComputeSpringEnergy := proc(
   PrintStartProc(procname);
 
   disp := ComputeSpringDisplacement(spring_load, spring_stiffness);
-  out  := integrate(integrate(spring_stiffness(x), x), x = 0..disp);
+  #DEBUG#print(disp);
+  out  := Simplify(integrate(integrate(spring_stiffness(x), x), x = 0..disp));
+
+  #DEBUG#print("SPRING ENERGY: ", out);
 
   PrintEndProc(procname);
   return out;
@@ -2835,7 +2848,8 @@ HyperstaticSolver := proc(
     E_objs, iso_sol,
     parse("timoshenko_beam") = timoshenko_beam
   );
-  P_energy := Simplify(P_energy);
+  P_energy := Simplify[60](P_energy);
+  #DEBUG#print("ENERGY", P_energy);
 
   # Compute the hyperstatic equation
   if keep_veiled and type(iso_sol[-1], list) then
@@ -2843,6 +2857,10 @@ HyperstaticSolver := proc(
   else
     hyper_eq := diff~(P_energy, hyper_vars) =~ hyper_disp;
   end if;
+
+  # Substitute Float(undefined) with 0 in the derivative of the potential energy (this comes in case of non derivable piecewise functions in the compliant joint stiffness)
+  # FIXME: this is a temporary fix
+  hyper_eq := Simplify(eval(hyper_eq, Float(undefined) = 0));
 
   # Check for implicit solution flag
   if (implicit) then
@@ -2852,10 +2870,14 @@ HyperstaticSolver := proc(
       printf("%*sMessage (in HyperstaticSolver) solving the hyperstatic variables...\n", print_indent, "|   ");
     end if;
     # Solve hyperstatic equations
-    hyper_sol := op(RealDomain[solve](convert(hyper_eq, signum), hyper_vars));
+    #DEBUG#print("HYPER_EQ",hyper_eq);
+    #DEBUG#print("HYPER_VARS",hyper_vars);
+    hyper_sol := op(RealDomain[solve](hyper_eq, hyper_vars));
+    #hyper_sol := op(SolveTools:-Engine({op(hyper_eq)}, {op(hyper_vars)}, explicit)): #FIXME: if used must be adapted for non list equations (single equation)
     if (hyper_sol = NULL) then
       error "HyperstaticSolver: hyperstatic solution not found";
     end if;
+    #DEBUG#print("HYPER SOL", hyper_sol);
 
     # Substitute hyper_sol in P_energy
     P_energy := subs(hyper_sol, P_energy);
@@ -3263,7 +3285,7 @@ InternalActions := proc(
     "object with given external actions, it returns the internal actions as "
     "function of the axial variable 'x'.";
 
-  local i, ia, N_sol, Ty_sol, Tz_sol, Mx_sol, My_sol, Mz_sol, x;
+  local i, ia, N_sol, Ty_sol, Tz_sol, Mx_sol, My_sol, Mz_sol, x, xx, xxx;
   PrintStartProc(procname);
 
   N_sol  := 0;
@@ -3273,39 +3295,46 @@ InternalActions := proc(
   My_sol := 0;
   Mz_sol := 0;
 
+  # Clear assumptions if any
+  Physics[Assume](clear = x);
+
+  # Compute internal actions for concentrated loads as effect overlay
+  for i from 1 to nops(exts) do
+    if IsForce(exts[i]) then
+      N_sol  := evala(N_sol  - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][1]));
+      Ty_sol := evala(Ty_sol + piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]));
+      Tz_sol := evala(Tz_sol + piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]));
+      My_sol := evala(My_sol - integrate(piecewise(xx >= exts[i]["coordinate"][1] and xx <= obj["length"], exts[i]["components"][3]), xx = 0..x));
+      Mz_sol := evala(Mz_sol + integrate(piecewise(xx >= exts[i]["coordinate"][1] and xx <= obj["length"], exts[i]["components"][2]), xx = 0..x));
+    elif IsMoment(exts[i]) then
+      Mx_sol := evala(Mx_sol - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][1]));
+      My_sol := evala(My_sol - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]));
+      Mz_sol := evala(Mz_sol - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]));
+    elif IsQForce(exts[i]) then
+      N_sol  := evala(N_sol  - integrate(exts[i]["components"](xx)[1], xx = 0..x));
+      Ty_sol := evala(Ty_sol + integrate(exts[i]["components"](xx)[2], xx = 0..x));
+      Tz_sol := evala(Tz_sol + integrate(exts[i]["components"](xx)[3], xx = 0..x));
+      My_sol := evala(My_sol - integrate(integrate(exts[i]["components"](xxx)[3], xxx = 0..xx), xx = 0..x));
+      Mz_sol := evala(Mz_sol + integrate(integrate(exts[i]["components"](xxx)[2], xxx = 0..xx), xx = 0..x));
+    elif IsQMoment(FMQ[i]) then
+      Mx_sol := evala(Mx_sol - integrate(exts[i]["components"](xx)[1], xx = 0..x));
+      My_sol := evala(My_sol - integrate(exts[i]["components"](xx)[2], xx = 0..x));
+      Mz_sol := evala(Mz_sol - integrate(exts[i]["components"](xx)[3], xx = 0..x));
+    end if;
+  end do;
+
   # Assumptions
   # NOTE: assumptions higly help readability of the solution and improve
   # computation time, but results must be considered valid only in the assumed range
   Physics[Assume](x > 0, x < obj["length"]);
 
-  # Compute internal actions for concentrated loads as effect overlay
-  for i from 1 to nops(exts) do
-    if IsForce(exts[i]) then
-      N_sol  := Simplify(N_sol  - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][1]), piecewise);
-      Ty_sol := Simplify(Ty_sol + piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]), piecewise);
-      Tz_sol := Simplify(Tz_sol + piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]), piecewise);
-      My_sol := Simplify(My_sol - integrate(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]), x = 0..x), piecewise);
-      Mz_sol := Simplify(Mz_sol + integrate(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]), x = 0..x), piecewise);
-    elif IsMoment(exts[i]) then
-      Mx_sol := Simplify(Mx_sol - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][1]), piecewise);
-      My_sol := Simplify(My_sol - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]), piecewise);
-      Mz_sol := Simplify(Mz_sol - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]), piecewise);
-    elif IsQForce(exts[i]) then
-      N_sol  := Simplify(N_sol  - integrate(exts[i]["components"](x)[1], x = 0..x), piecewise);
-      Ty_sol := Simplify(Ty_sol + integrate(exts[i]["components"](x)[2], x = 0..x), piecewise);
-      Tz_sol := Simplify(Tz_sol + integrate(exts[i]["components"](x)[3], x = 0..x), piecewise);
-      My_sol := Simplify(My_sol - integrate(integrate(exts[i]["components"](x)[3], x = 0..x), x = 0..x), piecewise);
-      Mz_sol := Simplify(Mz_sol + integrate(integrate(exts[i]["components"](x)[2], x = 0..x), x = 0..x), piecewise);
-    elif IsQMoment(FMQ[i]) then
-      Mx_sol := Simplify(Mx_sol - integrate(exts[i]["components"](x)[1], x = 0..x), piecewise);
-      My_sol := Simplify(My_sol - integrate(exts[i]["components"](x)[2], x = 0..x), piecewise);
-      Mz_sol := Simplify(Mz_sol - integrate(exts[i]["components"](x)[3], x = 0..x), piecewise);
-    end if;
-  end do;
-
   ia := [
-    N  = unapply( N_sol, x), Ty = unapply(Ty_sol, x), Tz = unapply(Tz_sol, x),
-    Mx = unapply(Mx_sol, x), My = unapply(My_sol, x), Mz = unapply(Mz_sol, x)
+    N  = unapply(Simplify(evala( N_sol)), x),
+    Ty = unapply(Simplify(evala(Ty_sol)), x),
+    Tz = unapply(Simplify(evala(Tz_sol)), x),
+    Mx = unapply(Simplify(evala(Mx_sol)), x),
+    My = unapply(Simplify(evala(My_sol)), x),
+    Mz = unapply(Simplify(evala(Mz_sol)), x)
     ];
 
   if IsRod(obj) then
@@ -3353,7 +3382,7 @@ ComputeDisplacements := proc(
   for obj in objs do
     # Beam
     if IsBeam(obj) then
-      #Physics[Assume](X > 0, X < obj["length"]);
+      Physics[Assume](X > 0, X < obj["length"]);
       # Compute displacements
       rx_sol :=  integrate(subs(obj["internal_actions"](x), Mx(x)/(obj["material"]["shear_modulus"]*obj["inertias"][1](x))), x = 0..X);
       ry_sol :=  integrate(subs(obj["internal_actions"](x), My(x)/(obj["material"]["elastic_modulus"]*obj["inertias"][2](x))), x = 0..X);
@@ -3375,7 +3404,7 @@ ComputeDisplacements := proc(
 
     # Rod
     elif IsRod(obj) then
-      #Physics[Assume](X > 0, X < obj["length"]);
+      Physics[Assume](X > 0, X < obj["length"]);
       # Compute displacements
       ux_sol := integrate(subs(obj["internal_actions"](x), N(x)/(obj["material"]["elastic_modulus"]*obj["area"](x))), x = 0..X);
       disp := [
