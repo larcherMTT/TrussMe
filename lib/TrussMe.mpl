@@ -3297,45 +3297,89 @@ InternalActions := proc(
 
   # Clear assumptions if any
   Physics[Assume](clear = x);
+  # Assumptions
+  # NOTE: assumptions higly help readability of the solution and improve
+  # computation time, but results must be considered valid only in the assumed range
+  Physics[Assume](x > 0, x < obj["length"], x::real);
+
+  # FIXME: Not working with Maple 2022, error -> (Error, (in assuming) when calling 'assume'. Received: 'contradictory assumptions')
 
   # Compute internal actions for concentrated loads as effect overlay
   for i from 1 to nops(exts) do
     if IsForce(exts[i]) then
-      N_sol  := evala(N_sol  - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][1]));
-      Ty_sol := evala(Ty_sol + piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]));
-      Tz_sol := evala(Tz_sol + piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]));
-      My_sol := evala(My_sol - integrate(piecewise(xx >= exts[i]["coordinate"][1] and xx <= obj["length"], exts[i]["components"][3]), xx = 0..x));
-      Mz_sol := evala(Mz_sol + integrate(piecewise(xx >= exts[i]["coordinate"][1] and xx <= obj["length"], exts[i]["components"][2]), xx = 0..x));
+      N_sol  := N_sol  - Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][1]), piecewise);
+      Ty_sol := Ty_sol + Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]), piecewise);
+      Tz_sol := Tz_sol + Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]), piecewise);
+      My_sol := My_sol - Simplify(integrate(piecewise(xx >= exts[i]["coordinate"][1] and xx <= obj["length"], exts[i]["components"][3]), xx = 0..x), piecewise);
+      Mz_sol := Mz_sol + Simplify(integrate(piecewise(xx >= exts[i]["coordinate"][1] and xx <= obj["length"], exts[i]["components"][2]), xx = 0..x), piecewise);
     elif IsMoment(exts[i]) then
-      Mx_sol := evala(Mx_sol - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][1]));
-      My_sol := evala(My_sol - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]));
-      Mz_sol := evala(Mz_sol - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]));
+      Mx_sol := Mx_sol - Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][1]), piecewise);
+      My_sol := My_sol - Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]), piecewise);
+      Mz_sol := Mz_sol - Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]), piecewise);
     elif IsQForce(exts[i]) then
-      N_sol  := evala(N_sol  - integrate(exts[i]["components"](xx)[1], xx = 0..x));
-      Ty_sol := evala(Ty_sol + integrate(exts[i]["components"](xx)[2], xx = 0..x));
-      Tz_sol := evala(Tz_sol + integrate(exts[i]["components"](xx)[3], xx = 0..x));
-      My_sol := evala(My_sol - integrate(integrate(exts[i]["components"](xxx)[3], xxx = 0..xx), xx = 0..x));
-      Mz_sol := evala(Mz_sol + integrate(integrate(exts[i]["components"](xxx)[2], xxx = 0..xx), xx = 0..x));
+      N_sol  := N_sol  - Simplify(integrate(exts[i]["components"](x)[1], x = 0..x), piecewise);
+      Ty_sol := Ty_sol + Simplify(integrate(exts[i]["components"](x)[2], x = 0..x), piecewise);
+      Tz_sol := Tz_sol + Simplify(integrate(exts[i]["components"](x)[3], x = 0..x), piecewise);
+      My_sol := My_sol - Simplify(integrate(integrate(exts[i]["components"](x)[3], x = 0..x), x = 0..x), piecewise);
+      Mz_sol := Mz_sol + Simplify(integrate(integrate(exts[i]["components"](x)[2], x = 0..x), x = 0..x), piecewise);
     elif IsQMoment(FMQ[i]) then
-      Mx_sol := evala(Mx_sol - integrate(exts[i]["components"](xx)[1], xx = 0..x));
-      My_sol := evala(My_sol - integrate(exts[i]["components"](xx)[2], xx = 0..x));
-      Mz_sol := evala(Mz_sol - integrate(exts[i]["components"](xx)[3], xx = 0..x));
+      Mx_sol := Mx_sol - Simplify(integrate(exts[i]["components"](x)[1], x = 0..x), piecewise);
+      My_sol := My_sol - Simplify(integrate(exts[i]["components"](x)[2], x = 0..x), piecewise);
+      Mz_sol := Mz_sol - Simplify(integrate(exts[i]["components"](x)[3], x = 0..x), piecewise);
     end if;
   end do;
 
-  # Assumptions
-  # NOTE: assumptions higly help readability of the solution and improve
-  # computation time, but results must be considered valid only in the assumed range
-  Physics[Assume](x > 0, x < obj["length"]);
-
   ia := [
-    N  = unapply(Simplify(evala( N_sol)), x),
-    Ty = unapply(Simplify(evala(Ty_sol)), x),
-    Tz = unapply(Simplify(evala(Tz_sol)), x),
-    Mx = unapply(Simplify(evala(Mx_sol)), x),
-    My = unapply(Simplify(evala(My_sol)), x),
-    Mz = unapply(Simplify(evala(Mz_sol)), x)
+    N  = unapply( N_sol, x),
+    Ty = unapply(Ty_sol, x),
+    Tz = unapply(Tz_sol, x),
+    Mx = unapply(Mx_sol, x),
+    My = unapply(My_sol, x),
+    Mz = unapply(Mz_sol, x)
     ];
+
+  # FIXME: partial fix for Maple 2022, for error on assume, with this the code is way slower and the solution contains csgn wich is undsirable
+  #  # Clear assumptions if any
+  # Physics[Assume](clear = x);
+
+  # # Compute internal actions for concentrated loads as effect overlay
+  # for i from 1 to nops(exts) do
+  #   if IsForce(exts[i]) then
+  #     N_sol  := evala(N_sol  - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][1]));
+  #     Ty_sol := evala(Ty_sol + piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]));
+  #     Tz_sol := evala(Tz_sol + piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]));
+  #     My_sol := evala(My_sol - integrate(piecewise(xx >= exts[i]["coordinate"][1] and xx <= obj["length"], exts[i]["components"][3]), xx = 0..x));
+  #     Mz_sol := evala(Mz_sol + integrate(piecewise(xx >= exts[i]["coordinate"][1] and xx <= obj["length"], exts[i]["components"][2]), xx = 0..x));
+  #   elif IsMoment(exts[i]) then
+  #     Mx_sol := evala(Mx_sol - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][1]));
+  #     My_sol := evala(My_sol - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]));
+  #     Mz_sol := evala(Mz_sol - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]));
+  #   elif IsQForce(exts[i]) then
+  #     N_sol  := evala(N_sol  - integrate(exts[i]["components"](xx)[1], xx = 0..x));
+  #     Ty_sol := evala(Ty_sol + integrate(exts[i]["components"](xx)[2], xx = 0..x));
+  #     Tz_sol := evala(Tz_sol + integrate(exts[i]["components"](xx)[3], xx = 0..x));
+  #     My_sol := evala(My_sol - integrate(integrate(exts[i]["components"](xxx)[3], xxx = 0..xx), xx = 0..x));
+  #     Mz_sol := evala(Mz_sol + integrate(integrate(exts[i]["components"](xxx)[2], xxx = 0..xx), xx = 0..x));
+  #   elif IsQMoment(FMQ[i]) then
+  #     Mx_sol := evala(Mx_sol - integrate(exts[i]["components"](xx)[1], xx = 0..x));
+  #     My_sol := evala(My_sol - integrate(exts[i]["components"](xx)[2], xx = 0..x));
+  #     Mz_sol := evala(Mz_sol - integrate(exts[i]["components"](xx)[3], xx = 0..x));
+  #   end if;
+  # end do;
+
+  # # Assumptions
+  # # NOTE: assumptions higly help readability of the solution and improve
+  # # computation time, but results must be considered valid only in the assumed range
+  # Physics[Assume](x > 0, x < obj["length"]);
+
+  # ia := [
+  #   N  = unapply(Simplify(evala( N_sol)), x),
+  #   Ty = unapply(Simplify(evala(Ty_sol)), x),
+  #   Tz = unapply(Simplify(evala(Tz_sol)), x),
+  #   Mx = unapply(Simplify(evala(Mx_sol)), x),
+  #   My = unapply(Simplify(evala(My_sol)), x),
+  #   Mz = unapply(Simplify(evala(Mz_sol)), x)
+  #   ];
 
   if IsRod(obj) then
     ia := [ia[1]];
