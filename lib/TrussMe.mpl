@@ -20,514 +20,447 @@
 
 TrussMe := module()
 
-# TODO: Hide module content with dummy procedures as procname := proc(inputs); _procname(inputs); end proc;
-#       So the source code is not visible by showstat and showsource commands.
-export  `union`,
-        SetModuleOptions,
-        PrintStartProc,
-        PrintEndProc,
-        IsEarth,
-        SetGravity,
-        GetGravity,
-        Show,
-        AssignData,
-        UnAssignData,
-        Rotate,
-        Translate,
-        Project,
-        InverseFrame,
-        IsFrame,
-        IsPoint,
-        IsVector,
-        Origin,
-        Uvec,
-        UvecX,
-        UvecY,
-        UvecZ,
-        Norm2,
-        MakeMaterial,
-        IsMaterial,
-        MakeBeam,
-        MakeBeamPoints,
-        IsBeam,
-        MakeRod,
-        MakeRodPoints,
-        IsRod,
-        MakeRigidBody,
-        IsRigidBody,
-        MakeJoint,
-        IsJoint,
-        MakeSupport,
-        IsSupport,
-        IsCompliantSupport,
-        IsCompliantJoint,
-        MakeForce,
-        IsForce,
-        MakeMoment,
-        IsMoment,
-        MakeQForce,
-        IsQForce,
-        MakeQMoment,
-        IsQMoment,
-        MakeStructure,
-        IsStructure,
-        SolveStructure,
-        PlotStructure,
-        PlotDeformedStructure,
-        CleanJoint,
-        CleanSupport,
-        CleanRod,
-        CleanBeam,
-        CleanStructure,
-        DrawStructureGraph,
-        DrawStructureSparseMatrix,
-        ComputePunctualDisplacement;
+  # TODO: Hide module content with dummy procedures as:
+  #   procname := proc(inputs); _procname(inputs); end proc;
+  # so the source code is not visible by showstat and showsource commands.
 
-global  ground;
+  global  ground;
 
-local   ModuleLoad,
-        ModuleUnload,
-        earth,
-        gravity,
-        GetNames,
-        GetObjByName,
-        GetObjsByType,
-        CopyStructure,
-        Simplify,
-        Subs,
-        Diff,
-        ComputeDOF,
-        NewtonEuler,
-        HyperstaticSolver,
-        IsostaticSolver,
-        LinearSolver,
-        ComputeInternalActions,
-        ComputePotentialEnergy,
-        ComputeDisplacements,
-        InternalActions,
-        InitTrussMe,
-        TypeRegister,
-        Protect,
-        ComputeSpringDisplacement,
-        ComputeSpringEnergy,
-        ComputeSupportDisplacements,
-        ComputeJointDisplacements,
-        ComputeObjectFrameDisplacements,
-        ObjectColor,
-        PlotRigidBody,
-        PlotDeformedRigidBody,
-        PlotBeam,
-        PlotDeformedBeam,
-        PlotRod,
-        PlotDeformedRod,
-        PlotJoint,
-        PlotDeformedJoint,
-        PlotSupport,
-        PlotDeformedSupport,
-        IsInsideJoint,
-        IsInsideSupport,
-        IsInsideBeam,
-        IsInsideRod,
-        IsInsideStructure,
-        lib_base_path,
-        verbose_mode,
-        suppress_warnings,
-        time_limit_simplify,
-        print_indent,
-        print_increment,
-        ListPadding,
-        keep_veiled,
-        Beam_color,
-        Rod_color,
-        RigidBody_color,
-        CompliantSupport_color,
-        Support_color,
-        CompliantJoint_color,
-        Joint_color,
-        Earth_color,
-        StoredData,
-        veiling_label;
+  local m_LAST;
+  local m_LEM;
+  local m_earth;
+  local m_gravity;
+  local m_VerboseMode;
+  local m_WarningMode;
+  local m_TimeLimit;
+  local m_KeepVeiled;
+  local m_BeamColor;
+  local m_RodColor;
+  local m_RigidBodyColor;
+  local m_CompliantSupportColor;
+  local m_SupportColor;
+  local m_CompliantJointColor;
+  local m_JointColor;
+  local m_EarthColor;
+  local m_StoredData;
 
-option  package,
-        load   = ModuleLoad,
-        unload = ModuleUnload;
+  option  package,
+          load   = ModuleLoad,
+          unload = ModuleUnload;
 
-description "A Maple Library for Truss Elements Structures.";
+  description "A Maple Library for Truss Elements Structures.";
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-#   __  __           _       _      _                    _
-#  |  \/  | ___   __| |_   _| | ___| |    ___   __ _  __| |
-#  | |\/| |/ _ \ / _` | | | | |/ _ \ |   / _ \ / _` |/ _` |
-#  | |  | | (_) | (_| | |_| | |  __/ |__| (_) | (_| | (_| |
-#  |_|  |_|\___/ \__,_|\__,_|_|\___|_____\___/ \__,_|\__,_|
+  export Info := proc() # REVIEWED
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    description "Print 'TrussMe' module information.";
 
-ModuleLoad := proc()
+    printf(
+      "+--------------------------------------------------------------------------+\n"
+      "| 'TrussMe' module version 0.0 - BSD 3-Clause License - Copyright (c) 2023  |\n"
+      "| Current version authors:                                                  |\n"
+      "|   Matteo Larcher and Davide Stocco.                                       |\n"
+      "+--------------------------------------------------------------------------+\n"
+    );
+    return NULL;
+  end proc: # Info
 
-  description "Module 'TrussMe' load procedure.";
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-  local i;
+  export ModuleLoad := proc() # REVIEWED
 
-  # Display module init message
-  printf(
-    "'TrussMe' module version beta-0.0, BSD 3-Clause License - "
-    "Copyright (c) 2023, Matteo Larcher and Davide Stocco.\n"
-  );
+    description "Module 'TrussMe' load procedure.";
 
-  # Library path
-  lib_base_path := null;
-  for i in [libname] do
-    if (StringTools[Search]("TrussMe", i) <> 0) then
-      lib_base_path := i;
+    local lib_base_path, i;
+
+    lib_base_path := NULL;
+    for i in [libname] do
+      if (StringTools:-Search("TrussMe", i) <> 0) then
+        lib_base_path := i;
+      end if;
+    end do;
+    if (lib_base_path = NULL) then
+      error "cannot find 'TrussMe' library.";
     end if;
-  end do;
-  if (lib_base_path = null) then
-    error "Cannot find 'TrussMe' library.";
-  end if;
 
-  # Register types
-  TypeRegister();
+    TrussMe:-TypeRegister();
+    TrussMe:-InitTrussMe();
+    TrussMe:-Protect();
+    return NULL;
+  end proc: # ModuleLoad
 
-  # Initialize the module variables
-  InitTrussMe();
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-  # Protect Module Keywords
-  Protect();
+  export ModuleUnload := proc() # REVIEWED
 
-  return NULL;
-end proc: # ModuleLoad
+    description "Module 'TrussMe' unload procedure.";
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    m_VerboseMode := 1;
+    m_WarningMode := true;
+    TrussMe:-UnAssignData();
+    TrussMe:-Unprotect();
+    return NULL;
+  end proc: # ModuleUnload
 
-#   __  __           _       _      _   _       _                 _
-#  |  \/  | ___   __| |_   _| | ___| | | |_ __ | | ___   __ _  __| |
-#  | |\/| |/ _ \ / _` | | | | |/ _ \ | | | '_ \| |/ _ \ / _` |/ _` |
-#  | |  | | (_) | (_| | |_| | |  __/ |_| | | | | | (_) | (_| | (_| |
-#  |_|  |_|\___/ \__,_|\__,_|_|\___|\___/|_| |_|_|\___/ \__,_|\__,_|
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  export TypeRegister := proc() # REVIEWED
 
-ModuleUnload := proc()
+    description "Register 'TrussMe' module types.";
 
-  description "Module 'TrussMe' unload procedure.";
+    TypeTools:-AddType(EARTH, IsEarth);
+    TypeTools:-AddType(FRAME, IsFrame);
+    TypeTools:-AddType(POINT, IsPoint);
+    TypeTools:-AddType(VECTOR, IsVector);
+    TypeTools:-AddType(BEAM, IsBeam);
+    TypeTools:-AddType(ROD, IsRod);
+    TypeTools:-AddType(RIGID_BODY, IsRigidBody);
+    TypeTools:-AddType(FORCE, IsForce);
+    TypeTools:-AddType(MOMENT, IsMoment);
+    TypeTools:-AddType(QFORCE, IsQForce);
+    TypeTools:-AddType(QMOMENT, IsQMoment);
+    TypeTools:-AddType(SUPPORT, IsSupport);
+    TypeTools:-AddType(JOINT, IsJoint);
+    TypeTools:-AddType(MATERIAL, IsMaterial);
+    TypeTools:-AddType(STRUCTURE, IsStructure);
+    return NULL;
+  end proc: # TypeRegister
 
-  #printf("Unloading 'TrussMe'\n");
-  verbose_mode      := 1;
-  suppress_warnings := false;
-  UnAssignData();
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-end proc: # ModuleUnload
+  export InitTrussMe := proc() # REVIEWED
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    description "Initialize 'TrussMe' module internal variables.";
 
-#   _____                 ____            _     _
-#  |_   _|   _ _ __   ___|  _ \ ___  __ _(_)___| |_ ___ _ __
-#    | || | | | '_ \ / _ \ |_) / _ \/ _` | / __| __/ _ \ '__|
-#    | || |_| | |_) |  __/  _ <  __/ (_| | \__ \ ||  __/ |
-#    |_| \__, | .__/ \___|_| \_\___|\__, |_|___/\__\___|_|
-#        |___/|_|                   |___/
+    TrussMe:-InitLAST();
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    ground := <<1, 0, 0, 0>|
+                        <0, 1, 0, 0>|
+                        <0, 0, 1, 0>|
+                        <0, 0, 0, 1>>;
 
-TypeRegister := proc()
+    m_gravity := [0, 0, 0];
 
-  description "Register 'TrussMe' module types.";
+    m_VerboseMode           := 1;
+    m_WarningMode           := true;
+    m_TimeLimit             := 5;
+    m_BeamColor             := "SteelBlue";
+    m_RodColor              := "Niagara DarkOrchid";
+    m_RigidBodyColor        := "Indigo";
+    m_CompliantSupportColor := "DarkGreen";
+    m_SupportColor          := "DarkOrange";
+    m_CompliantJointColor   := "LightSalmon";
+    m_JointColor            := "MediumSeaGreen";
+    m_EarthColor            := "Firebrick";
+    m_StoredData            := [];
 
-  # Register types
-  TypeTools[AddType](EARTH, IsEarth);
-  TypeTools[AddType](FRAME, IsFrame);
-  TypeTools[AddType](POINT, IsPoint);
-  TypeTools[AddType](VECTOR, IsVector);
-  TypeTools[AddType](BEAM, IsBeam);
-  TypeTools[AddType](ROD, IsRod);
-  TypeTools[AddType](RIGID_BODY, IsRigidBody);
-  TypeTools[AddType](FORCE, IsForce);
-  TypeTools[AddType](MOMENT, IsMoment);
-  TypeTools[AddType](QFORCE, IsQForce);
-  TypeTools[AddType](QMOMENT, IsQMoment);
-  TypeTools[AddType](SUPPORT, IsSupport);
-  TypeTools[AddType](JOINT, IsJoint);
-  TypeTools[AddType](MATERIAL, IsMaterial);
-  TypeTools[AddType](STRUCTURE, IsStructure);
+    m_earth := table({
+      "type"             = EARTH,
+      "name"             = "earth",
+      "length"           = 0,
+      "frame"            = ground,
+      "admissible_loads" = [1, 1, 1, 1, 1, 1]
+      }):
 
-end proc: # TypeRegister
+    return NULL;
+  end proc: # InitTrussMe
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-#   ___       _ _  _____                   __  __
-#  |_ _|_ __ (_) ||_   _| __ _   _ ___ ___|  \/  | ___
-#   | || '_ \| | __|| || '__| | | / __/ __| |\/| |/ _ \
-#   | || | | | | |_ | || |  | |_| \__ \__ \ |  | |  __/
-#  |___|_| |_|_|\__||_||_|   \__,_|___/___/_|  |_|\___|
+  export Protect := proc() # REVIEWED
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    description "Protect 'TrussMe' module variables.";
 
-InitTrussMe := proc()
+    protect(
+      # Global variables
+      'ground',
+      # Types
+      'FRAME',
+      'EARTH',
+      'BEAM',
+      'ROD',
+      'FORCE',
+      'MOMENT',
+      'QFORCE',
+      'QMOMENT',
+      'SUPPORT',
+      'JOINT',
+      'MATERIAL',
+      'STRUCTURE'
+    );
+    return NULL;
+  end proc: # Protect
 
-  description "Initialize 'TrussMe' module internal variables.";
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-  # Define Module Variables
-  ground := <<1, 0, 0, 0>|
-             <0, 1, 0, 0>|
-             <0, 0, 1, 0>|
-             <0, 0, 0, 1>>;
+  export Unprotect := proc() # REVIEWED
 
-  gravity := [0, 0, 0];
+    description "Unprotect 'TrussMe' module variables.";
 
-  verbose_mode           := 1;
-  suppress_warnings      := false;
-  time_limit_simplify    := 5;
-  print_indent           := 0;
-  print_increment        := 4;
-  Beam_color             := "SteelBlue";
-  Rod_color              := "Niagara DarkOrchid";
-  RigidBody_color        := "Indigo";
-  CompliantSupport_color := "DarkGreen";
-  Support_color          := "DarkOrange";
-  CompliantJoint_color   := "LightSalmon";
-  Joint_color            := "MediumSeaGreen";
-  Earth_color            := "Firebrick";
-  StoredData             := [];
-  veiling_label          := '_V';
+    unprotect(
+      # Global variables
+      'ground',
+      # Types
+      'FRAME',
+      'EARTH',
+      'BEAM',
+      'ROD',
+      'FORCE',
+      'MOMENT',
+      'QFORCE',
+      'QMOMENT',
+      'SUPPORT',
+      'JOINT',
+      'MATERIAL',
+      'STRUCTURE'
+    );
+    return NULL;
+  end proc: # Unprotect
 
-  earth := table({
-    "type"             = EARTH,
-    "name"             = "earth",
-    "length"           = 0,
-    "frame"            = ground,
-    "admissible_loads" = [1, 1, 1, 1, 1, 1]
-    }):
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-end proc: # InitTrussMe
+  export CheckInit := proc( $ ) # REVIEWED
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    description "Check if the 'LAST' object is initialized.";
 
-#   ____            _            _
-#  |  _ \ _ __ ___ | |_ ___  ___| |_
-#  | |_) | '__/ _ \| __/ _ \/ __| __|
-#  |  __/| | | (_) | ||  __/ (__| |_
-#  |_|   |_|  \___/ \__\___|\___|\__|
+    if (m_LAST = NULL) then
+      error "the 'LAST' object is not initialized, use 'TrussMe:-InitLAST(...)' "
+        "or other appropriate initialization methods first.";
+    end if;
+    if (m_LEM = NULL) then
+      error "the 'LEM' object is not initialized, use 'TrussMe:-InitLAST(...)' "
+        "or other appropriate initialization methods first.";
+    end if;
+    return NULL;
+  end proc: # CheckInit
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-Protect := proc()
+  export InitLAST := proc( # REVIEWED
+    label::{symbol, string} := NULL,
+    $)
 
-  description "Protect 'TrussMe' module internal variables.";
+    description "Initialize the 'LAST' object with veiling label <label>.";
 
-  # Protect Module Global Variables
-  protect(
-    'ground'
-  );
+    m_LAST := Object(LAST);
+    m_LAST:-InitLEM(m_LAST, label);
+    m_LEM  := m_LAST:-GetLEM(m_LAST);
+    return NULL;
+  end proc: # InitLAST
 
-  # Protect the types
-  protect(
-    'FRAME',
-    'EARTH',
-    'BEAM',
-    'ROD',
-    'FORCE',
-    'MOMENT',
-    'QFORCE',
-    'QMOMENT',
-    'SUPPORT',
-    'JOINT',
-    'MATERIAL',
-    'STRUCTURE'
-  );
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-end proc: # Protect
+  export ClearLAST := proc( $ )
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    description "Clear the 'LAST' (and 'LEM') object.";
 
-#    ___                      _     _
-#   / _ \__   _____ _ __ _ __(_) __| | ___  ___
-#  | | | \ \ / / _ \ '__| '__| |/ _` |/ _ \/ __|
-#  | |_| |\ V /  __/ |  | |  | | (_| |  __/\__ \
-#   \___/  \_/ \___|_|  |_|  |_|\__,_|\___||___/
-#
+    m_LAST := NULL;
+    m_LEM  := NULL;
+    return NULL;
+  end proc: # ClearLAST
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-`union` := proc(
-  A::{list, set}, # Object A to be united
-  B::{list, set}, # Object B to be united
+  export SetLAST := proc( # REVIEWED
+    obj::LAST,
+    $)
+
+    description "Set the 'LAST' (and 'LEM') object <obj>.";
+
+    m_LAST := obj;
+    m_LEM  := m_LAST:-GetLEM(m_LAST);
+    return NULL;
+  end proc: # SetLAST
+
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  export GetLAST := proc( $ )::LAST; # REVIEWED
+
+    description "Get the 'LAST' object.";
+
+    return m_LAST;
+  end proc: # GetLAST
+
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  export SetLEM := proc( # REVIEWED
+    obj::LEM,
+    $)
+
+    description "Set the 'LEM' object <obj>.";
+
+    m_LAST:-SetLEM(m_LAST, obj);
+    m_LEM := obj;
+    return NULL;
+  end proc: # SetLEM
+
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  export GetLEM::static := proc( $ )::LEM;
+
+    description "Get the 'LEM' object.";
+
+    return m_LEM;
+  end proc: # GetLEM
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+export `union` := proc( # REVIEWED
+  A::{list, set},
+  B::{list, set},
   $)::{list, set};
 
   option overload;
 
-  description "Extension of union operator to list objects <A> and <B>.";
-
-  local out;
-  PrintStartProc(procname);
+  description "Extension of union operator to list or set objects <A> and <B>.";
 
   if type(A, 'set') and type(B, 'set') then
-    out := {op(A), op(B)};
+    return {op(A), op(B)};
   else
-    out := [op(A), op(B)];
+    return [op(A), op(B)];
   end if;
-
-  PrintEndProc(procname);
-  return out;
 end proc: # union
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-#   _____                 _   _
-#  |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
-#  | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
-#  |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
-#  |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
-#
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-SetModuleOptions := proc(
+export SetModuleOptions := proc( # REVIEWED
   {
-    verbosity::{integer, nothing}        := NULL, # Verbose mode
-    disable_warnings::{boolean, nothing} := NULL, # Suppress warnings
-    time_limit::{constant, nothing}      := NULL  # Time limit for simplify operations
+    VerboseMode::{integer, nothing} := NULL,
+    WarningMode::{boolean, nothing} := NULL,
+    TimeLimit::{constant, nothing}  := NULL
   },
-  $)::{nothing};
+  $)
 
-  description "Set the module options: <verbose_mode>::integer = [0, 1, 2], "
-    "<disable_warnings>::boolean = [true, false] and <time_limit>::constant"
-    " = [0, +inf].";
+  description "Set the module options: <VerboseMode> = [0, 1, 2], <WarningMode> "
+    "= [true, false] and <TimeLimit> = [0, +inf].";
 
-  # Verbosity
-  if (verbosity <> NULL) then
-    if (verbosity < 0) or (verbosity > 2) then
-      error "invalid verbose mode detected";
+  if (VerboseMode <> NULL) then
+    if (VerboseMode < 0) or (VerboseMode > 2) then
+      error "invalid verbose mode detected.";
     else
-      verbose_mode := verbosity;
+      m_VerboseMode := VerboseMode;
     end if;
   end if;
 
-  # Suppress warnings
-  if (disable_warnings <> NULL) then
-    suppress_warnings := disable_warnings;
-  end if;
-
-  # Time limit
-  if (time_limit <> NULL) then
-    if (time_limit < 0) then
-      error "invalid time limit detected";
+  if (WarningMode <> NULL) then
+    if not type(WarningMode, boolean) then
+      error "invalid warning mode detected.";
     else
-      time_limit_simplify := time_limit;
+      m_WarningMode := WarningMode;
     end if;
   end if;
 
+  if (TimeLimit <> NULL) then
+    if (TimeLimit < 0) then
+      error "invalid time limit detected.";
+    else
+      m_TimeLimit := TimeLimit;
+    end if;
+  end if;
   return NULL;
 end proc: # SetModuleOptions
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-PrintStartProc := proc(
-  proc_name::{procedure, indexed}, # Procedure name
-  $)::{nothing};
+export EnableVerboseMode::static := proc( $ ) # REVIEWED
 
-  description "Print the start message of a procedure with name <proc_name>.";
+  description "Enable the verbose mode of the module.";
 
-  # Increase printf indentation
-  print_indent := print_indent + print_increment;
+  m_VerboseMode := 1;
+  return NULL;
+end proc: # EnableVerboseMode
 
-  # Show start message
-  if (verbose_mode > 1) then
-    printf("%*sStart '%s' procedure...\n", print_indent, "|   ", proc_name);
-  end if;
-end proc: # PrintStartProc
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+export DisableVerboseMode::static := proc( $ ) # REVIEWED
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  description "Disable the verbose mode of the module.";
 
-PrintEndProc := proc(
-  proc_name::{procedure, indexed}, # Procedure name
-  $)::{nothing};
+  m_VerboseMode := false;
+  return NULL;
+end proc: # DisableVerboseMode
 
-  description "Print the end message of a procedure with name <proc_name>.";
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-  # Show end message
-  if (verbose_mode > 1) then
-    printf("%*sEnd   '%s' procedure\n", print_indent, "|   ", proc_name);
-  end if;
+export EnableWarningMode::static := proc( $ ) # REVIEWED
 
-  # Increase printf indentation
-  print_indent := print_indent - print_increment;
-end proc: # PrintEndProc
+  description "Enable the warning mode of the module.";
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  m_WarningMode := true;
+  return NULL;
+end proc: # EnableWarningMode
 
-IsEarth := proc(
-  obj::{anything}, # Object to be tested
-  $)::{boolean};
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+export DisableWarningMode::static := proc( $ ) # REVIEWED
+
+  description "Disable the warning mode of the module.";
+
+  m_WarningMode := 0;
+  return NULL;
+end proc: # DisableWarningMode
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+export IsEarth := proc( # REVIEWED
+  obj::anything,
+  $)::boolean;
 
   description "Test if an object <obj> is the EARTH object.";
 
-  PrintStartProc(procname);
-  PrintEndProc(procname);
   return evalb(obj["type"] = EARTH);
 end proc: # IsEarth
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-SetGravity := proc(
-  obj::{VECTOR}, # Gravity vector
-  $)::{nothing};
+export SetGravity := proc( # REVIEWED
+  vec::{list, Vector},
+  $)
 
-  description "Set gravity vector with [x, y, z] components of <obj>.";
+  description "Set gravity vector with [x, y, z]^T components of <vec>.";
 
-  PrintStartProc(procname);
-  # Set gravity local variable
-  if (nops(obj) = 3) then
-    gravity := obj;
+  if type(vec, list) and (nops(vec) = 3) then
+    m_gravity := <op(vec)>;
+  elif type(vec, Vector) and (nops(vec) = 3) then
+    m_gravity := vec;
   else
-    error "invalid gravity vector detected";
+    error "invalid gravity vector detected.";
   end if;
-  PrintEndProc(procname);
   return NULL;
 end proc: # SetGravity
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-GetGravity := proc( $ )::{VECTOR};
+export GetGravity := proc( $ )::Vector; # REVIEWED
 
   description "Get gravity vector.";
 
-  PrintStartProc(procname);
-  PrintEndProc(procname);
-  return gravity;
+  return m_gravity;
 end proc: # GetGravity
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-Norm2 := proc(
-  obj::{list, vector}, # Vector for which the norm is computed
-  $)::{algebraic};
+export Norm2 := proc( # REVIEWED
+  vec::{list, vector},
+  $)::algebraic;
 
-  description "Compute the norm of a vector <obj>.";
+  description "Compute the Euclidean norm of the input vector <vec>.";
 
-  local out, x;
-  PrintStartProc(procname);
-
-  out := sqrt(add(x, x in obj^~2));
-
-  PrintEndProc(procname);
-  return out;
+  return sqrt(add(x, x in vec^~2));
 end proc: # Norm2
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-ListPadding := proc(
-  lst::{list, Vector, algebraic}, # List to be padded
-  n::{integer},                   # Number of elements of the final list
-  value::{algebraic} := 0,        # Value to be used for padding
+export ListPadding := proc( # REVIEWED
+  lst::{algebraic, list, Vector},
+  n::integer,
+  value::algebraic := 0,
   $)::{list, Vector};
 
-  description "Pad a list <list> with <value> to have <n> elements.";
+  description "Pad a list or vector <lst> with <value> to have <n> elements.";
 
-  local i, out;
-  PrintStartProc(procname);
+  local out;
 
   if type(lst, algebraic) then
     out := [lst];
@@ -546,87 +479,73 @@ ListPadding := proc(
   if type(lst, Vector) then
     out := convert(out, Vector);
   end if;
-
-  PrintEndProc(procname);
   return out;
 end proc: # ListPadding
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-Show := proc(
-  tab::{table}, # Table to be shown
-  $)::{nothing};
+export Show := proc( # REVIEWED
+  tab::table,
+  $)
 
   description "Show the content of a table <tab>.";
 
-  PrintStartProc(procname);
   print(tab = tab["type"](op(op(tab))));
-  PrintEndProc(procname);
+  return NULL;
 end proc: # Show
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-GetNames := proc(
-  objs::{ # Structural elements
+export GetNames := proc( # REVIEWED
+  objs::{
     list({MATERIAL, BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH}),
-    set( {MATERIAL, BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH})
+    set({MATERIAL, BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH})
   }, $)::{list({string}), set({string})};
 
-  description "Get names of a list/set of objects <objs>.";
-
-  local out, i;
-  PrintStartProc(procname);
+  description "Get names of a list or set of structural objects <objs>.";
 
   if type(objs, 'set') then
-    out := {seq(objs[i]["name"], i = 1..nops(objs))};
+    return {seq(objs[i]["name"], i = 1..nops(objs))};
   else
-    out := [seq(objs[i]["name"], i = 1..nops(objs))];
+    return [seq(objs[i]["name"], i = 1..nops(objs))];
   end if;
-
-  PrintEndProc(procname);
-  return out;
 end proc: # GetNames
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-GetObjByName := proc(
-  name::{string}, # Name of the object
-  objs::{         # Structural elements
+export GetObjByName := proc( # REVIEWED
+  name::string,
+  objs::{
     list({MATERIAL, BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH}),
-    set( {MATERIAL, BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH})
-  }, $)::{MATERIAL, BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH};
+    set({MATERIAL, BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH})
+  }, $)::{anything, MATERIAL, BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH};
 
-  description "Get object which name field is <name> from a list/set of objects "
-    "<objs>.";
+  description "Get object which name field is <name> from a list or set of "
+    "objects <objs>.";
 
   local out, obj;
-  PrintStartProc(procname);
 
   out := NULL;
-
   for obj in objs do
     if (obj["name"] = name) then
       out := eval(obj); # Do not remove eval
       break;
     end if;
   end do;
-
-  PrintEndProc(procname);
   return eval(out);
 end proc: # GetObjByName
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-GetObjsByType := proc(
-  types::{list(symbol), set(symbol)}, # List of types to be selected from <objs>
-  objs::{list, set},                  # Structural elements
-  $)::{list};
+export GetObjsByType := proc( # REVIEWED
+  types::{list(symbol), set(symbol)},
+  objs::{list, set},
+  $)::list;
 
-  description "Get objects which type field is in <types> from a list/set of "
+  description "Get objects which type field is in <types> from a list or set of "
     "objects <objs>.";
 
   local out, obj;
-  PrintStartProc(procname);
 
   out := [];
   for obj in objs do
@@ -634,89 +553,83 @@ GetObjsByType := proc(
       out := out union [eval(obj)]; # Do not remove eval
     end if;
   end do;
-
-  PrintEndProc(procname);
   return eval(out);
 end proc: # GetObjsByType
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-Simplify := proc(
-  obj::{anything},         # Expression to be simplified
-  opt::{anything} := NULL, # Options
-  $)::{anything};
+export Simplify := proc( # REVIEWED
+  obj::anything,
+  opt::anything := NULL,
+  $)::anything;
 
   description "Simplify an algebraic expression <obj>.";
 
   local out, time_limit;
-  PrintStartProc(procname);
 
-  time_limit := `if`(procname::indexed, op(procname), time_limit_simplify);
-
+  time_limit := `if`(procname::indexed, op(procname), m_TimeLimit); # FIXME unclear
   try
-    timelimit(time_limit, simplify(obj, opt));
-    out := %;
-  catch :
-    WARNING("Time limit of %1s exceeded for simplify operation, raw solutions "
+    out := timelimit(time_limit, simplify(obj, opt));
+  catch:
+    WARNING("time limit of %1s exceeded for simplify operation, raw solutions "
       "is returned. The input <time_limit> can be modified by setting it in the "
-      "SetModuleOptions procedure.", time_limit
+      "TrussMe:-SetModuleOptions(...) procedure.", time_limit
     );
     out := obj;
   end try:
-
-  PrintEndProc(procname);
   return out;
 end proc: # Simplify
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-  AssignData := proc(
-    x::{list, set}, # The list to be assigned
-    $)::{nothing};
+export AssignData := proc( # REVIEWED
+  data::{list, set},
+  $)
 
-    description "Assign the list <x> to the local variable <StoredData>.";
+  description "Assign the list <x> to the local variable <m_StoredData>.";
 
-    StoredData := x;
-    return NULL;
-  end proc: # AssignData
+  m_StoredData := data;
+  return NULL;
+end proc: # AssignData
 
-  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-  UnAssignData := proc(
-    $)::{nothing};
+export UnAssignData := proc( # REVIEWED
+  $)
 
-    description "Unassign the local variable <StoredData>.";
+  description "Unassign the local variable <m_StoredData>.";
 
-    StoredData := [];
-    return NULL;
-  end proc: # UnAssignData
+  m_StoredData := [];
+  return NULL;
+end proc: # UnAssignData
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-Subs := proc()::{anything};
+export Subs := proc( # REVIEWED
+  # _passed
+  )::anything;
 
   description "Perform subs command neglecting sub-lists and sub-sets from the "
     "substitution list.";
 
-  local x, y, out;
-  PrintStartProc(procname);
-
-  map(x -> map(remove, y-> type(y, {list, set}), x), [_passed[1..-2]]);
-  out := subs(op(%), _passed[-1]);
-
-  PrintEndProc(procname);
-  return out;
+  map(x -> map(remove, y -> type(y, {list, set}), x), [_passed[1..-2]]);
+  return subs(op(%), _passed[-1]);
 end proc; # Subs
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-Diff := proc({veils := NULL})::anything;
+export Diff := proc( # REVIEWED
+  # _passed
+  {
+  veils := NULL
+  })::anything;
 
-  description "Perform diff command on veiled expressions given the veiling list "
-    "<veils>.";
+  description "Perform diff command on veiled expressions given the veiling "
+    "list <veils>.";
 
-  local out, subs_diff, d_vars, v2f, f2v, last, veils_copy;
-  PrintStartProc(procname);
+  # TODO: optimize this procedure
+
+  local subs_diff, d_vars, v2f, f2v, last, veils_copy;
 
   if (veils = NULL) then
     veils_copy := [];
@@ -736,264 +649,195 @@ Diff := proc({veils := NULL})::anything;
   f2v := rhs~(v2f) =~ lhs~(v2f);
 
   subs(v2f, veils_copy);
-  diff(lhs~(%), d_vars) =~ Simplify(diff(rhs~(%), d_vars));
-  subs_diff := lhs~(%) =~ Simplify(subs(op(ListTools[Reverse](%)),rhs~(%))):
+  diff(lhs~(%), d_vars) =~ TrussMe:-Simplify(diff(rhs~(%), d_vars));
+  subs_diff := lhs~(%) =~ TrussMe:-Simplify(subs(op(ListTools:-Reverse(%)),rhs~(%))):
 
   # Compute the derivative of the veiled expression
   subs(subs_diff, diff(subs(v2f, _passed[1]), d_vars));
 
   # Substitute back the veils
-  out := subs(f2v, %);
-
-  PrintEndProc(procname);
-  return out;
+  return subs(f2v, %);
 end proc; # Diff
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-InverseFrame := proc(
-  RF::{FRAME}, # Reference frame (affine transformation) to be inverted
-  $)::{FRAME};
+export InverseFrame := proc( # REVIEWED
+  RF::FRAME,
+  $)::FRAME;
 
   description "Inverse transformation matrix of an affine transformation <RF>.";
 
-  local out;
-  PrintStartProc(procname);
-
-  LinearAlgebra[Transpose](RF[1..3, 1..3]);
-  out := <<% | -% . RF[1..3, 4]>,
+  LinearAlgebra:-Transpose(RF[1..3, 1..3]);
+  return <<% | -% . RF[1..3, 4]>,
           <0 | 0 | 0 | 1>>;
-
-  PrintEndProc(procname);
-  return out;
 end proc: # InverseFrame
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsFrame := proc(
-  obj::{anything}, # Object to be checked
-  $)::{boolean};
+export IsFrame := proc( # REVIEWED
+  obj::anything,
+  $)::boolean;
 
   description "Check if the input object <obj> is a FRAME object.";
 
-  local out;
-  PrintStartProc(procname);
-
-  if (type(obj, 'Matrix')) and
-     (LinearAlgebra[RowDimension](obj) = 4) and
-     (LinearAlgebra[ColumnDimension](obj) = 4) then
-    out := true;
+  if (type(obj, Matrix)) and
+     (LinearAlgebra:-RowDimension(obj) = 4) and
+     (LinearAlgebra:-ColumnDimension(obj) = 4) then
+    return true;
   else
-    out := false;
+    return false;
   end if;
-
-  PrintEndProc(procname);
-  return out;
 end proc: # IsFrame
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-Rotate := proc(
-  axis::{symbol, string}, # Rotation axis
-  angle::{algebraic},     # Rotation angle (rad)
-  $)::{FRAME};
+export Rotate := proc( # REVIEWED
+  axis::{symbol, string},
+  angle::algebraic,
+  $)::FRAME;
 
   description "Transformation matrix corresponding to the rotation <angle> "
     "around the given <axis>";
 
-  local out;
-  PrintStartProc(procname);
-
   if (axis = 'X') or (axis = "X") then
-    out := <<1, 0,           0,          0>|
+    return <<1, 0,           0,          0>|
             <0, cos(angle),  sin(angle), 0>|
             <0, -sin(angle), cos(angle), 0>|
             <0, 0,           0,          1>>;
   elif (axis = 'Y') or (axis = "Y") then
-    out := <<cos(angle), 0, -sin(angle), 0>|
+    return <<cos(angle), 0, -sin(angle), 0>|
             <0,          1, 0,           0>|
             <sin(angle), 0, cos(angle),  0>|
             <0,          0, 0,           1>>;
   elif (axis = 'Z') or (axis = "Z") then
-    out := <<cos(angle),  sin(angle), 0, 0>|
+    return <<cos(angle),  sin(angle), 0, 0>|
             <-sin(angle), cos(angle), 0, 0>|
             <0,           0,          1, 0>|
             <0,           0,          0, 1>>;
   else
-    error "invalid axis detected";
+    error "invalid axis detected.";
   end if;
-
-  PrintEndProc(procname);
-  return out;
 end proc: # Rotate
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-Translate := proc(
-  x::{algebraic}, # X-axis translation component
-  y::{algebraic}, # Y-axis translation component
-  z::{algebraic}, # Z-axis translation component
-  $)::{FRAME};
+export Translate := proc( # REVIEWED
+  x::algebraic,
+  y::algebraic,
+  z::algebraic,
+  $)::FRAME;
 
-  description "Transformation matrix corresponding to the translation <x,y,z>.";
+  description "Transformation matrix corresponding to the translation <x, y, z>.";
 
-  local out;
-  PrintStartProc(procname);
-
-  out := <<1, 0, 0, 0>|
+  return <<1, 0, 0, 0>|
           <0, 1, 0, 0>|
           <0, 0, 1, 0>|
           <x, y, z, 1>>;
-
-  PrintEndProc(procname);
-  return out;
 end proc: # Translate
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-Origin := proc(
-  RF::{FRAME}, # Reference frame
-  $)::{vector};
+export Origin := proc( # REVIEWED
+  RF::FRAME,
+  $)::Vector;
 
   description "Extract the origin of the reference frame <RF>.";
 
-  local out;
-  PrintStartProc(procname);
+  return <RF[1, 4], RF[2, 4], RF[3, 4], 1>;
+end proc: # Origin
 
-  out := <RF[1,4], RF[2,4], RF[3,4], 1>;
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-  PrintEndProc(procname);
-  return out;
-end proc: # Translate
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-IsPoint := proc(
-  obj::{anything}, # Object to be checked
-  $)::{boolean};
+export IsPoint := proc( # REVIEWED
+  obj::anything,
+  $)::boolean;
 
   description "Check if the input object <obj> is a POINT object.";
 
-  local out;
-  PrintStartProc(procname);
-
-  if (type(obj, 'list')) and
+  if (type(obj, list)) and
      (nops(obj) = 3) then
-    out := true;
+    return true;
   else
-    out := false;
+    return false;
   end if;
-
-  PrintEndProc(procname);
-  return out;
 end proc: # IsPoint
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsVector := proc(
-  obj::{anything}, # Object to be checked
-  $)::{boolean};
+export IsVector := proc( # REVIEWED
+  obj::anything,
+  $)::boolean;
 
   description "Check if the input object <obj> is a VECTOR object.";
 
-  local out;
-  PrintStartProc(procname);
-
-  if (type(obj, 'list')) and
+  if (type(obj, list)) and
      (nops(obj) = 3) then
-    out := true;
+    return true;
   else
-    out := false;
+    return false;
   end if;
-
-  PrintEndProc(procname);
-  return out;
 end proc: # IsVector
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-Uvec := proc(
-  axis::{symbol},        # Axis of the unit vector
-  RF::{FRAME} := ground, # Reference frame
-  $)::{Vector};
+export Uvec := proc( # REVIEWED
+  axis::symbol,
+  RF::FRAME := ground,
+  $)::Vector;
 
   description "Extract the unit vector of the reference frame <RF> along the "
     "given <axis>.";
 
-  local out;
-  PrintStartProc(procname);
-
   if (axis = 'X') then
-    out := <RF[1,1], RF[2,1], RF[3,1], 0>;
+    return <RF[1, 1], RF[2, 1], RF[3, 1], 0>;
   elif (axis = 'Y') then
-    out := <RF[1,2], RF[2,2], RF[3,2], 0>;
+    return <RF[1, 2], RF[2, 2], RF[3, 2], 0>;
   elif (axis = 'Z') then
-    out := <RF[1,3], RF[2,3], RF[3,3], 0>;
+    return <RF[1, 3], RF[2, 3], RF[3, 3], 0>;
   else
     error "invalid axis detected";
   end if;
-
-  PrintEndProc(procname);
-  return out;
 end proc: # Uvec
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-UvecX := proc(
-  RF::{FRAME} := ground, # Reference frame
-  $)::{Vector};
+export UvecX := proc( # REVIEWED
+  RF::FRAME := ground,
+  $)::Vector;
 
   description "Extract the x-axis unit vector of the reference frame <RF>.";
 
-  local out;
-  PrintStartProc(procname);
-
-  out := <RF[1,1], RF[2,1], RF[3,1], 0>;
-
-  PrintEndProc(procname);
-  return out;
+  return <RF[1, 1], RF[2, 1], RF[3, 1], 0>;
 end proc: # UvecX
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-UvecY := proc(
-  RF::{FRAME} := ground, # Reference frame
-  $)::{Vector};
+export UvecY := proc( # REVIEWED
+  RF::FRAME := ground,
+  $)::Vector;
 
   description "Extract the y-axis unit vector of the reference frame <RF>.";
 
-  local out;
-  PrintStartProc(procname);
-
-  out := <RF[1,2], RF[2,2], RF[3,2], 0>;
-
-  PrintEndProc(procname);
-  return out;
+  return <RF[1, 2], RF[2, 2], RF[3, 2], 0>;
 end proc: # UvecY
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-UvecZ := proc(
-  RF::{FRAME} := ground, # Reference frame
-  $)::{Vector};
+export UvecZ := proc( # REVIEWED
+  RF::FRAME := ground,
+  $)::Vector;
 
   description "Extract the z-axis unit vector of the reference frame <RF>.";
 
-  local out;
-  PrintStartProc(procname);
-
-  out := <RF[1,3], RF[2,3], RF[3,3], 0>;
-
-  PrintEndProc(procname);
-  return out;
+  return <RF[1, 3], RF[2, 3], RF[3, 3], 0>;
 end proc: # UvecZ
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-Project := proc(
-  x::{list, Vector}, # Object to be projected
-  RF_ini::{FRAME},   # Reference frame from which the object is expressed
-  RF_end::{FRAME},   # Reference frame to which the object will be expressed
+export Project := proc( # REVIEWED
+  x::{list, Vector},
+  RF_ini::FRAME,
+  RF_end::FRAME,
   $)::{list, Vector};
 
   description "Project <x,y,z>, or vector <x,y,z,0>, or point <x,y,z,1> from "
@@ -1001,209 +845,190 @@ Project := proc(
 
   local x_tmp, out, i;
 
-  PrintStartProc(procname);
-
   # Pad input vector with 0 if its length is 3
   if not (nops(x) = 3) and
      not (nops(x) = 4) then
     error "invalid input vector/point <x> detected";
   end if;
-  x_tmp := ListPadding(convert(x, Vector), 4);
+  x_tmp := TrussMe:-ListPadding(convert(x, Vector), 4);
 
+  # Try to compare RF_end and RF_ini
   try
-    # try to compare RF_end and RF_ini
     # FIXME: problems with floats (floats not handled error)
     map(evalb, evala(simplify(RF_end)) =~ evala(simplify(RF_ini)));
   catch:
-    map(evalb, (RF_end) =~ (RF_ini));
+    map(evalb, RF_end =~ RF_ini);
   end try;
+
   if has(%, false) then
-    InverseFrame(RF_end).RF_ini.x_tmp;
-    out := Simplify([seq(%[i], i = 1..nops(x))]);
+    TrussMe:-InverseFrame(RF_end).RF_ini.x_tmp;
+    out := TrussMe:-Simplify([seq(%[i], i = 1..nops(x))]);
   else
     out := x_tmp[1..nops(x)];
   end if;
 
-  out := convert(out, whattype(x));
-
-  PrintEndProc(procname);
-  return out;
+  return convert(out, whattype(x));
 end proc: # Project
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-MakeMaterial := proc({
-    name::{string}               := "DeafultSteel", # Name of the material
-    elastic_modulus::{algebraic} := 210.0E+09,      # Elastic modulus (Pa)
-    poisson_ratio::{algebraic}   := 0.3,            # Poisson ratio (-)
-    shear_modulus::{algebraic}   := elastic_modulus/(2*(1+poisson_ratio)),
-                                                    # Shear modulus (Pa)
-    density::{algebraic}         := 7.4E+03         # Density (kg/m^3)
-  }, $)::{MATERIAL};
+export MakeMaterial := proc({ # REVIEWED
+    material_name::string      := "DeafultSteel",
+    elastic_modulus::algebraic := 210.0E+09,
+    poisson_ratio::algebraic   := 0.3,
+    shear_modulus::algebraic   := elastic_modulus/(2*(1+poisson_ratio)),
+    density::algebraic         := 7.4E+03
+  }, $)::MATERIAL;
 
-  description "Define a MATERIAL object with inputs: name of the material, "
-    "elastic modulus <elastic_modulus> (default = 210.0E9 Pa), Poisson ratio "
-    "<poisson_ratio> (default = 0.3), shear modulus <shear_modulus> (default "
-    "= E/(2*(1+nu))), density <density> (default = 7.4E3 kg/m^3).";
+  description "Define a MATERIAL object with inputs: name of the material "
+    "<material_name>, elastic modulus <elastic_modulus> (default = 210.0E9 Pa), "
+    "Poisson ratio <poisson_ratio> (default = 0.3), shear modulus <shear_modulus> "
+    "(default = E/(2*(1+nu))), density <density> (default = 7.4E3 kg/m^3).";
 
-  local out;
-  PrintStartProc(procname);
-
-  out := table({
+  return table({
     "type"            = MATERIAL,
-    "name"            = name,
+    "name"            = material_name,
     "elastic_modulus" = elastic_modulus,
     "poisson_ratio"   = poisson_ratio,
     "shear_modulus"   = shear_modulus,
     "density"         = density
     });
-
-  PrintEndProc(procname);
-  return op(out);
 end proc: # DefineMaterial
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsMaterial := proc(
-  obj::{anything}, # Object to be checked
-  $)::{boolean};
+export IsMaterial := proc( # REVIEWED
+  obj::anything,
+  $)::boolean;
 
   description "Check if the input object <obj> is a MATERIAL object.";
 
-  PrintStartProc(procname);
-  PrintEndProc(procname);
   return evalb(obj["type"] = MATERIAL);
 end proc: # IsMaterial
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-MakeForce := proc(
-  components::{VECTOR},                                # Force components in RF
-  coords::{algebraic, list(algebraic)},                # Application coordinates in object frame
-  obj::{BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH}, # Target object
-  RF::{FRAME} := ground,                               # Reference frame
-  $)::{FORCE};
+export MakeForce := proc( # REVIEWED
+  components::{list, Vector},
+  coords::{algebraic, list(algebraic)},
+  obj::{BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH},
+  RF::FRAME := ground,
+  $)::FORCE;
 
-  description "Define a FORCE object with inputs: force components <components>, "
+  description "Define a 'FORCE' object with inputs: force components <components>, "
     "force application axial coordinate <coords>, target object <obj>, and "
     "optional reference frame <RF> in which the force is defined (default = "
     "ground).";
 
-  local proj_components, admissible_components, out;
+  local proj_components, admissible_components;
 
-  PrintStartProc(procname);
-
-  proj_components       := Project(components, RF, obj["frame"]);
-  admissible_components := convert(proj_components .~ <obj["admissible_loads"][1..3]>, list);
-
-  # Check input arguments
-  if (proj_components <> admissible_components) and (not suppress_warnings) then
-  ["x_comp", "y_comp", "z_comp"] =~
-    convert(proj_components .~ <eval(map((x->evalb(x = 0)), obj["admissible_loads"][1..3]), [true = 1, false = 0])>, list);
-    WARNING("Force components are not admissible for the target object. The "
-      "following components will be ignored: %1", remove(x-> rhs(x) = 0, %));
+  # Check input argument
+  if not (nops(components) = 3) then
+    error "invalid input vector <components> detected.";
   end if;
 
-  if IsSupport(obj) or IsJoint(obj) then
-    if (ListPadding(coords, 3) <> [0,0,0]) then
-      error "only null axial coordinate is accepted for SUPPORT and JOINT "
-        "objects";
+  proj_components       := TrussMe:-Project(components, RF, obj["frame"]);
+  admissible_components := convert(proj_components .~ <obj["admissible_loads"][1..3]>, list);
+  if (proj_components <> admissible_components) and m_WarningMode then
+    ["x_comp", "y_comp", "z_comp"] =~ convert(proj_components .~ <eval(
+        map((x -> evalb(x = 0)), obj["admissible_loads"][1..3]), [true = 1, false = 0]
+      )>, list);
+    WARNING("Force components are not admissible for the target object. The "
+      "following components will be ignored: %1", remove(x -> rhs(x) = 0, %));
+  end if;
+
+  if TrussMe:-IsSupport(obj) or TrussMe:-IsJoint(obj) then
+    if (TrussMe:-ListPadding(coords, 3) <> [0, 0, 0]) then
+      error "only null axial coordinate is accepted for 'SUPPORT' and 'JOINT' "
+        "type objects";
     end if;
   end if;
 
-  out := table({
+  return table({
     "type"       = FORCE,
     "components" = admissible_components,
-    "coordinate" = ListPadding(coords, 3),
+    "coordinate" = TrussMe:-ListPadding(coords, 3),
     "target"     = obj["name"]
     });
-
-  PrintEndProc(procname);
-  return op(out);
 end proc: # MakeForce
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsForce := proc(
-  obj::anything, # Object to be checked
+export IsForce := proc( # REVIEWED
+  obj::anything,
   $)::boolean;
 
   description "Check if the object <obj> is a FORCE object";
 
-  PrintStartProc(procname);
-  PrintEndProc(procname);
   return evalb(obj["type"] = FORCE);
 end proc: # IsForce
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-MakeMoment := proc(
-  components::{VECTOR},                           # Moment components
-  coords::{algebraic, list(algebraic)},           # Application coordinates in object frame
-  obj::{BEAM, RIGID_BODY, SUPPORT, JOINT, EARTH}, # Target object
-  RF::{FRAME} := ground,                          # Reference frame
-  $)::{MOMENT};
+export MakeMoment := proc( # REVIEWED
+  components::{list, Vector},
+  coords::{algebraic, list(algebraic)},
+  obj::{BEAM, RIGID_BODY, SUPPORT, JOINT, EARTH},
+  RF::FRAME := ground,
+  $)::MOMENT;
 
-  description "Define a MOMENT object with inputs: moment components <components>, "
+  description "Define a 'MOMENT' object with inputs: moment components <components>, "
     "moment application axial coordinate <coords>, target object <obj>, and "
     "optional reference frame <RF> in which the moment is  defined (default = "
     "ground).";
 
   local proj_components, admissible_components, out;
-  PrintStartProc(procname);
 
-  proj_components       := Project(components, RF, obj["frame"]);
+  # Check input argument
+  if not (nops(components) = 3) then
+    error "invalid input vector <components> detected.";
+  end if;
+
+  proj_components       := TrussMe:-Project(components, RF, obj["frame"]);
   admissible_components := convert(proj_components .~ <obj["admissible_loads"][4..6]>, list);
-
-  # Check input arguments
-  if (proj_components <> admissible_components) and (not suppress_warnings) then
-    ["x_comp", "y_comp", "z_comp"] =~
-      convert(proj_components .~ <eval(map((x->evalb(x = 0)), obj["admissible_loads"][4..6]), [true = 1, false = 0])>, list);
+  if (proj_components <> admissible_components) and m_WarningMode then
+    ["x_comp", "y_comp", "z_comp"] =~ convert(proj_components .~ <eval(
+        map((x -> evalb(x = 0)), obj["admissible_loads"][4..6]), [true = 1, false = 0]
+      )>, list);
     WARNING("Moment components are not admissible for the target object. The "
-      "following components will be ignored: %1", remove(x-> rhs(x) = 0, %));
+      "following components will be ignored: %1", remove(x -> rhs(x) = 0, %));
   end if;
 
-  if IsSupport(obj) or IsJoint(obj) then
-    if (ListPadding(coords, 3) <> [0,0,0]) then
-      error "only null axial coordinate is accepted for SUPPORT and JOINT "
-        "objects";
-    end if;
+  if (TrussMe:-IsSupport(obj) or TrussMe:-IsJoint(obj)) and
+     (TrussMe:-ListPadding(coords, 3) <> [0, 0, 0]) then
+    error "only null axial coordinate is accepted for 'SUPPORT' and 'JOINT' "
+      "type objects";
   end if;
 
-  out := table({
+  return table({
     "type"       = MOMENT,
     "components" = admissible_components,
-    "coordinate" = ListPadding(coords, 3),
+    "coordinate" = TrussMe:-ListPadding(coords, 3),
     "target"     = obj["name"]
     });
-
-  PrintEndProc(procname);
-  return op(out);
 end proc: # MakeMoment
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsMoment := proc(
-  obj::{anything}, # Object to be checked
-  $)::{boolean};
+export IsMoment := proc( # REVIEWED
+  obj::anything,
+  $)::boolean;
 
   description "Check if the object <obj> is a MOMENT object.";
 
-  PrintStartProc(procname);
-  PrintEndProc(procname);
   return evalb(obj["type"] = MOMENT);
 end proc: # IsMoment
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-MakeQForce := proc(
-  components::{procedure, list(algebraic)}, # Distributed load components
-  obj::{BEAM, ROD},                         # Target object
-  RF::{FRAME} := ground,                    # Reference frame
+export MakeQForce := proc( # REVIEWED
+  components::{procedure, list(algebraic)},
+  obj::{BEAM, ROD},
+  RF::FRAME := ground,
   {
-    ell_min::{algebraic} := 0,              # Initial axial coordinate
-    ell_max::{algebraic} := obj["length"]   # Final axial coordinate
-  }, $)::{QFORCE};
+    ell_min::algebraic := 0,
+    ell_max::algebraic := obj["length"]
+  }, $)::QFORCE;
 
   description "Define a QFORCE object with inputs: distributed load target "
     "object components <components>, target object <obj>, optional reference "
@@ -1211,54 +1036,52 @@ MakeQForce := proc(
     "and optional initial <ell_min> and final <ell_max> application points "
     "(axial coordinates).";
 
-  local proj_components, x, out;
-  PrintStartProc(procname);
+  local proj_components, x;
 
   if type(components, procedure) then
-    proj_components := unapply(Project(components(x), RF, obj["frame"]), x);
+    proj_components := unapply(
+      TrussMe:-Project(components(x), RF, obj["frame"]), x
+    );
   else
-    proj_components := (x) -> piecewise((ell_min <= x) and (x <= ell_max), Project(components, RF, obj["frame"]), 0);
+    proj_components := x -> piecewise(
+      (ell_min <= x) and (x <= ell_max), TrussMe:-Project(components, RF, obj["frame"]), 0
+    );
   end if;
 
-  if IsRod(obj) then
+  if TrussMe:-IsRod(obj) then
     if (proj_components(x)[2] <> 0) or (proj_components(x)[3] <> 0) then
       error "only axial loads are accepted in ROD objects"
     end if;
   end if;
 
-  out := table({
+  return table({
     "type"        = QFORCE,
     "components"  = proj_components,
     "target"      = obj["name"]
     });
-
-  PrintEndProc(procname);
-  return op(out);
 end proc: # MakeQForce
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsQForce := proc(
-  obj::{anything}, # Object to be checked
-  $)::{boolean};
+export IsQForce := proc( # REVIEWED
+  obj::anything,
+  $)::boolean;
 
   description "Check if the object <obj> is a QFORCE object.";
 
-  PrintStartProc(procname);
-  PrintEndProc(procname);
   return evalb(obj["type"] = QFORCE);
 end proc: # IsQForce
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-MakeQMoment := proc(
-  components::{procedure, list(algebraic)}, # Distributed load components
-  obj::{BEAM},                              # Target object
-  RF::{FRAME} := ground,                    # Reference frame in which the moment is defined
+export MakeQMoment := proc(
+  components::{procedure, list(algebraic)},
+  obj::BEAM,
+  RF::FRAME := ground,
   {
-    ell_min::{algebraic} := 0,              # Initial application point (axial coordinate)
-    ell_max::{algebraic} := obj["length"]   # Final application point (axial coordinate)
-  }, $)::{QMOMENT};
+    ell_min::algebraic := 0,
+    ell_max::algebraic := obj["length"]
+  }, $)::QMOMENT;
 
   description "Define a QMOMENT object with inputs: distributed torque target "
     "object components <components>, target object <obj>, optional reference "
@@ -1266,52 +1089,48 @@ MakeQMoment := proc(
     "and optional initial <ell_min> and final <ell_max> application points "
     "(axial coordinates).";
 
-  local proj_components, x, out;
-  PrintStartProc(procname);
+  local proj_components, x;
 
   if type(components, procedure) then
-    proj_components := unapply(Project(components(x), RF, obj["frame"]),x);
+    proj_components := unapply(TrussMe:-Project(components(x), RF, obj["frame"]), x);
   else
-    proj_components := (x) -> piecewise((ell_min <= x) and (x <= ell_max), Project(components, RF, obj["frame"]), 0);
+    proj_components := x -> piecewise(
+      (ell_min <= x) and (x <= ell_max), TrussMe:-Project(components, RF, obj["frame"]), 0
+    );
   end if;
 
-  out := table({
+  return table({
     "type"        = QMOMENT,
     "components"  = proj_components,
     "target"      = obj["name"]
     });
-
-  PrintEndProc(procname);
-  return op(out);
 end proc: # MakeQMoment
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsQMoment := proc(
-  obj::{anything}, # Object to be checked
-  $)::{boolean};
+export IsQMoment := proc( # REVIEWED
+  obj::anything,
+  $)::boolean;
 
   description "Check if the object <obj> is a QMOMENT object";
 
-  PrintStartProc(procname);
-  PrintEndProc(procname);
   return evalb(obj["type"] = QMOMENT);
 end proc: # IsQMoment
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-MakeSupport := proc(
-  name::{string},                                        # Support name
-  constrained_dof::{list},                               # Constrained degree of freedom
+export MakeSupport := proc(
+  name::string,                                        # Support name
+  constrained_dof::list,                               # Constrained degree of freedom
   objs::{list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})}, # Target objects
-  coords::{list},                                        # Support locations
-  RF::{FRAME} := ground,                                 # Reference frame of the support
+  coords::list,                                        # Support locations
+  RF::FRAME := ground,                                 # Reference frame of the support
   {
     stiffness::{procedure,list(algebraic)} := [ # Stiffness components (default = infinite)
       infinity, infinity, infinity,
       infinity, infinity, infinity
     ] *~ constrained_dof
-  }, $)::{SUPPORT};
+  }, $)::SUPPORT;
 
   description "Make a SUPPORT object with inputs: support name <name>, constrained "
     "degrees of freedom <constrained_dof>, target objects <objs>, support locations "
@@ -1321,23 +1140,22 @@ MakeSupport := proc(
 
   local S, J_tmp, i, j, sr_F_names, sr_F_values_tmp, sr_M_names, sr_M_values_tmp,
     S_stiffness, x, obj_coords;
-  PrintStartProc(procname);
 
   # Substitute -1 entries of coords with the corresponding object length
   obj_coords := [seq(`if`(coords[i] = -1, objs[i]["length"], coords[i]), i = 1..nops(coords))];
 
   for i from 1 to nops(objs) do
-    if IsRod(objs[i]) then
+    if TrussMe:-IsRod(objs[i]) then
       # x coordinate of the joint location
-      Simplify(ListPadding(eval(obj_coords[i]), 3))[1];
+      TrussMe:-Simplify(TrussMe:-ListPadding(eval(obj_coords[i]), 3))[1];
       # x coordinate of the joint location minus target length
-      Simplify(eval(%^2) - eval(objs[i]["length"]^~2));
+      TrussMe:-Simplify(eval(%^2) - eval(objs[i]["length"]^~2));
       if  %% <> 0 and %% <> 0. and
           % <> 0 and % <> 0. then
         error "SUPPORT objects can only be applied at extremes of ROD objects"
       end if;
     end if;
-    if IsRod(objs[i]) and (constrained_dof[4..6] <> [0, 0, 0]) then
+    if TrussMe:-IsRod(objs[i]) and (constrained_dof[4..6] <> [0, 0, 0]) then
       error "ROD objects supports can only have translational constraints"
     end if;
   end do;
@@ -1349,7 +1167,7 @@ MakeSupport := proc(
       error "stiffness corresponding to constrained degrees of freedom cannot be zero";
     end if;
     # Check for zero stiffness on unconstrained dof
-    if (S_stiffness(x) <> stiffness(x)) and (not suppress_warnings) then
+    if (S_stiffness(x) <> stiffness(x)) and m_WarningMode then
       WARNING("stiffness components not corresponding to constrained_dof are ignored");
     end if;
   else
@@ -1358,8 +1176,8 @@ MakeSupport := proc(
       error "stiffness corresponding to constrained degrees of freedom cannot be zero";
     end if;
     # Check for zero stiffness on unconstrained dof
-    S_stiffness := (x) -> stiffness *~ constrained_dof;
-    if (S_stiffness(x) <> stiffness) and (not suppress_warnings) then
+    S_stiffness := x -> stiffness *~ constrained_dof;
+    if (S_stiffness(x) <> stiffness) and m_WarningMode then
       WARNING("stiffness components not corresponding to constrained_dof are ignored");
     end if;
   end if;
@@ -1368,10 +1186,10 @@ MakeSupport := proc(
     "type"                = SUPPORT,
     "constrained_dof"     = constrained_dof,
     "admissible_loads"    = constrained_dof,
-    "coordinates"         = [[0,0,0], op(map(ListPadding, obj_coords, 3))],
+    "coordinates"         = [[0, 0, 0], op(map(TrussMe:-ListPadding, obj_coords, 3))],
     "name"                = name,
     "frame"               = RF,
-    "targets"             = [earth["name"]] union GetNames(objs),
+    "targets"             = [m_earth["name"]] union TrussMe:-GetNames(objs),
     "variables"           = [],
     "forces"              = [],
     "moments"             = [],
@@ -1379,11 +1197,11 @@ MakeSupport := proc(
     "support_reactions"   = [], # Expressed in support reference frame
     "stiffness"           = S_stiffness,
     "displacements"       = [],
-    "frame_displacements" = LinearAlgebra[IdentityMatrix](4,4)
+    "frame_displacements" = LinearAlgebra:-IdentityMatrix(4)
     });
 
   # Build the temporary joint
-  J_tmp := MakeJoint(name, constrained_dof, [earth, op(objs)], S["coordinates"], RF);
+  J_tmp := MakeJoint(name, constrained_dof, [m_earth, op(objs)], S["coordinates"], RF);
 
   S["variables"]        := J_tmp["variables"];
   S["forces"]           := J_tmp["forces"];
@@ -1393,9 +1211,9 @@ MakeSupport := proc(
   # Retrieve support force reactions
   sr_F_names := [FX, FY, FZ];
   for i from 1 to nops(S["forces"]) do
-    if (S["forces"][i]["target"] = earth["name"]) then
+    if (S["forces"][i]["target"] = m_earth["name"]) then
       # Project forces in the support reference frame
-      sr_F_values_tmp := Project(S["forces"][i]["components"], ground, S["frame"]);
+      sr_F_values_tmp := TrussMe:-Project(S["forces"][i]["components"], ground, S["frame"]);
       for j from 1 to 3 do
         if (sr_F_values_tmp[j] <> 0) then
           S["support_reactions"] := [
@@ -1411,9 +1229,9 @@ MakeSupport := proc(
   # Retrieve support moments reactions
   sr_M_names := [MX, MY, MZ];
   for i from 1 to nops(S["moments"]) do
-    if (S["moments"][i]["target"] = earth["name"]) then
+    if (S["moments"][i]["target"] = m_earth["name"]) then
       # Project moments in the support reference frame
-      sr_M_values_tmp := Project(S["moments"][i]["components"], ground, S["frame"]);
+      sr_M_values_tmp := TrussMe:-Project(S["moments"][i]["components"], ground, S["frame"]);
       for j from 1 to 3 do
         if (sr_M_values_tmp[j] <> 0) then
           S["support_reactions"] := [
@@ -1426,81 +1244,71 @@ MakeSupport := proc(
     end if;
   end do;
 
-  PrintEndProc(procname);
   return op(S);
 end proc: # MakeSupport
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsSupport := proc(
-  obj::{anything}, # Object to be checked
-  $)::{boolean};
+export IsSupport := proc( # REVIEWED
+  obj::anything,
+  $)::boolean;
 
   description "Check if the object <obj> is a SUPPORT object.";
 
-  PrintStartProc(procname);
-  PrintEndProc(procname);
   return evalb(obj["type"] = SUPPORT);
 end proc: # IsSupport
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsCompliantSupport := proc(
-  obj::{anything}, # Object to be checked
-  $)::{boolean};
+export IsCompliantSupport := proc( # REVIEWED
+  obj::anything,
+  $)::boolean;
 
   description "Check if the object <obj> is a SUPPORT object with compliant "
     "constraints.";
 
-  local out, i;
-  PrintStartProc(procname);
+  local i;
 
-  out := false;
-  if IsSupport(obj) then
+  if TrussMe:-IsSupport(obj) then
     for i from 1 to 6 do
       if (obj["stiffness"](x)[i] <> infinity) and
          (obj["constrained_dof"][i] = 1) then
-        out := true;
-        break;
+        return true;
       end if;
     end do;
   end if;
-
-  PrintEndProc(procname);
-  return out;
+  return false;
 end proc; # IsCompliantSupport
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-CleanSupport := proc(
-  obj::{SUPPORT}, # Support to be cleaned
-  $)::{nothing};
+export CleanSupport := proc( # REVIEWED
+  obj::SUPPORT,
+  $)
 
   description "Clean SUPPORT object <obj> internal variables";
 
-  PrintStartProc(procname);
-  obj["constraint_loads"]         := [];
-  obj["support_reactions"]        := [];
-  obj["displacements"]            := [];
-  PrintEndProc(procname);
+  obj["constraint_loads"]  := [];
+  obj["support_reactions"] := [];
+  obj["displacements"]     := [];
+  return NULL;
 end proc: # CleanSupport
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-MakeJoint := proc(
-  name::{string},                                               # Joint name
-  constrained_dof::{list},                                      # Constrained degree of freedom
-  objs::{list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH})}, # Target objects
-  coords::{list},                                               # Joint locations
-  RF::{FRAME} := ground,                                        # Reference frame
+export MakeJoint := proc(
+  name::string,                                               # Joint name
+  constrained_dof::list,                                      # Constrained degree of freedom
+  objs::list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH}), # Target objects
+  coords::list,                                               # Joint locations
+  RF::FRAME := ground,                                        # Reference frame
   {
-    stiffness::{procedure,list(algebraic)} := [ # Stiffness components (default = infinite)
+    stiffness::{procedure, list(algebraic)} := [ # Stiffness components (default = infinite)
       infinity, infinity, infinity,
       infinity, infinity, infinity
     ] *~ constrained_dof,
-    shell_objs::{ # Objects to be considered connected to the shell of the joint
-      list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH})
-    } := [objs[1]]
+    shell_objs:: # Objects to be considered connected to the shell of the joint
+      list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH}) := [objs[1]]
   }, $)::JOINT;
 
   description "Make a JOINT object with inputs: joint name <name>, constrained "
@@ -1513,16 +1321,15 @@ MakeJoint := proc(
 
   local J, i, jf_comp, jm_comp, jf_comp_obj, jm_comp_obj, jm_surv, jf_surv,
     jf_comp_cons, jm_comp_cons, constraint, P_tmp, obj_coords, J_stiffness;
-  PrintStartProc(procname);
 
   # Substitute -1 entries of coords with the corresponding object length
   obj_coords := [seq(`if`(coords[i] = -1, objs[i]["length"], coords[i]), i = 1..nops(coords))];
 
   for i from 1 to nops(objs) do
 
-    if IsRod(objs[i]) then
+    if TrussMe:-IsRod(objs[i]) then
       # x coordinate of the joint location
-      ListPadding(eval(obj_coords[i]), 3)[1];
+      TrussMe:-ListPadding(eval(obj_coords[i]), 3)[1];
       # x coordinate of the joint location minus target length
       eval(eval(%^2) - eval(objs[i]["length"]^~2));
       if  %% <> 0 and %% <> 0. and
@@ -1530,7 +1337,7 @@ MakeJoint := proc(
         error "JOINT objects can only be applied at extremes of ROD objects";
       end if;
     end if;
-    if IsRod(objs[i]) and (constrained_dof[4..6] <> [0, 0, 0]) then
+    if TrussMe:-IsRod(objs[i]) and (constrained_dof[4..6] <> [0, 0, 0]) then
       error "ROD objects supports can only have translational constraints";
     end if;
   end do;
@@ -1542,17 +1349,17 @@ MakeJoint := proc(
       error "stiffness corresponding to constrained degrees of freedom cannot be zero";
     end if;
     # Check for zero stiffness on unconstrained dof
-    if (J_stiffness(x) <> stiffness(x)) and (not suppress_warnings) then
+    if (J_stiffness(x) <> stiffness(x)) and m_WarningMode then
       WARNING("stiffness components not corresponding to constrained_dof are ignored");
     end if;
   else
     # Check for non zero stiffness on constrained dof
-    if has(stiffness[remove(x -> x=0, ([seq(i, i = 1..6)]) *~ constrained_dof)], 0) then
+    if has(stiffness[remove(x -> x = 0, ([seq(i, i = 1..6)]) *~ constrained_dof)], 0) then
       error "stiffness corresponding to constrained degrees of freedom cannot be zero";
     end if;
     # Check for zero stiffness on unconstrained dof
-    J_stiffness := (x) -> stiffness *~ constrained_dof;
-    if (J_stiffness(x) <> stiffness) and (not suppress_warnings) then
+    J_stiffness := x -> stiffness *~ constrained_dof;
+    if (J_stiffness(x) <> stiffness) and m_WarningMode then
       WARNING("stiffness components not corresponding to constrained_dof are ignored");
     end if;
   end if;
@@ -1561,18 +1368,18 @@ MakeJoint := proc(
     "type"                = JOINT,
     "constrained_dof"     = constrained_dof,
     "admissible_loads"    = constrained_dof,
-    "coordinates"         = map(ListPadding, obj_coords, 3),
+    "coordinates"         = map(TrussMe:-ListPadding, obj_coords, 3),
     "name"                = name,
     "frame"               = RF,
-    "targets"             = GetNames(objs),
-    "shell_targets"       = GetNames(shell_objs),
+    "targets"             = TrussMe:-GetNames(objs),
+    "shell_targets"       = TrussMe:-GetNames(shell_objs),
     "variables"           = [],
     "forces"              = [],
     "moments"             = [],
     "constraint_loads"    = [],
     "stiffness"           = J_stiffness,
     "displacements"       = [],
-    "frame_displacements" = LinearAlgebra[IdentityMatrix](4,4)
+    "frame_displacements" = LinearAlgebra:-IdentityMatrix(4)
     });
 
   # Check if joint position on each object is the same
@@ -1601,22 +1408,22 @@ MakeJoint := proc(
     jf_surv := remove(x -> x = 0, jf_comp_cons);
     # Project the components into object frame and extract admissible loads
     jf_comp_obj := convert(
-      Project(jf_comp_cons, RF, objs[i]["frame"])
+      TrussMe:-Project(jf_comp_cons, RF, objs[i]["frame"])
       .~ <op(objs[i]["admissible_loads"][1..3])>,
       list);
     # Check if there are reactions
     if (nops(jf_surv) <> 0) then
       # Create the reaction force between joint and obj
       # Force on obj
-      JF_||(name)||_||(objs[i]["name"]) := MakeForce(
+      JF_||(name)||_||(objs[i]["name"]) := TrussMe:-MakeForce(
         jf_comp_obj, obj_coords[i], objs[i], objs[i]["frame"]
         );
       # Force on joint
-      JF_||(objs[i]["name"])||_||(name) := MakeForce(
+      JF_||(objs[i]["name"])||_||(name) := TrussMe:-MakeForce(
         -jf_comp_cons, 0, J, RF);
       # Use the non admissible loads to build the loads constraint
       constraint := convert(
-        Project(jf_comp_cons, RF, objs[i]["frame"])
+        TrussMe:-Project(jf_comp_cons, RF, objs[i]["frame"])
         .~ <eval(map((x->evalb(x = 0)), objs[i]["admissible_loads"][1..3]), [true = 1, false = 0])>,
         list);
       # Remove the null equations
@@ -1646,7 +1453,7 @@ MakeJoint := proc(
     jm_surv := remove(x -> x = 0, jm_comp_cons);
     # Project the components into object frame and extract the admissible loads
     jm_comp_obj := convert(
-      Project(jm_comp_cons, RF, objs[i]["frame"])
+      TrussMe:-Project(jm_comp_cons, RF, objs[i]["frame"])
       .~ <op(objs[i]["admissible_loads"][4..6])>,
       list);
     # Check if there are reactions
@@ -1661,7 +1468,7 @@ MakeJoint := proc(
       -jm_comp_cons, 0, J, RF);
       # Use the non admissible loads to build the loads constraint
       constraint := convert(
-        Project(jm_comp_cons, RF, objs[i]["frame"])
+        TrussMe:-Project(jm_comp_cons, RF, objs[i]["frame"])
         .~ <eval(map((x->evalb(x = 0)), objs[i]["admissible_loads"][4..6]), [true = 1, false = 0])>,
         list);
       constraint := remove(x -> x = 0, constraint);
@@ -1675,140 +1482,128 @@ MakeJoint := proc(
     end if;
   end do;
 
-  PrintEndProc(procname);
   return op(J);
 end proc: # MakeJoint
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsJoint := proc(
-  obj::{anything}, # Object to be checked
-  $)::{boolean};
+export IsJoint := proc( # REVIEWED
+  obj::anything,
+  $)::boolean;
 
   description "Check if the objecy <obj> is a JOINT object.";
 
-  PrintStartProc(procname);
-  PrintEndProc(procname);
   return evalb(obj["type"] = JOINT);
 end proc: # IsJoint
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsCompliantJoint := proc(
-  obj::{anything}, # Object to be checked
-  $)::{boolean};
+export IsCompliantJoint := proc( # REVIEWED
+  obj::anything,
+  $)::boolean;
 
   description "Check if the object <obj> is a JOINT object with compliant "
     "constraints.";
 
-  local out, i;
-  PrintStartProc(procname);
+  local i;
 
-  out := false;
-  if IsJoint(obj) then
+  if TrussMe:-IsJoint(obj) then
     for i from 1 to 6 do
       if (obj["stiffness"](x)[i] <> infinity) and
          (obj["constrained_dof"][i] = 1) then
-        out := true;
+        return true;
         break;
       end if;
     end do;
   end if;
-
-  PrintEndProc(procname);
-  return out;
+  return false;
 end proc; # IsCompliantJoint
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-CleanJoint := proc(
-  obj::{JOINT}, # Object to be cleaned
-  $)::{nothing};
+export CleanJoint := proc( # REVIEWED
+  obj::JOINT,
+  $)
 
   description "Clean JOINT object <obj> internal variables.";
 
-  PrintStartProc(procname);
   obj["constraint_loads"] := [];
-  PrintEndProc(procname);
 end proc: # CleanJoint
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-MakeRodPoints := proc(
-  name::{string},  # Object name
-  point1::{POINT}, # First point
-  point2::{POINT}, # Second point
-  vec::{VECTOR},   # Vector for XY-plane
+export MakeRodPoints := proc( # REVIEWED
+  rod_name::string,
+  p_1::POINT,
+  p_2::POINT,
+  vec::Vector,
   {
-    area::{algebraic, procedure} := infinity,      # Section area (m^2)
-    material::{MATERIAL}         := MakeMaterial() # Material
-  }, $)::{ROD};
+    area::{algebraic, procedure} := infinity,
+    material::MATERIAL           := TrussMe:-MakeMaterial()
+  }, $)::ROD;
 
-  description "Create a ROD object with inputs: object name <name>, first "
-    "point <point1>, second point <point2>, vector in XY-plane <vec>, optional "
+  description "Create a ROD object with inputs: object name <rod_name>, first "
+    "point <p_1>, second point <p_2>, vector in XY-plane <vec>, optional "
     "section area <area> and material type <material>.";
 
-  local ell, ex, ey, ez, RF, out;
-  PrintStartProc(procname);
+  local ell, e_x, e_y, e_z;
 
-  if (point1 = point2) then
+  if (p_1 = p_2) then
     error "input points are the same";
   end if;
 
   # FIXME: does not work with symbolic vectors
-  # if (Norm2(vec) < 0) then
+  # if (TrussMe:-Norm2(vec) < 0) then
   #   error "input vector is null";
   # end if;
 
-  ell := Norm2(point2 - point1);
-  ex  := (point2 - point1) /~ ell;
-  ey  := convert(LinearAlgebra[CrossProduct](<op(vec)>, <op(ex)>), list);
-  ey  := ey /~ Norm2(ey);
-  ez  := convert(LinearAlgebra[CrossProduct](<op(ex)>, <op(ey)>), list);
-  ez  := ez /~ Norm2(ez);
+  ell := TrussMe:-Norm2(p_2 - p_1);
+  e_x := (p_2 - p_1) /~ ell;
+  e_y := convert(LinearAlgebra:-CrossProduct(<op(vec)>, <op(e_x)>), list);
+  e_y := e_y /~ TrussMe:-Norm2(e_y);
+  e_z := convert(LinearAlgebra:-CrossProduct(<op(e_x)>, <op(e_y)>), list);
+  e_z := e_z /~ TrussMe:-Norm2(e_z);
 
-  RF := <<ex[1],     ex[2],     ex[3],     0>|
-         <ey[1],     ey[2],     ey[3],     0>|
-         <ez[1],     ez[2],     ez[3],     0>|
-         <point1[1], point1[2], point1[3], 1>>;
-
-  out := MakeRod(
-    name, ell, Simplify(RF),
+  return TrussMe:-MakeRod(
+    rod_name,
+    ell,
+    TrussMe:-Simplify(
+      <<e_x[1], e_x[2], e_x[3], 0>|
+       <e_y[1], e_y[2], e_y[3], 0>|
+       <e_z[1], e_z[2], e_z[3], 0>|
+       <p_1[1], p_1[2], p_1[3], 1>>
+    ),
     parse("area")     = area,
     parse("material") = material
     );
-
-  PrintEndProc(procname);
-  return op(out);
 end proc: # MakeRodPoints
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-MakeRod := proc(
-  name::{string},        # Object name
-  ell::{algebraic},      # Length (m)
-  RF::{FRAME} := ground, # Reference frame
+export MakeRod := proc( # REVIEWED
+  rod_name::string,
+  ell::algebraic,
+  RF::FRAME := ground,
   {
-    area::{algebraic, procedure} := infinity,      # Section area (m^2)
-    material::{MATERIAL}         := MakeMaterial() # Material
-  }, $)::{ROD};
+    area::{algebraic, procedure} := infinity,
+    material::MATERIAL           := TrussMe:-MakeMaterial()
+  }, $)::ROD;
 
-  description "Create a ROD object with inputs: object name <name>, reference "
+  description "Create a ROD object with inputs: object name <rod_name>, reference "
     "length <ell>, optional reference frame <RF> in which the rod is defined, "
     "and optional section area <area> and material type <material>.";
 
-  local area_proc, out;
-  PrintStartProc(procname);
+  local area_proc;
 
   if type(area, procedure) then
     area_proc := area;
   else
-    area_proc := (x) -> area;
+    area_proc := x -> area;
   end if;
 
-  out := table({
+  return table({
     "type"                = ROD,
-    "name"                = name,
+    "name"                = rod_name,
     "length"              = ell,
     "area"                = area_proc,
     "material"            = material,
@@ -1816,157 +1611,148 @@ MakeRod := proc(
     "admissible_loads"    = [1, 0, 0, 0, 0, 0],
     "internal_actions"    = [],
     "displacements"       = [],
-    "frame_displacements" = LinearAlgebra[IdentityMatrix](4,4)
+    "frame_displacements" = LinearAlgebra:-IdentityMatrix(4)
     });
-
-  PrintEndProc(procname);
-  return op(out);
 end proc: # MakeRod
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsRod := proc(
-  obj::{anything}, # Object to be checked
-  $)::{boolean};
+export IsRod := proc( # REVIEWED
+  obj::anything,
+  $)::boolean;
 
   description "Check if the object <obj> is a ROD object.";
 
-  PrintStartProc(procname);
-  PrintEndProc(procname);
   return evalb(obj["type"] = ROD);
 end proc: # IsRod
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-CleanRod := proc(
-  obj::{ROD}, # Object to be cleaned
-  $)::{nothing};
+export CleanRod := proc( # REVIEWED
+  obj::ROD,
+  $)
 
   description "Clean ROD object <obj> internal variables.";
 
-  PrintStartProc(procname);
   obj["internal_actions"] := [];
   obj["displacements"]    := [];
-  PrintEndProc(procname);
+  return NULL;
 end proc: # CleanRod
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-MakeBeamPoints := proc(
-  name::{string},  # Object name
-  point1::{POINT}, # First point
-  point2::{POINT}, # Second point
-  vec::{VECTOR},   # Vector for XY-plane (normal vector)
+export MakeBeamPoints := proc( # REVIEWED
+  beam_name::string,
+  p_1::POINT,
+  p_2::POINT,
+  vec::Vector,
   {
-    area::{algebraic, procedure}                   := infinity,       # Section area (m^2)
-    timo_shear_coeff::{list(algebraic), procedure} := [5/6, 5/6],     # Timoshenko shear coefficient
-    material::{MATERIAL}                           := MakeMaterial(), # Material object
-    I_xx::{algebraic, procedure}                   := infinity,       # Section x-axis inertia (m^4)
-    I_yy::{algebraic, procedure}                   := infinity,       # Section y-axis inertia (m^4)
-    I_zz::{algebraic, procedure}                   := infinity        # Section z-axis inertia (m^4)
-  }, $)::{BEAM};
+    area::{algebraic, procedure}                   := infinity,
+    timo_shear_coeff::{list(algebraic), procedure} := [5/6, 5/6],
+    material::MATERIAL                             := TrussMe:-MakeMaterial(),
+    I_xx::{algebraic, procedure}                   := infinity,
+    I_yy::{algebraic, procedure}                   := infinity,
+    I_zz::{algebraic, procedure}                   := infinity
+  }, $)::BEAM;
 
-  description "Create a BEAM object with inputs: object name <name>, first "
-    "point <point1>, second point <point2>, vector in XY-plane <vec>,  optional "
+  description "Create a BEAM object with inputs: object name <beam_name>, first "
+    "point <p_1>, second point <p_2>, vector in XY-plane <vec>, optional "
     "section area <area>, optional Timoshenko shear coefficient <timo_shear_coeff>, "
     "optional material type <material>, optional section x-axis inertia <I_xx>, "
     "optional section y-axis inertia <I_yy> and optional section z-axis inertia "
     "<I_zz>.";
 
-  local ell, ex, ey, ez, RF, out;
-  PrintStartProc(procname);
+  local ell, e_x, e_y, e_z;
 
-  if (point1 = point2) then
-    error "input points are the same";
+  if (p_1 = p_2) then
+    error "input points are the same.";
   end if;
 
   # FIXME: does not work with symbolic vectors
-  # if (Norm2(vec) < 0) then
+  # if (TrussMe:-Norm2(vec) < 0) then
   #   error "input vector is null";
   # end if;
 
-  ell := Norm2(point2 - point1);
-  ex  := (point2 - point1) /~ ell;
-  ey  := convert(LinearAlgebra[CrossProduct](<op(vec)>, <op(ex)>), list);
-  ey  := ey /~ Norm2(ey);
-  ez  := convert(LinearAlgebra[CrossProduct](<op(ex)>, <op(ey)>), list);
-  ez  := ez /~ Norm2(ez);
+  ell := TrussMe:-Norm2(p_2 - p_1);
+  e_x := (p_2 - p_1) /~ ell;
+  e_y := convert(LinearAlgebra:-CrossProduct(<op(vec)>, <op(e_x)>), list);
+  e_y := e_y /~ TrussMe:-Norm2(e_y);
+  e_z := convert(LinearAlgebra:-CrossProduct(<op(e_x)>, <op(e_y)>), list);
+  e_z := e_z /~ TrussMe:-Norm2(e_z);
 
-
-  RF := <<ex[1],     ex[2],     ex[3],     0>|
-         <ey[1],     ey[2],     ey[3],     0>|
-         <ez[1],     ez[2],     ez[3],     0>|
-         <point1[1], point1[2], point1[3], 1>>;
-
-  out := MakeBeam(name, ell, Simplify(RF),
+  return TrussMe:-MakeBeam(
+    beam_name,
+    ell,
+    TrussMe:-Simplify(
+      <<e_x[1], e_x[2], e_x[3], 0>|
+       <e_y[1], e_y[2], e_y[3], 0>|
+       <e_z[1], e_z[2], e_z[3], 0>|
+       <p_1[1], p_1[2], p_1[3], 1>>
+    ),
     parse("area")             = area,
     parse("timo_shear_coeff") = timo_shear_coeff,
     parse("material")         = material,
     parse("I_xx")             = I_xx,
     parse("I_yy")             = I_yy,
     parse("I_zz")             = I_zz
-    );
-
-  PrintEndProc(procname);
-  return op(out);
+  );
 end proc: # MakeBeamPoints
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-MakeBeam := proc(
-  name::{string},        # Object name
-  ell::{algebraic},      # Length (m)
-  RF::{FRAME} := ground, # Reference frame
+export MakeBeam := proc( # REVIEWED
+  beam_name::string,
+  ell::algebraic,
+  RF::FRAME := ground,
   {
-    area::{algebraic, procedure}                   := infinity,       # Section area (m^2)
-    timo_shear_coeff::{list(algebraic), procedure} := [5/6, 5/6],     # Timoshenko shear coefficient
-    material::{MATERIAL}                           := MakeMaterial(), # Material object
-    I_xx::{algebraic, procedure}                   := infinity,       # Section x-axis inertia (m^4)
-    I_yy::{algebraic, procedure}                   := infinity,       # Section y-axis inertia (m^4)
-    I_zz::{algebraic, procedure}                   := infinity        # Section z-axis inertia (m^4)
-  }, $)::{BEAM};
+    area::{algebraic, procedure}                   := infinity,
+    timo_shear_coeff::{list(algebraic), procedure} := [5/6, 5/6],
+    material::MATERIAL                             := TrussMe:-MakeMaterial(),
+    I_xx::{algebraic, procedure}                   := infinity,
+    I_yy::{algebraic, procedure}                   := infinity,
+    I_zz::{algebraic, procedure}                   := infinity
+  }, $)::BEAM;
 
-  description "Create a BEAM object with inputs: object name <name>, reference "
+  description "Create a BEAM object with inputs: object name <beam_name>, reference "
     "length <ell>, optional reference frame <RF> in which the rod is defined, and "
     "optional section area <area> and material type <material> and inertias on "
     "x- <I_xx>, y- <I_yy>, and z-axis <I_zz>.";
 
-  local area_proc, timo_shear_coeff_proc, I_xx_proc, I_yy_proc, I_zz_proc, out;
-  PrintStartProc(procname);
+  local area_proc, timo_shear_coeff_proc, I_xx_proc, I_yy_proc, I_zz_proc;
 
   if type(area, procedure) then
     area_proc := area;
   else
-    area_proc := (x) -> area;
+    area_proc := x -> area;
   end if;
 
   if type(timo_shear_coeff, procedure) then
     timo_shear_coeff_proc := timo_shear_coeff;
   else
-    timo_shear_coeff_proc := (x) -> timo_shear_coeff;
+    timo_shear_coeff_proc := x -> timo_shear_coeff;
   end if;
 
   if type(I_xx, procedure) then
     I_xx_proc := I_xx;
   else
-    I_xx_proc := (x) -> I_xx;
+    I_xx_proc := x -> I_xx;
   end if;
 
   if type(I_yy, procedure) then
     I_yy_proc := I_yy;
   else
-    I_yy_proc := (x) -> I_yy;
+    I_yy_proc := x -> I_yy;
   end if;
 
   if type(I_zz, procedure) then
     I_zz_proc := I_zz;
   else
-    I_zz_proc := (x) -> I_zz;
+    I_zz_proc := x -> I_zz;
   end if;
 
-  out := table({
+  return table({
     "type"                = BEAM,
-    "name"                = name,
+    "name"                = beam_name,
     "length"              = ell,
     "area"                = area_proc,
     "timo_shear_coeff"    = timo_shear_coeff_proc,
@@ -1976,103 +1762,88 @@ MakeBeam := proc(
     "admissible_loads"    = [1, 1, 1, 1, 1, 1],
     "internal_actions"    = [],
     "displacements"       = [],
-    "frame_displacements" = LinearAlgebra[IdentityMatrix](4,4)
+    "frame_displacements" = LinearAlgebra:-IdentityMatrix(4)
     });
-
-  PrintEndProc(procname);
-  return op(out);
 end proc: # MakeBeam
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsBeam := proc(
-  obj::{anything}, # Object to be checked
-  $)::{boolean};
+export IsBeam := proc( # REVIEWED
+  obj::anything,
+  $)::boolean;
 
   description "Check if the object <obj> is a BEAM object.";
 
-  PrintStartProc(procname);
-  PrintEndProc(procname);
   return evalb(obj["type"] = BEAM);
 end proc: # IsBeam
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-CleanBeam := proc(
-  obj::{BEAM}, # Object to be cleaned
-  $)::{nothing};
+export CleanBeam := proc( # REVIEWED
+  obj::BEAM,
+  $)
 
   description "Clean BEAM object <obj> internal variables.";
 
-  PrintStartProc(procname);
   obj["internal_actions"] := [];
   obj["displacements"]    := [];
-  PrintEndProc(procname);
+  return NULL;
 end proc: # CleanBeam
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-MakeRigidBody := proc(
-  name::{string},        # Object name
-  RF::{FRAME} := ground, # Reference frame
+export MakeRigidBody := proc( # REVIEWED
+  body_name::string,
+  RF::FRAME := ground,
   {
-    COM::{list(algebraic)} := [0, 0, 0], # COM position in RF (default: [0, 0, 0])
-    mass::{algebraic}      := 0          # Mass (kg)
+    COM::list(algebraic) := [0, 0, 0],
+    mass::algebraic      := 0
   },
-  $)::{RIGID_BODY};
+  $)::RIGID_BODY;
 
-  description "Create a RIGID_BODY object with inputs: object name <name>, "
+  description "Create a RIGID_BODY object with inputs: object name <body_name>, "
     "reference frame <RF> in which the rigid body is defined, and optional "
     "center of mass position <COM> and mass <mass>.";
 
-  local out;
-  PrintStartProc(procname);
-
-  out := table({
+  return table({
     "type"                = RIGID_BODY,
-    "name"                = name,
+    "name"                = body_name,
     "frame"               = RF,
     "COM"                 = COM,
     "mass"                = mass,
     "admissible_loads"    = [1, 1, 1, 1, 1, 1],
-    "frame_displacements" = LinearAlgebra[IdentityMatrix](4,4)
-    });
-
-  PrintEndProc(procname);
-  return op(out);
+    "frame_displacements" = LinearAlgebra:-IdentityMatrix(4)
+  });
 end proc: # MakeRigidBody
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsRigidBody := proc(
-  obj::{anything}, # Object to be checked
-  $)::{boolean};
+export IsRigidBody := proc( # REVIEWED
+  obj::anything,
+  $)::boolean;
 
   description "Check if the object <obj> is a RIGID_BODY object.";
 
-  PrintStartProc(procname);
-  PrintEndProc(procname);
   return evalb(obj["type"] = RIGID_BODY);
 end proc: # IsRigidBody
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-ComputeSpringDisplacement := proc(
-  spring_load::{algebraic},      # Load on the spring
-  spring_stiffness::{procedure}, # Spring stiffness
-  $)::{algebraic};
+export ComputeSpringDisplacement := proc(
+  spring_load::algebraic,      # Load on the spring
+  spring_stiffness::procedure, # Spring stiffness
+  $)::algebraic;
 
   description "Compute the displacement of a spring give the load <spring_load> "
   "and spring stiffness <stiffness>.";
 
   local x, out, Dx;
-  PrintStartProc(procname);
 
-  # Physics[Assume](spring_load * Dx >= 0);
+  # Physics:-Assume(spring_load * Dx >= 0);
 
   # This works even for negative Dx
-  out := RealDomain[solve](
-    spring_load = Simplify(integrate(spring_stiffness(x), x = 0..Dx)), Dx, useassumptions = true
+  out := RealDomain:-solve(
+    spring_load = TrussMe:-Simplify(integrate(spring_stiffness(x), x = 0..Dx)), Dx, useassumptions = true
     );
 
   ##print("DISP EQ: ", spring_load = Simplify(integrate(spring_stiffness(x), x = 0..Dx)));
@@ -2090,44 +1861,37 @@ ComputeSpringDisplacement := proc(
     out := piecewise(op(map(x -> `if`(type(x, list), op(x), x), convert(out, list))));
   end if;
 
-  PrintEndProc(procname);
   return out;
 end proc: # ComputeSpringDisplacement
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-ComputeSpringEnergy := proc(
-  spring_load::{algebraic},      # Load on the spring
-  spring_stiffness::{procedure}, # Spring stiffness
-  $)::{algebraic};
+export ComputeSpringEnergy := proc( # REVIEWED
+  spring_load::algebraic,
+  spring_stiffness::procedure,
+  $)::algebraic;
 
   description "Compute the potential energy of a spring give the load <spring_load> "
   "and spring stiffness <stiffness>.";
 
-  local disp, x, out;
-  PrintStartProc(procname);
+  local disp;
 
-  disp := ComputeSpringDisplacement(spring_load, spring_stiffness);
-  #DEBUG#print(disp);
-  out  := Simplify(integrate(integrate(spring_stiffness(x), x), x = 0..disp));
-
-  #DEBUG#print("SPRING ENERGY: ", out);
-
-  PrintEndProc(procname);
-  return out;
+  disp := TrussMe:-ComputeSpringDisplacement(spring_load, spring_stiffness);
+  return TrussMe:-Simplify(
+    integrate(integrate(spring_stiffness(x), x), x = 0..disp)
+  );
 end proc: # ComputeSpringEnergy
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-ComputeSupportDisplacements := proc(
-  obj::{SUPPORT}, # Support object
-  $)::{nothing};
+export ComputeSupportDisplacements := proc(
+  obj::SUPPORT, # Support object
+  $)
 
   description "Compute the displacements of the support <obj> from its "
     "support reactions.";
 
   local sup_disp, disp_vec, i, disp, x, sup_reac;
-  PrintStartProc(procname);
 
   sup_disp := [];
   disp_vec := [tx, ty, tz, rx, ry, rz];
@@ -2142,37 +1906,38 @@ ComputeSupportDisplacements := proc(
     end if;
   end do;
 
-  if (verbose_mode > 0) then
+  if (m_VerboseMode > 0) then
     printf(
-      "%*sMessage (in ComputeSupportDisplacements) updating %s %s's displacements...\n",
-      print_indent, "|   ", obj["type"], obj["name"]
-      );
+      "TrussMe:-ComputeSupportDisplacements(...): updating %s %s's displacements... ",
+      obj["type"], obj["name"]
+    );
   end if;
 
   obj["displacements"] := sup_disp;
 
-  if (verbose_mode > 0) then
-    printf("%*sDONE\n", print_indent, "|   ");
+  if (m_VerboseMode > 0) then
+    printf("DONE\n");
   end if;
 
-  PrintEndProc(procname);
+  TrussMe:-   out;
+(procname);
 end proc: # ComputeSupportDisplacements
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-ComputeJointDisplacements := proc(
-  obj::{JOINT},     # Joint object
-  sol::{list, set}, # List of solutions for joint forces
-  $)::{nothing};
+export ComputeJointDisplacements := proc( # REVIEWED
+  obj::JOINT,
+  sol::{list, set},
+  $)
 
-  description "Compute the displacements of the joint <obj>.";
+  description "Compute the displacements of the joint <obj> given the solution "
+    "<sol>.";
 
   local jnt_disp, disp_vec, i, disp, x, jnt_load, f;
-  PrintStartProc(procname);
 
   jnt_disp := [];
   disp_vec := [tx, ty, tz, rx, ry, rz];
-  jnt_load := [0,0,0,0,0,0];
+  jnt_load := [0, 0, 0, 0, 0, 0];
 
   for i from 1 to 6 do
     if (obj["constrained_dof"][i] = 1) then
@@ -2197,46 +1962,43 @@ ComputeJointDisplacements := proc(
     end if;
   end do;
 
-  if (verbose_mode > 0) then
+  if (m_VerboseMode > 0) then
     printf(
-      "%*sMessage (in ComputeJointDisplacements) updating %s %s's displacements...\n",
-      print_indent, "|   ", obj["type"], obj["name"]
-      );
+      "TrussMe:-ComputeJointDisplacements(...): updating %s %s's displacements... ",
+      obj["type"], obj["name"]
+    );
   end if;
 
   obj["displacements"] := jnt_disp;
 
-  if (verbose_mode > 0) then
-    printf("%*sDONE\n", print_indent, "|   ");
+  if (m_VerboseMode > 0) then
+    printf("DONE\n");
   end if;
 
-  PrintEndProc(procname);
+ return NULL;
 end proc: # ComputeJointDisplacements
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-MakeStructure := proc(
-  objs::{ # Structure objects
+export MakeStructure := proc( # REVIEWED
+  objs::{
     list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
     set( {BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
   },
-  exts::{ # External actions
+  exts::{
     list({FORCE, MOMENT, QFORCE, QMOMENT}),
     set( {FORCE, MOMENT, QFORCE, QMOMENT})
   } := [],
   {
     hyper_vars::{list ,set} := [],
-      # Hyperstatic variables
     hyper_disp::{list, set} := [seq(0, 1..nops(hyper_vars))]
-      # Hyperstatic displacements
-  }, $)::{STRUCTURE};
+  }, $)::STRUCTURE;
 
   description "Create a STRUCTURE object with inputs: structure objects <objs>, "
     "external actions <exts>, optional hyperstatic variables <hyper_vars>, "
     "optional hyperstatic displacements <hyper_disp>.";
 
-  local num_dof, names, candidate_hyp_vars, Graph, obj, S_ext, out;
-  PrintStartProc(procname);
+  local num_dof, names, candidate_hyp_vars, Graph, obj, S_ext;
 
   # Check for duplicate names
   names := [];
@@ -2247,13 +2009,13 @@ MakeStructure := proc(
     names := names union [obj["name"]];
   end do;
 
-  num_dof, Graph := ComputeDOF(objs);
+  num_dof, Graph := TrussMe:-ComputeDOF(objs);
 
   if (num_dof < 0) then
-    if (nops(hyper_vars) <> -num_dof) and (not suppress_warnings) then
+    if (nops(hyper_vars) <> -num_dof) and m_WarningMode then
       candidate_hyp_vars := [];
       for obj in objs do
-        if IsSupport(obj) or IsJoint(obj) then
+        if TrussMe:-IsSupport(obj) or TrussMe:-IsJoint(obj) then
           candidate_hyp_vars := candidate_hyp_vars union obj["variables"];
         end if;
       end do;
@@ -2267,13 +2029,15 @@ MakeStructure := proc(
       abs(num_dof), candidate_hyp_vars
       );
     else
-      if (verbose_mode > 0) then
-        printf("%*sMessage (in MakeStructure) "
-          "hyperstatic structure detected with %d overconstrained directions\n",
-          print_indent, "|   ", abs(num_dof));
+      if (m_VerboseMode > 1) then
+        printf(
+          "TrussMe:-MakeStructure(...): hyperstatic structure detected with %d "
+          "overconstrained directions.\n",
+          abs(num_dof)
+        );
       end if;
     end if;
-  elif (num_dof > 0) and (not suppress_warnings) then
+  elif (num_dof > 0) and m_WarningMode then
     #error "not enough constraints in the structure";
     WARNING(
       "the structure is underconstrained with %1 unconstrained directions. "
@@ -2281,33 +2045,34 @@ MakeStructure := proc(
       num_dof
     );
   else
-    if (verbose_mode > 0) then
-      printf("%*sMessage (in MakeStructure) isostatic structure detected\n", print_indent, "|   ");
+    if (m_VerboseMode > 0) then
+      printf("TrussMe:-MakeStructure(...): isostatic structure detected.\n");
     end if;
   end if;
 
   # Add gravity distributed load
   S_ext := exts;
-  if (gravity <> [0, 0, 0]) then
+  if (m_gravity <> [0, 0, 0]) then
     for obj in objs do
-      if IsRod(obj) and (not suppress_warnings) then
-        WARNING("Message (in SolveStructure) gravity load is not supported for rod %1", obj);
-      elif IsBeam(obj) then
-        g_load||(obj["name"]) := MakeQForce(
-          (x -> gravity *~ obj["area"](x) *~ obj["material"]["density"]),
+      if TrussMe:-IsRod(obj) and m_WarningMode then
+        WARNING("TrussMe:-SolveStructure(...): gravity load is not supported for "
+          "'ROD' type object %1", obj);
+      elif TrussMe:-IsBeam(obj) then
+        g_load||(obj["name"]) := TrussMe:-MakeQForce(
+          (x -> m_gravity *~ obj["area"](x) *~ obj["material"]["density"]),
           obj,ground
           );
         S_ext := S_ext union {g_load||(obj["name"])};
-      elif IsRigidBody(obj) then
-        g_load||(obj["name"]) := MakeForce(
-          gravity *~ obj["mass"], obj["COM"], obj, ground
+      elif TrussMe:-IsRigidBody(obj) then
+        g_load||(obj["name"]) := TrussMe:-MakeForce(
+          m_gravity *~ obj["mass"], obj["COM"], obj, ground
           );
         S_ext := S_ext union {g_load||(obj["name"])};
       end if;
     end do;
   end if;
 
-  out := table({
+  return table({
     "type"                       = STRUCTURE,
     "objects"                    = objs,
     "external_actions"           = S_ext,
@@ -2325,34 +2090,28 @@ MakeStructure := proc(
     "potential_energy_solved"    = false,
     "frame_displacements_solved" = false
     });
-
-  PrintEndProc(procname);
-  return out;
 end proc: # MakeStructure
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsStructure := proc(
-  obj::{anything}, # Object to be checked
-  $)::{boolean};
+export IsStructure := proc( # REVIEWED
+  obj::anything,
+  $)::boolean;
 
   description "Check if the object <obj> is a STRUCTURE object.";
 
-  PrintStartProc(procname);
-  PrintEndProc(procname);
-  return evalb(obj["type"] = STRUCTURE);
+  return type(obj, table) and evalb(obj["type"] = STRUCTURE); # FIXME adapt also for other types
 end proc: # IsStructure
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-CleanStructure := proc(
-  obj::{STRUCTURE}, # Object to be cleaned
-  $)::{nothing};
+export CleanStructure := proc( # REVIEWED
+  obj::STRUCTURE,
+  $)
 
   description "Clean STRUCTURE object <obj> internal variables.";
 
   local i;
-  PrintStartProc(procname);
 
   # Clean internal variables
   obj["equations"]                  := [];
@@ -2367,165 +2126,156 @@ CleanStructure := proc(
 
   # Clean objects
   for i from 1 to nops(obj["objects"]) do
-    if IsBeam(obj[i]) then
-      obj["objects"][i] := CleanBeam(i);
-    elif IsRod(obj[i]) then
-      obj["objects"][i] := CleanRod(i);
-    elif IsSupport(obj[i]) then
-      obj["objects"][i] := CleanSupport(i);
+    if TrussMe:-IsBeam(obj[i]) then
+      obj["objects"][i] := TrussMe:-CleanBeam(i);
+    elif TrussMe:-IsRod(obj[i]) then
+      obj["objects"][i] := TrussMe:-CleanRod(i);
+    elif TrussMe:-IsSupport(obj[i]) then
+      obj["objects"][i] := TrussMe:-CleanSupport(i);
     elif IsJoint(obj[i]) then
-      obj["objects"][i] := CleanJoint(i);
+      obj["objects"][i] := TrussMe:-CleanJoint(i);
     end if;
   end do;
-
-  PrintEndProc(procname);
+  return NULL;
 end proc: # CleanStructure
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-ComputeDOF := proc(
-  objs::{ # Structure objects
+export ComputeDOF := proc( # REVIEWED
+  objs::{
     list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
     set( {BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
-  }, $)::integer ::function;
+  }, $)::integer, function;
 
   description "Compute the degree of freedom of the input structure objects "
     "<objs>.";
 
   local dof, objs_tmp, obj, i, j, k, vertex, colors, G;
-  PrintStartProc(procname);
 
   dof      := 0;
-  objs_tmp := objs union [earth];
+  objs_tmp := objs union [m_earth];
 
   # Built connections graph
   vertex := [];
   colors := [];
-  if (verbose_mode > 0) then
-    printf("%*sMessage (in ComputeDOF) checking structure connections...\n", print_indent, "|   ");
+  if (m_VerboseMode > 0) then
+    printf("TrussMe:-ComputeDOF(...): checking structure connections... ");
   end if;
   for i from 1 to nops(objs_tmp) do
     vertex := vertex union [objs_tmp[i]["name"]];
     colors := colors union [ObjectColor(objs_tmp[i])];
   end do;
-  G := GraphTheory[Graph](vertex);
-  GraphTheory[HighlightVertex](G, vertex, colors);
+  G := GraphTheory:-Graph(vertex);
+  GraphTheory:-HighlightVertex(G, vertex, colors);
   for i from 1 to nops(objs_tmp) do
-    if IsSupport(objs_tmp[i]) or IsJoint(objs_tmp[i]) then
+    if TrussMe:-IsSupport(objs_tmp[i]) or TrussMe:-IsJoint(objs_tmp[i]) then
       for j from 1 to nops(objs_tmp) do
         if (member(objs_tmp[j]["name"], objs_tmp[i]["targets"])) then
-          GraphTheory[AddEdge](G, {objs_tmp[i]["name"], objs_tmp[j]["name"]});
+          GraphTheory:-AddEdge(G, {objs_tmp[i]["name"], objs_tmp[j]["name"]});
         end if;
       end do;
     end if;
   end do;
 
-  if (verbose_mode > 0) then
-    printf("%*sDONE\n", print_indent, "|   ");
-    printf("%*sMessage (in ComputeDOF) display connections graph...\n", print_indent, "|   ");
-    if (verbose_mode > 1) then
-      print(GraphTheory[DrawGraph](G), layout = tree);
+  if (m_VerboseMode > 0) then
+    printf("DONE\n");
+    printf("TrussMe:-ComputeDOF(...): displaying connections graph... ");
+    if (m_VerboseMode > 1) then
+      print(GraphTheory:-DrawGraph(G), layout = tree);
     end if;
   end if;
 
   # Check graph connections
-  if GraphTheory[IsConnected](G) then
-    if (verbose_mode > 0) then
-      printf("%*sDONE\n", print_indent, "|   ");
+  if GraphTheory:-IsConnected(G) then
+    if (m_VerboseMode > 0) then
+      printf("DONE\n");
     end if;
   else
-    print(GraphTheory[DrawGraph](G), layout = tree);
+    print(GraphTheory:-DrawGraph(G), layout = tree);
     WARNING("unconnected elements detected in the structure");
   end if;
 
-  if (verbose_mode > 0) then
-    printf("%*sMessage (in ComputeDOF) computing degrees of freedom...\n", print_indent, "|   ");
+  if (m_VerboseMode > 0) then
+    printf("TrussMe:-ComputeDOF(...): computing degrees of freedom... ");
   end if;
 
   for obj in objs_tmp do
-    if IsBeam(obj) then
+    if TrussMe:-IsBeam(obj) then
       dof := dof + 6;
-    elif IsRigidBody(obj) then
+    elif TrussMe:-IsRigidBody(obj) then
       dof := dof + 6;
-    elif IsRod(obj) then
+    elif TrussMe:-IsRod(obj) then
       dof := dof + 5;
-    elif IsJoint(obj) then
-      dof := dof - add(obj["constrained_dof"][k], k = 1..6) * (nops(obj["targets"]) - 1);
-    elif IsSupport(obj) then
-      dof := dof - add(obj["constrained_dof"][k], k = 1..6) * (nops(obj["targets"]) - 1);
+    elif TrussMe:-IsJoint(obj) then
+      dof := dof - add(
+        obj["constrained_dof"][k], k = 1..6) * (nops(obj["targets"]) - 1
+      );
+    elif TrussMe:-IsSupport(obj) then
+      dof := dof - add(
+        obj["constrained_dof"][k], k = 1..6) * (nops(obj["targets"]) - 1
+      );
     end if;
   end do;
 
-  if (verbose_mode > 0) then
-    printf("%*sDONE - DOF = %d\n", print_indent, "|   ", dof);
+  if (m_VerboseMode > 0) then
+    printf("DONE (DOF = %d)\n", dof);
   end if;
 
-  PrintEndProc(procname);
-  if _nresults = 2 then
-    return dof, G;
-  else
-    return dof;
-  end
+  return dof, G;
 end proc: # ComputeDOF
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-DrawStructureGraph := proc(
-  obj::{STRUCTURE}, # Object to be cleaned
-  $)::{procedure};
+export DrawStructureGraph := proc( # REVIEWED
+  obj::STRUCTURE,
+  $)::function;
 
   description "Draw the connections graph of the STRUCTURE object <obj>.";
 
-  local  out;
-  PrintStartProc(procname);
-
-  out := plots[display](
-    GraphTheory[DrawGraph](obj["connections_graph"], layout = tree),
-    title = "Structure connections graph");
-
-  PrintEndProc(procname);
-  return out;
+  return plots:-display(
+    GraphTheory:-DrawGraph(obj["connections_graph"], layout = tree),
+    title = "Structure connections graph"
+  );
 end proc: # DrawStructureGraph
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-DrawStructureSparseMatrix := proc(
-  obj::{STRUCTURE}, # Object to be cleaned
+export DrawStructureSparseMatrix := proc( # REVIEWED
+  obj::STRUCTURE,
   {
-    GaussianElimination::{boolean} := false # Apply Gaussian elimination
+    gauss_elimin::boolean := false
   },
-  $)::{procedure};
+  $)::procedure;
 
   description "Draw the sparse matrix for the equation system of STRUCTURE "
-    "object <obj>.";
+    "object <obj> and optionally apply Gaussian elimination to the matrix with "
+    "the option <gauss_elimin>.";
 
-  local  out, A, b;
-  PrintStartProc(procname);
+  local A, B;
 
-  A,b := LinearAlgebra[GenerateMatrix](obj["equations"], obj["variables"]);
-  if (GaussianElimination) then
-    A := LinearAlgebra["GaussianElimination"](A);
+  A, B := LinearAlgebra:-GenerateMatrix(obj["equations"], obj["variables"]);
+  if gauss_elimin then
+    A := LinearAlgebra:-GaussianElimination(A);
   end if;
-  out := plots[display](
-    plots[sparsematrixplot](A,matrixview),
-    title = "Structure sparse matrix");
 
-  PrintEndProc(procname);
-  return out;
+  return plots:-display(
+    plot:-sparsematrixplot(A, matrixview),
+    title = "Structure sparse matrix"
+  );
 end proc: # DrawStructureSparseMatrix
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-NewtonEuler := proc(
-  exts::{ # External actions
+export NewtonEuler := proc( # REVIEWED
+  exts::{
     list({FORCE, MOMENT, QFORCE, QMOMENT}),
-    set( {FORCE, MOMENT, QFORCE, QMOMENT})
+    set({FORCE, MOMENT, QFORCE, QMOMENT})
   },
-  obj::{BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}, # Object to compute the equilibrium
+  obj::{BEAM, ROD, RIGID_BODY, SUPPORT, JOINT},
   {
-    pole::{POINT} := [0, 0, 0],             # Pole to compute the equilibrium
-    upper_lim::{algebraic} := obj["length"] # Upper limit of the integration
-  }, $)::{list};
+    pole::POINT := [0, 0, 0],
+    upper_lim::algebraic := obj["length"]
+  }, $)::list;
 
   description "Compute the Newton-Euler static equilibrium equations given a set "
     "of external actions <exts>, and object to compute the equilibrium <obj>, "
@@ -2533,66 +2283,68 @@ NewtonEuler := proc(
     "integration <upper_lim>.";
 
   local eq_T, eq_R, i, x, arm, out;
-  PrintStartProc(procname);
 
   eq_T := [0, 0, 0];
   for i from 1 to nops(exts) do
     if exts[i]["target"] = obj["name"] then
-      if IsForce(exts[i]) then
+      if TrussMe:-IsForce(exts[i]) then
         eq_T := eq_T + exts[i]["components"];
-      elif IsQForce(exts[i]) then
-        eq_T := eq_T + map(
+      elif TrussMe:-IsQForce(exts[i]) then
+        eq_T := eq_T + convert(map(
           integrate, exts[i]["components"](x), x = 0..upper_lim
-          );
+        ), list);
       end if;
-    elif (not suppress_warnings) then
-      WARNING("Message (in NewtonEuler) %1 is not applied to %2", exts[i], obj);
+    elif m_WarningMode then
+      WARNING(
+        "TrussMe:-NewtonEuler(...): %1 is not applied to %2.",
+        exts[i], obj
+      );
     end if;
   end do;
 
   eq_R := [0, 0, 0];
   for i from 1 to nops(exts) do
     if (exts[i]["target"] = obj["name"]) then
-      if IsMoment(exts[i]) then
+      if TrussMe:-IsMoment(exts[i]) then
         eq_R := eq_R + exts[i]["components"];
-      elif IsForce(exts[i]) then
-          arm := <op(pole - exts[i]["coordinate"])>;
-        eq_R := eq_R +
-          convert(LinearAlgebra[CrossProduct](<op(exts[i]["components"])>, arm), list);
-      elif IsQForce(exts[i]) then
+      elif TrussMe:-IsForce(exts[i]) then
+        arm := <op(pole - exts[i]["coordinate"])>;
+        eq_R := eq_R + convert(LinearAlgebra:-CrossProduct(
+          <op(exts[i]["components"])>, arm
+        ), list);
+      elif TrussMe:-IsQForce(exts[i]) then
         arm := <op(pole - [x, 0, 0])>;
-        eq_R := eq_R + map(integrate,
-          convert(LinearAlgebra[CrossProduct](<op(exts[i]["components"](x))>, arm), list),
-          x = 0..upper_lim);
-      elif IsQMoment(FMQ[i]) then
-        eq_R := eq_R + map(integrate,
-          exts[i]["components"](x), x = 0..upper_lim);
+        eq_R := eq_R + map(integrate, convert(LinearAlgebra:-CrossProduct(
+          <op(exts[i]["components"])(x)>, arm
+        ), list), x = 0..upper_lim);
+      elif TrussMe:-IsQMoment(FMQ[i]) then
+        eq_R := eq_R + map(integrate, exts[i]["components"](x), x = 0..upper_lim);
       end if;
-    elif (not suppress_warnings) then
-      WARNING("Message (in NewtonEuler) %1 is not applied to %2", exts[i], obj);
+    elif m_WarningMode then
+      WARNING(
+        "TrussMe:-NewtonEuler(...): %1 is not applied to %2.",
+        exts[i], obj
+      );
     end if;
   end do;
 
-  out := eq_T union eq_R;
-
-  PrintEndProc(procname);
-  return out;
+  return eq_T union eq_R;
 end proc: # NewtonEuler
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-SolveStructure := proc(
-  struct::{STRUCTURE}, # Structure object
+export SolveStructure := proc(
+  struct::STRUCTURE, # Structure object
   {
-    compute_internal_actions::{boolean}    := false, # Internal actions computation flag
-    compute_displacements::{boolean}       := false, # Displacement computation flag
-    compute_potential_energy::{boolean}    := false, # Potential energy computation flag
-    compute_frame_displacements::{boolean} := false, # Frame displacements computation flag
-    timoshenko_beam::{boolean}             := false, # Timoshenko beam flag
-    implicit::{boolean}                    := false, # Implicit solution flag
-    unveil_results::{boolean}              := true,  # Unveil results flag
+    compute_internal_actions::boolean    := false, # Internal actions computation flag
+    compute_displacements::boolean       := false, # Displacement computation flag
+    compute_potential_energy::boolean    := false, # Potential energy computation flag
+    compute_frame_displacements::boolean := false, # Frame displacements computation flag
+    timoshenko_beam::boolean             := false, # Timoshenko beam flag
+    implicit::boolean                    := false, # Implicit solution flag
+    unveil_results::boolean              := true,  # Unveil results flag
     dummy_vars::{list, set}                := []     # Dummy variables
-  }, $)::{STRUCTURE};
+  }, $)::STRUCTURE;
 
   description "Solve the static equilibrium of a structure with inputs: "
     "structure <struct>, optional compute internal action enabling flag "
@@ -2603,14 +2355,13 @@ SolveStructure := proc(
 
   local g_load, S_obj, S_rigid, S_ext, S_support, S_joint, S_con_forces, vars,
     sol, obj, x, str_eq, str_vars, P_energy, veiling_idx, veils, i;
-  PrintStartProc(procname);
 
   # Clean structure
-  CleanStructure(struct);
+  TrussMe:-CleanStructure(struct);
 
   # Set veiling_label
-  veiling_idx := 1;
-  veiling_label := cat('_V', veiling_idx);
+  # FIXME veiling_idx := 1;
+  # FIXME veiling_label := cat('_V', veiling_idx);
 
   # Parsing inputs
   S_obj        := {};
@@ -2621,15 +2372,15 @@ SolveStructure := proc(
   S_con_forces := {};
   vars         := [];
   for obj in struct["objects"] do
-    if IsBeam(obj) or IsRod(obj) then
+    if TrussMe:-IsBeam(obj) or TrussMe:-IsRod(obj) then
       S_obj := S_obj union {eval(obj)};
-    elif IsRigidBody(obj) then
+    elif TrussMe:-IsRigidBody(obj) then
       S_rigid := S_rigid union {eval(obj)};
-    elif IsSupport(obj) then
+    elif TrussMe:-IsSupport(obj) then
       S_support    := S_support union {eval(obj)};
       S_con_forces := S_con_forces union obj["forces"] union obj["moments"];
       vars         := vars union obj["variables"];
-    elif IsJoint(obj) then
+    elif TrussMe:-IsJoint(obj) then
       S_joint      := S_joint union {eval(obj)};
       S_con_forces := S_con_forces union obj["forces"] union obj["moments"];
       vars         := vars union obj["variables"];
@@ -2639,22 +2390,22 @@ SolveStructure := proc(
 
   S_ext := struct["external_actions"];
 
-  # Set module local variable keep_veiled
-  keep_veiled := not unveil_results;
+  # Set module local variable m_KeepVeiled
+  m_KeepVeiled := not unveil_results;
 
   # Solve isostatic structure
   if (struct["dof"] >= 0) then
 
-    if struct["dof"] > 0 and (not suppress_warnings) then
-      WARNING("Message (in SolveStructure) structure is underconstrained. "
+    if struct["dof"] > 0 and m_WarningMode then
+      WARNING("TrussMe:-SolveStructure(...): structure is underconstrained. "
         "Trying to solve it anyway. Results computation may fail due to rigid "
         "body motions.");
     end if;
 
-    if (verbose_mode > 0) then
-      printf("%*sMessage (in SolveStructure) solving the isostatic structure...\n", print_indent, "|   ");
+    if (m_VerboseMode > 0) then
+      printf("TrussMe:-SolveStructure(...): solving the isostatic structure... ");
     end if;
-    sol, str_eq, str_vars := IsostaticSolver(
+    sol, str_eq, str_vars := TrussMe:-IsostaticSolver(
       S_obj union S_rigid union S_joint union S_support,
       S_ext union S_con_forces,
       vars,
@@ -2663,10 +2414,10 @@ SolveStructure := proc(
     # Update Structure equations and variables
     struct["equations"] := str_eq;
     struct["variables"] := str_vars;
-    if (verbose_mode > 0) then
-      printf("%*sDONE\n", print_indent, "|   ");
-      if (verbose_mode > 1) then
-        printf("%*sMessage (in SolveStructure) updating support reactions fields...\n", print_indent, "|   ");
+    if (m_VerboseMode > 0) then
+      printf("DONE\n");
+      if (m_VerboseMode > 1) then
+        printf("TrussMe:-SolveStructure(...): updating support reactions fields... ");
       end if;
     end if;
     # Update support reactions properties
@@ -2676,8 +2427,8 @@ SolveStructure := proc(
         i = 1..nops(obj["support_reactions"]))
       ];
     end do;
-    if (verbose_mode > 0) then
-      printf("%*sDONE\n", print_indent, "|   ");
+    if (m_VerboseMode > 0) then
+      printf("DONE\n");
     end if;
 
   # Solve hyperstatic structure
@@ -2687,8 +2438,8 @@ SolveStructure := proc(
       error "mismatch in the structure degrees of freedom, check the hyper"
         "static variables of the structure and update the structure object";
     end if;
-    if (verbose_mode > 0) then
-      printf("%*sMessage (in SolveStructure) solving the hyperstatic structure\n", print_indent, "|   ");
+    if (m_VerboseMode > 0) then
+      printf("TrussMe:-SolveStructure(...): solving the hyperstatic structure... ");
     end if;
     sol, str_eq, str_vars, P_energy := HyperstaticSolver(
       S_obj union S_rigid union S_joint union S_support,
@@ -2699,10 +2450,10 @@ SolveStructure := proc(
       parse("timoshenko_beam") = timoshenko_beam,
       parse("implicit")        = implicit
       );
-    if (verbose_mode > 0) then
-      printf("%*sDONE\n", print_indent, "|   ");
-      if (verbose_mode > 1) then
-        printf("%*sMessage (in SolveStructure) hyperstatic solver solution:\n", print_indent, "|   ");
+    if (m_VerboseMode > 0) then
+      printf("DONE\n");
+      if (m_VerboseMode > 1) then
+        printf("TrussMe:-SolveStructure(...): hyperstatic solver solution:\n");
         print(<sol>);
       end if;
     end if;
@@ -2720,22 +2471,22 @@ SolveStructure := proc(
     # Set internal actions computed flag
     struct["internal_actions_solved"] := true;
     # Update support reactions properties
-    if (verbose_mode > 0) then
-      printf("%*sMessage (in SolveStructure) updating support reactions fields...\n", print_indent, "|   ");
+    if (m_VerboseMode > 0) then
+      printf("TrussMe:-SolveStructure(...): updating support reactions fields... ");
     end if;
     for obj in S_support do
     obj["support_reactions"] := Subs(sol, obj["support_reactions"]);
     end do;
-    if (verbose_mode > 0) then
-      printf("%*sDONE\n", print_indent, "|   ");
+    if (m_VerboseMode > 0) then
+      printf("DONE\n");
     end if;
   end if;
 
   # Add veils
-  if keep_veiled and type(sol[-1], list) then
+  if m_KeepVeiled and type(sol[-1], list) then
     struct["veils"] := struct["veils"] union sol[-1];
-    veiling_idx     := veiling_idx + 1;
-    veiling_label   := cat('_V', veiling_idx);
+    # FIXME veiling_idx     := veiling_idx + 1;
+    # FIXME veiling_label   := cat('_V', veiling_idx);
   end if;
 
   # Set support reactions solved flag
@@ -2782,34 +2533,33 @@ SolveStructure := proc(
     struct["frame_displacements_solved"] := true;
 
     # Add veils
-    if keep_veiled then
+    if m_KeepVeiled then
       struct["veils"] := struct["veils"] union veils;
-      veiling_idx     := veiling_idx + 1;
-      veiling_label   := cat('_V', veiling_idx);
+      # FIXME veiling_idx     := veiling_idx + 1;
+      # FIXME veiling_label   := cat('_V', veiling_idx);
     end if;
   end if;
 
-  PrintEndProc(procname);
   return struct;
 end proc: # SolveStructure
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-HyperstaticSolver := proc(
-  objs::{ # Structural objects
+export HyperstaticSolver := proc( # REVIEWED
+  objs::{
     list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
-    set( {BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
+    set({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
   },
-  exts::{ # External actions
+  exts::{
     list({FORCE, MOMENT, QFORCE, QMOMENT}),
-    set( {FORCE, MOMENT, QFORCE, QMOMENT})
+    set({FORCE, MOMENT, QFORCE, QMOMENT})
   },
-  vars::{list},       # Variables
-  hyper_vars::{list}, # Hyperstatic variables
-  hyper_disp::{list}, # Hyperstatic displacements
+  vars::list,
+  hyper_vars::list,
+  hyper_disp::list,
   {
-    timoshenko_beam::{boolean} := false, # Timoshenko beam flag
-    implicit::{boolean}        := false  # Implicit flag
+    timoshenko_beam::boolean := false,
+    implicit::boolean        := false
   }, $)
 
   description "Solve hyperstatic structure with inputs objects <objs>, external "
@@ -2817,13 +2567,12 @@ HyperstaticSolver := proc(
     "hyperstatic displacements <hyper_disp> and optional Timoshenko beam flag "
     "<timoshenko_beam>.";
 
-  local hyper_eq, hyper_load, hyper_comps, hyper_compliant_disp, hyper_support,
-    i, obj, iso_vars, iso_sol, iso_eq, hyper_sol, P_energy, S_objs, E_objs, sol;
-  PrintStartProc(procname);
+  local hyper_eq, i, obj, iso_vars, iso_sol, iso_eq, hyper_sol, P_energy,
+    S_objs, E_objs, sol;
 
   # Parse input objects and find objects with internal actions property
   S_objs := [seq(
-    `if`(IsBeam(objs[i]) or IsRod(objs[i]), objs[i], NULL),
+    `if`(TrussMe:-IsBeam(objs[i]) or TrussMe:-IsRod(objs[i]), objs[i], NULL),
     i = 1..nops(objs))
     ];
 
@@ -2831,64 +2580,66 @@ HyperstaticSolver := proc(
   iso_vars := [seq(
     `if`(member(vars[i], hyper_vars), NULL, vars[i]),
     i = 1..nops(vars))
-    ];
-  iso_sol, iso_eq, iso_vars := IsostaticSolver(objs, exts, iso_vars, parse("implicit") = implicit);
+  ];
+  iso_sol, iso_eq, iso_vars := TrussMe:-IsostaticSolver(
+    objs, exts, iso_vars, parse("implicit") = implicit
+  );
 
   # Compute internal actions
   ComputeInternalActions(S_objs, exts, iso_sol);
 
   # Extract the deformable objects
   E_objs := [seq(
-    `if`(not IsRigidBody(objs[i]), objs[i], NULL),
+    `if`(not TrussMe:-IsRigidBody(objs[i]), objs[i], NULL),
     i = 1..nops(objs))
-    ];
+  ];
 
   # Compute structure internal energy
-  P_energy := ComputePotentialEnergy(
+  P_energy := TrussMe:-ComputePotentialEnergy(
     E_objs, iso_sol,
     parse("timoshenko_beam") = timoshenko_beam
   );
   P_energy := Simplify[60](P_energy);
-  #DEBUG#print("ENERGY", P_energy);
 
   # Compute the hyperstatic equation
-  if keep_veiled and type(iso_sol[-1], list) then
-    hyper_eq := Diff~(P_energy, hyper_vars, parse("veils") = iso_sol[-1]) =~ hyper_disp;
+  if m_KeepVeiled and type(iso_sol[-1], list) then
+    hyper_eq := TrussMe:-Diff~(
+      P_energy, hyper_vars, parse("veils") = iso_sol[-1]
+    ) =~ hyper_disp;
   else
     hyper_eq := diff~(P_energy, hyper_vars) =~ hyper_disp;
   end if;
 
-  # Substitute Float(undefined) with 0 in the derivative of the potential energy (this comes in case of non derivable piecewise functions in the compliant joint stiffness)
+  # Substitute Float(undefined) with 0 in the derivative of the potential energy
+  # (this comes in case of non derivable piecewise functions in the compliant
+  # joint stiffness)
   # FIXME: this is a temporary fix
-  hyper_eq := Simplify(eval(hyper_eq, Float(undefined) = 0));
+  hyper_eq := TrussMe:-Simplify(eval(hyper_eq, Float(undefined) = 0));
 
   # Check for implicit solution flag
   if (implicit) then
     hyper_sol := iso_sol;
   else
-    if (verbose_mode > 1) then
-      printf("%*sMessage (in HyperstaticSolver) solving the hyperstatic variables...\n", print_indent, "|   ");
+    if (m_VerboseMode > 1) then
+      printf("TrussMe:-HyperstaticSolver(...): solving the hyperstatic variables... ");
     end if;
     # Solve hyperstatic equations
-    #DEBUG#print("HYPER_EQ",hyper_eq);
-    #DEBUG#print("HYPER_VARS",hyper_vars);
-    hyper_sol := op(RealDomain[solve](hyper_eq, hyper_vars));
-    #hyper_sol := op(SolveTools:-Engine({op(hyper_eq)}, {op(hyper_vars)}, explicit)): #FIXME: if used must be adapted for non list equations (single equation)
+    hyper_sol := op(RealDomain:-solve(hyper_eq, hyper_vars));
+    # hyper_sol := op(SolveTools:-Engine({op(hyper_eq)}, {op(hyper_vars)}, explicit));
+    # FIXME: if used must be adapted for non list equations (single equation)
     if (hyper_sol = NULL) then
-      error "HyperstaticSolver: hyperstatic solution not found";
+      error "hyperstatic solution not found.";
     end if;
-    #DEBUG#print("HYPER SOL", hyper_sol);
 
     # Substitute hyper_sol in P_energy
     P_energy := subs(hyper_sol, P_energy);
 
-    if (verbose_mode > 1) then
-      printf("%*sDONE\n", print_indent, "|   ");
+    if (m_VerboseMode > 1) then
+      printf("DONE\n");
     end if;
     sol := hyper_sol union subs(hyper_sol, iso_sol);
   end if;
 
-  PrintEndProc(procname);
   if (_nresults = 4) then
     return sol, iso_eq union hyper_eq, iso_vars union hyper_vars, P_energy;
   else
@@ -2896,30 +2647,29 @@ HyperstaticSolver := proc(
   end
 end proc: # HyperstaticSolver
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-ComputePotentialEnergy := proc(
-  objs::{ # Structure objects
+export ComputePotentialEnergy := proc(
+  objs::{
     list({BEAM, ROD, SUPPORT, JOINT}),
-    set( {BEAM, ROD, SUPPORT, JOINT})
+    set({BEAM, ROD, SUPPORT, JOINT})
   },
-  sol::{list, set} := [], # Substitutions
+  sol::{list, set} := [],
   {
-    timoshenko_beam::{boolean} := false, # Timoshenko beam flag
-    dummy_vars::{list, set}    := []     # Dummy variables
+    timoshenko_beam::boolean := false,
+    dummy_vars::{list, set}  := []
   }, $)
 
   description "Compute the internal potential energy of the structure given the "
     "objects <objs> and optional Timoshenko beam flag <timoshenko_beam>.";
 
   local dummy_vars_subs, obj, P, x, f, FJX, FJY, FJZ, MJX, MJY, MJZ, i;
-  PrintStartProc(procname);
 
   dummy_vars_subs := dummy_vars =~ [seq(0, i = 1..nops(dummy_vars))];
 
   P := 0;
   for obj in objs do
-    if IsBeam(obj) or IsRod(obj) then
+    if TrussMe:-IsBeam(obj) or TrussMe:-IsRod(obj) then
       # Normal action N contribution
       if (member(N, map(lhs, obj["internal_actions"]))) and
           (subs(obj["internal_actions"](x), N(x)) <> 0) then
@@ -3094,25 +2844,23 @@ ComputePotentialEnergy := proc(
       end if;
     end if;
   end do;
-
-  PrintEndProc(procname);
   return P;
 end proc: # PotentialEnergy
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsostaticSolver := proc(
-  objs::{ # Structural objects
+export IsostaticSolver := proc(
+  objs::{
     list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
-    set( {BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
+    set({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
   },
-  exts::{ # External actions
+  exts::{
     list({FORCE, MOMENT, QFORCE, QMOMENT}),
-    set( {FORCE, MOMENT, QFORCE, QMOMENT})
+    set({FORCE, MOMENT, QFORCE, QMOMENT})
   },
-  vars::{list}, # Variables to solve
+  vars::list,
   {
-    implicit::{boolean} := false  # Implicit solution
+    implicit::boolean := false
   },
   $)
 
@@ -3120,13 +2868,13 @@ IsostaticSolver := proc(
     "the structure objects <objs>, the external actions <exts> and the variables "
     "<vars> to solve.";
 
-  local iso_eq, iso_eq_tmp, exts_comps, x, i, j, active_ext, iso_sol, A, B, rank_eq, iso_vars, PivotStrategy;
-  PrintStartProc(procname);
+  local iso_eq, iso_eq_tmp, exts_comps, x, i, j, active_ext, iso_sol, A, B,
+    iso_vars;
 
   # Compute structure equations
-  if (verbose_mode > 1) then
-    printf("%*sMessage (in IsostaticSolver) computing the equilibrium equation for "
-      "the isostatic structure...\n", print_indent, "|   ");
+  if (m_VerboseMode > 1) then
+    printf("TrussMe:-IsostaticSolver(...): computing the equilibrium equation "
+      "for the isostatic structure...\n");
   end if;
   iso_eq := [];
   for i from 1 to nops(objs) do
@@ -3136,49 +2884,46 @@ IsostaticSolver := proc(
         active_ext := active_ext union {exts[j]};
       end if;
     end do;
-    iso_eq := iso_eq union NewtonEuler(active_ext, objs[i]);
+    iso_eq := iso_eq union TrussMe:-NewtonEuler(active_ext, objs[i]);
     # Add joints and supports constraint equations
-    if IsSupport(objs[i]) or IsJoint(objs[i]) then
+    if TrussMe:-IsSupport(objs[i]) or TrussMe:-IsJoint(objs[i]) then
       iso_eq := iso_eq union objs[i]["constraint_loads"];
     end if;
   end do;
 
   # Remove NULL equations
-  iso_eq := remove(x -> x = 0, Simplify(iso_eq));
+  iso_eq := remove(x -> x = 0, TrussMe:-Simplify(iso_eq));
 
   # Remove equation related to rigid body motions
   # FIXME: for qloads should be different (this check can be skipped)
   iso_eq_tmp := iso_eq;
-  exts_comps := map(x -> op(x["components"]), GetObjsByType({FORCE, MOMENT}, exts));
+  exts_comps := map(x -> op(x["components"]), TrussMe:-GetObjsByType({FORCE, MOMENT}, exts));
   #iso_eq := remove(x -> (member(0., (abs~(exts_comps) -~ abs(x)) *~ 1.) and (not member(0., (abs~(vars) -~ abs(x)) *~ 1.))), iso_eq_tmp);
   iso_eq := remove(x -> (member(0., (abs~(exts_comps) -~ abs(x)) *~ 1.) and (not has(vars, indets(x)))), iso_eq_tmp);
-  if (not suppress_warnings) then
+  if m_WarningMode then
     if (nops(iso_eq_tmp) <> nops(iso_eq)) then
-      WARNING("Message (in IsostaticSolver) the following list of equations were "
-        "removed because they are related to rigid body motions:\n%1",
+      WARNING("TrussMe:-IsostaticSolver(...): the following list of equations "
+        "were removed because they are related to rigid body motions:\n%1",
         convert(iso_eq_tmp *~ 1., set) minus convert(iso_eq *~ 1., set));
     end if;
   end if;
 
   # Remove non used variables
-  iso_vars := remove(x -> (not has(iso_eq, x)), vars);
-  if (not suppress_warnings) then
+  iso_vars := remove(x -> not has(iso_eq, x), vars);
+  if m_WarningMode then
     if nops(iso_vars) <> nops(vars) then
-      WARNING(
-        "Message (in IsostaticSolver) the following list of variables were removed "
-        "because they are not used in the structure equilibrium equations:\n%1",
-        convert(vars, set) minus convert(iso_vars, set));
-    end
+      WARNING("TrussMe:-IsostaticSolver(...): the following list of variables "
+        "were removed because they are not used in the structure equilibrium "
+        "equations:\n%1", convert(vars, set) minus convert(iso_vars, set)
+      );
+    end if;
   end if;
 
-  if (verbose_mode > 1) then
-    printf("%*sDONE\n", print_indent, "|   ");
-  end if;
-
-  if (verbose_mode > 1) then
-    printf("%*sMessage (in IsostaticSolver) structure equilibrium equations:\n", print_indent, "|   ");
+  if (m_VerboseMode > 1) then
+    printf("DONE\n");
+    printf("TrussMe:-IsostaticSolver(...): structure equilibrium equations.\n");
     print(<op(iso_eq)>);
-    printf("%*sMessage (in IsostaticSolver) structure unknown variables:\n", print_indent, "|   ");
+    printf("TrussMe:-IsostaticSolver(...): structure unknown variables.\n");
     print(iso_vars);
   end if;
 
@@ -3187,45 +2932,46 @@ IsostaticSolver := proc(
     iso_sol := [];
   else
     # Matrix form
-    A, B := LinearAlgebra[GenerateMatrix](iso_eq, iso_vars);
+    A, B := LinearAlgebra:-GenerateMatrix(iso_eq, iso_vars);
     A := Matrix(A, storage = sparse);
 
     if nops(iso_eq) = nops(iso_vars) then
 
-      if (verbose_mode > 1) then
-        printf("%*sMessage (in IsostaticSolver) A matrix visualization of the linear system:\n", print_indent, "|   ");
-        print(plots[sparsematrixplot](A, matrixview));
+      if (m_VerboseMode > 1) then
+        printf("TrussMe:-IsostaticSolver(...): matrix visualization of the linear system...\n");
+        print(plots:-sparsematrixplot(A, matrixview));
       end if;
-      if (verbose_mode > 1) then
-        printf("%*sMessage (in IsostaticSolver) computing the structure reaction forces...\n", print_indent, "|   ");
+      if (m_VerboseMode > 1) then
+        printf("TrussMe:-IsostaticSolver(...): computing the structure reaction forces... ");
       end if;
       # Solve structure equations (LinearSolver)
       #iso_sol := LinearSolver(iso_eq, iso_vars);
-      iso_sol := op(RealDomain[solve](iso_eq, iso_vars)); # FIXME: this is a temporary fix (use LULEM when stable)
+      iso_sol := op(RealDomain:-solve(iso_eq, iso_vars));
+      # FIXME: this is a temporary fix (use LULEM when stable)
     else
-      if (not suppress_warnings) then
-        WARNING("Message (in IsostaticSolver) the system of equations is not "
+      if m_WarningMode then
+        WARNING("TrussMe:-IsostaticSolver(...): the system of equations is not "
           "consistent, trying to solve the system of equations anyway without "
           "LinearSolver");
       end if;
       # Solve structure equations (solve)
-      iso_sol := op(RealDomain[solve](iso_eq, iso_vars));
-      # append an empty list to the solution if the keep_veiled flag is set to true
-      if keep_veiled then
+      iso_sol := op(RealDomain:-solve(iso_eq, iso_vars));
+      # Append an empty list to the solution if the m_KeepVeiled flag
+      # is set to true
+      if m_KeepVeiled then
         iso_sol := iso_sol union [[]];
       end if;
     end if;
 
     if iso_sol = NULL then
-      error "isostaticSolver: isostatic solution not found";
+      error "isostatic solution not found.";
     end if;
 
-    if (verbose_mode > 1) then
-      printf("%*sDONE\n", print_indent, "|   ");
+    if (m_VerboseMode > 1) then
+      printf("DONE\n");
     end if;
   end if;
 
-  PrintEndProc(procname);
   if _nresults = 3 then
     return iso_sol, iso_eq, iso_vars;
   else
@@ -3233,9 +2979,9 @@ IsostaticSolver := proc(
   end
 end proc: # IsostaticSolver
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-ComputeInternalActions := proc(
+export ComputeInternalActions := proc(
   objs::{ # Structure objects
     list({BEAM, ROD}),
     set( {BEAM, ROD})
@@ -3245,13 +2991,12 @@ ComputeInternalActions := proc(
     set( {FORCE, MOMENT, QFORCE, QMOMENT})
   },
   sol::{list, set}, # Structure solution
-  $)::{nothing};
+  $)
 
   description "Programmatic computation of internal actions for structure"
     "objects with given external actions and structure solution.";
 
   local i, j, active_ext, subs_ext;
-  PrintStartProc(procname);
 
   # Substitute structure solution into loads
   subs_ext := map(convert, map2(Subs, sol, map(op, exts)), table);
@@ -3267,65 +3012,61 @@ ComputeInternalActions := proc(
     # Compute internal actions
     InternalActions(objs[i], active_ext);
   end do;
-
-  PrintEndProc(procname);
 end proc: # ComputeInternalActions
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-InternalActions := proc(
-  obj::{BEAM, ROD}, # Structure object
-  exts::{           # External actions
+export InternalActions := proc(
+  obj::{BEAM, ROD},
+  exts::{
     list({FORCE, MOMENT, QFORCE, QMOMENT}),
-    set( {FORCE, MOMENT, QFORCE, QMOMENT})
+    set({FORCE, MOMENT, QFORCE, QMOMENT})
   },
-  $)::{nothing};
+  $)
 
   description "Programmatic computation of internal actions for structure "
     "object with given external actions, it returns the internal actions as "
     "function of the axial variable 'x'.";
 
   local i, ia, N_sol, Ty_sol, Tz_sol, Mx_sol, My_sol, Mz_sol, x, xx, xxx;
-  PrintStartProc(procname);
 
+
+  # Clear assumptions if old assumptions
+  # NOTE: assumptions help readability of the solution and improve computation
+  # time, but results must be considered valid only in the assumed range
+  Physics:-Assume(clear = x);
+
+  # Meka some new assumptions
+  Physics:-Assume(x > 0, x < obj["length"], x::real);
+
+  # Compute internal actions for concentrated loads as effect overlay
   N_sol  := 0;
   Ty_sol := 0;
   Tz_sol := 0;
   Mx_sol := 0;
   My_sol := 0;
   Mz_sol := 0;
-
-  # Clear assumptions if any
-  Physics[Assume](clear = x);
-  # Assumptions
-  # NOTE: assumptions higly help readability of the solution and improve
-  # computation time, but results must be considered valid only in the assumed range
-  Physics[Assume](x > 0, x < obj["length"], x::real);
-
-  # FIXME: Not working with Maple 2022, error -> (Error, (in assuming) when calling 'assume'. Received: 'contradictory assumptions')
-
-  # Compute internal actions for concentrated loads as effect overlay
   for i from 1 to nops(exts) do
-    if IsForce(exts[i]) then
-      N_sol  := N_sol  - Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][1]), piecewise);
-      Ty_sol := Ty_sol + Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]), piecewise);
-      Tz_sol := Tz_sol + Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]), piecewise);
-      My_sol := My_sol - Simplify(integrate(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]), x = 0..x), piecewise);
-      Mz_sol := Mz_sol + Simplify(integrate(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]), x = 0..x), piecewise);
-    elif IsMoment(exts[i]) then
-      Mx_sol := Mx_sol - Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][1]), piecewise);
-      My_sol := My_sol - Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]), piecewise);
-      Mz_sol := Mz_sol - Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]), piecewise);
-    elif IsQForce(exts[i]) then
-      N_sol  := N_sol  - Simplify(integrate(exts[i]["components"](x)[1], x = 0..x), piecewise);
-      Ty_sol := Ty_sol + Simplify(integrate(exts[i]["components"](x)[2], x = 0..x), piecewise);
-      Tz_sol := Tz_sol + Simplify(integrate(exts[i]["components"](x)[3], x = 0..x), piecewise);
-      My_sol := My_sol - Simplify(integrate(integrate(exts[i]["components"](x)[3], x = 0..x), x = 0..x), piecewise);
-      Mz_sol := Mz_sol + Simplify(integrate(integrate(exts[i]["components"](x)[2], x = 0..x), x = 0..x), piecewise);
-    elif IsQMoment(FMQ[i]) then
-      Mx_sol := Mx_sol - Simplify(integrate(exts[i]["components"](x)[1], x = 0..x), piecewise);
-      My_sol := My_sol - Simplify(integrate(exts[i]["components"](x)[2], x = 0..x), piecewise);
-      Mz_sol := Mz_sol - Simplify(integrate(exts[i]["components"](x)[3], x = 0..x), piecewise);
+    if TrussMe:-IsForce(exts[i]) then
+      N_sol  := N_sol  - TrussMe:-Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][1]), piecewise);
+      Ty_sol := Ty_sol + TrussMe:-Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]), piecewise);
+      Tz_sol := Tz_sol + TrussMe:-Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]), piecewise);
+      My_sol := My_sol - TrussMe:-Simplify(integrate(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]), x = 0..x), piecewise);
+      Mz_sol := Mz_sol + TrussMe:-Simplify(integrate(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]), x = 0..x), piecewise);
+    elif TrussMe:-IsMoment(exts[i]) then
+      Mx_sol := Mx_sol - TrussMe:-Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][1]), piecewise);
+      My_sol := My_sol - TrussMe:-Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]), piecewise);
+      Mz_sol := Mz_sol - TrussMe:-Simplify(piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]), piecewise);
+    elif TrussMe:-IsQForce(exts[i]) then
+      N_sol  := N_sol  - TrussMe:-Simplify(integrate(exts[i]["components"](x)[1], x = 0..x), piecewise);
+      Ty_sol := Ty_sol + TrussMe:-Simplify(integrate(exts[i]["components"](x)[2], x = 0..x), piecewise);
+      Tz_sol := Tz_sol + TrussMe:-Simplify(integrate(exts[i]["components"](x)[3], x = 0..x), piecewise);
+      My_sol := My_sol - TrussMe:-Simplify(integrate(integrate(exts[i]["components"](x)[3], x = 0..x), x = 0..x), piecewise);
+      Mz_sol := Mz_sol + TrussMe:-Simplify(integrate(integrate(exts[i]["components"](x)[2], x = 0..x), x = 0..x), piecewise);
+    elif TrussMe:-IsQMoment(FMQ[i]) then
+      Mx_sol := Mx_sol - TrussMe:-Simplify(integrate(exts[i]["components"](x)[1], x = 0..x), piecewise);
+      My_sol := My_sol - TrussMe:-Simplify(integrate(exts[i]["components"](x)[2], x = 0..x), piecewise);
+      Mz_sol := Mz_sol - TrussMe:-Simplify(integrate(exts[i]["components"](x)[3], x = 0..x), piecewise);
     end if;
   end do;
 
@@ -3336,97 +3077,53 @@ InternalActions := proc(
     Mx = unapply(Mx_sol, x),
     My = unapply(My_sol, x),
     Mz = unapply(Mz_sol, x)
-    ];
+  ];
 
-  # FIXME: partial fix for Maple 2022, for error on assume, with this the code is way slower and the solution contains csgn wich is undsirable
-  #  # Clear assumptions if any
-  # Physics[Assume](clear = x);
-
-  # # Compute internal actions for concentrated loads as effect overlay
-  # for i from 1 to nops(exts) do
-  #   if IsForce(exts[i]) then
-  #     N_sol  := evala(N_sol  - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][1]));
-  #     Ty_sol := evala(Ty_sol + piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]));
-  #     Tz_sol := evala(Tz_sol + piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]));
-  #     My_sol := evala(My_sol - integrate(piecewise(xx >= exts[i]["coordinate"][1] and xx <= obj["length"], exts[i]["components"][3]), xx = 0..x));
-  #     Mz_sol := evala(Mz_sol + integrate(piecewise(xx >= exts[i]["coordinate"][1] and xx <= obj["length"], exts[i]["components"][2]), xx = 0..x));
-  #   elif IsMoment(exts[i]) then
-  #     Mx_sol := evala(Mx_sol - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][1]));
-  #     My_sol := evala(My_sol - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][2]));
-  #     Mz_sol := evala(Mz_sol - piecewise(x >= exts[i]["coordinate"][1] and x <= obj["length"], exts[i]["components"][3]));
-  #   elif IsQForce(exts[i]) then
-  #     N_sol  := evala(N_sol  - integrate(exts[i]["components"](xx)[1], xx = 0..x));
-  #     Ty_sol := evala(Ty_sol + integrate(exts[i]["components"](xx)[2], xx = 0..x));
-  #     Tz_sol := evala(Tz_sol + integrate(exts[i]["components"](xx)[3], xx = 0..x));
-  #     My_sol := evala(My_sol - integrate(integrate(exts[i]["components"](xxx)[3], xxx = 0..xx), xx = 0..x));
-  #     Mz_sol := evala(Mz_sol + integrate(integrate(exts[i]["components"](xxx)[2], xxx = 0..xx), xx = 0..x));
-  #   elif IsQMoment(FMQ[i]) then
-  #     Mx_sol := evala(Mx_sol - integrate(exts[i]["components"](xx)[1], xx = 0..x));
-  #     My_sol := evala(My_sol - integrate(exts[i]["components"](xx)[2], xx = 0..x));
-  #     Mz_sol := evala(Mz_sol - integrate(exts[i]["components"](xx)[3], xx = 0..x));
-  #   end if;
-  # end do;
-
-  # # Assumptions
-  # # NOTE: assumptions higly help readability of the solution and improve
-  # # computation time, but results must be considered valid only in the assumed range
-  # Physics[Assume](x > 0, x < obj["length"]);
-
-  # ia := [
-  #   N  = unapply(Simplify(evala( N_sol)), x),
-  #   Ty = unapply(Simplify(evala(Ty_sol)), x),
-  #   Tz = unapply(Simplify(evala(Tz_sol)), x),
-  #   Mx = unapply(Simplify(evala(Mx_sol)), x),
-  #   My = unapply(Simplify(evala(My_sol)), x),
-  #   Mz = unapply(Simplify(evala(Mz_sol)), x)
-  #   ];
-
-  if IsRod(obj) then
+  if TrussMe:-IsRod(obj) then
     ia := [ia[1]];
   end if;
 
-  if (verbose_mode > 1) then
+  if (m_VerboseMode > 1) then
   printf(
-    "%*sMessage (in InternalActions) updating %s %s's internal actions...\n",
-    print_indent, "|   ", obj["type"], obj["name"]
-    );
+    "TrussMe:-InternalActions(...): updating %s %s's internal actions... ",
+    obj["type"], obj["name"]
+  );
   end if;
 
   obj["internal_actions"] := ia;
 
-  if (verbose_mode > 1) then
-    printf("%*sDONE\n", print_indent, "|   ");
+  if (m_VerboseMode > 1) then
+    printf("DONE\n");
   end if;
 
-  PrintEndProc(procname);
+  return NULL;
 end proc: # InternalActions
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-ComputeDisplacements := proc(
+export ComputeDisplacements := proc(
   objs::{ # Structural objects
     list({BEAM, ROD, SUPPORT, JOINT}),
-    set( {BEAM, ROD, SUPPORT, JOINT})
+    set({BEAM, ROD, SUPPORT, JOINT})
   },
   exts::{ # External loads
     list({FORCE, MOMENT, QFORCE, QMOMENT}),
-    set( {FORCE, MOMENT, QFORCE, QMOMENT})
+    set({FORCE, MOMENT, QFORCE, QMOMENT})
   },
   sol::{list, set}, # Solution of the structure
   {
-    timoshenko_beam::{boolean} := false # Timoshenko beam flag
-  }, $)::{nothing};
+    timoshenko_beam::boolean := false # Timoshenko beam flag
+  }, $)
 
   description "Compute the structure displacements and rotations.";
 
   local obj, x, disp, rx_sol, ry_sol, rz_sol, ux_sol, uy_sol, uz_sol;
-  PrintStartProc(procname);
 
   # Cicle on the structure objects
   for obj in objs do
     # Beam
-    if IsBeam(obj) then
-      Physics[Assume](x > 0, x < obj["length"]);
+    if TrussMe:-IsBeam(obj) then
+      Physics:-Assume(x > 0, x < obj["length"]);
       # Compute displacements
       rx_sol :=  integrate(subs(obj["internal_actions"](x), Mx(x)/(obj["material"]["shear_modulus"]*obj["inertias"][1](x))), x = 0..x);
       ry_sol :=  integrate(subs(obj["internal_actions"](x), My(x)/(obj["material"]["elastic_modulus"]*obj["inertias"][2](x))), x = 0..x);
@@ -3447,8 +3144,8 @@ ComputeDisplacements := proc(
       obj["displacements"] := disp;
 
     # Rod
-    elif IsRod(obj) then
-      Physics[Assume](x > 0, x < obj["length"]);
+    elif TrussMe:-IsRod(obj) then
+      Physics:-Assume(x > 0, x < obj["length"]);
       # Compute displacements
       ux_sol := integrate(subs(obj["internal_actions"](x), N(x)/(obj["material"]["elastic_modulus"]*obj["area"](x))), x = 0..x);
       disp := [
@@ -3469,25 +3166,23 @@ ComputeDisplacements := proc(
       ComputeJointDisplacements(obj, sol);
     end if;
   end do;
-
-  PrintEndProc(procname);
 end proc: # ComputeDisplacements
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-ComputePunctualDisplacement := proc(
-  struct::{STRUCTURE}, # Structure
+export ComputePunctualDisplacement := proc(
+  struct::STRUCTURE, # Structure
   objs::{ # Object on which the coordinates are defined
     list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
   },
-  coords::{list},     # Punctual coordinates defined in obj reference frame
-  directions::{list}, # Displacement directions defined in obj reference frame
-  RFs::{list},        # Reference frames for the directions
+  coords::list,     # Punctual coordinates defined in obj reference frame
+  directions::list, # Displacement directions defined in obj reference frame
+  RFs::list,        # Reference frames for the directions
   {
-    timoshenko_beam::{boolean} := false, # Timoshenko beam flag
-    unveil_results::{boolean}  := true   # Unveil results flag
+    timoshenko_beam::boolean := false, # Timoshenko beam flag
+    unveil_results::boolean  := true   # Unveil results flag
   },
-  $)::{list};
+  $)::list, list;
 
   description "Compute the Structure <struct> punctual displacements of the "
     "object <obj> at the coordinates <coords> in the directions <directions>. "
@@ -3497,28 +3192,27 @@ ComputePunctualDisplacement := proc(
 
   local out, struct_copy, obj, objs_names, dummy_loads, subs_obj, obj_coords,
     obj_targets, x, subs_null_dummy, disp, i, j, d_coords, sw_tmp;
-  PrintStartProc(procname);
 
   # Substitute -1 entries of coords with the corresponding object length
   d_coords := [seq(`if`(coords[i] = -1, objs[i]["length"], coords[i]), i = 1..nops(coords))];
 
-  # Set module local variable keep_veiled
-  keep_veiled := not unveil_results;
+  # Set module local variable m_KeepVeiled
+  m_KeepVeiled := not unveil_results;
 
   # Create a copy of the structure
-  struct_copy := CopyStructure(struct);
+  struct_copy := TrussMe:-CopyStructure(struct);
 
   # Get objects names
-  objs_names := GetNames(objs);
+  objs_names := TrussMe:-GetNames(objs);
 
   # Disable warnings temporarily FIXME: this is a temporary fix
-  sw_tmp := suppress_warnings;
-  suppress_warnings := true;
+  sw_tmp := m_WarningMode;
+  m_WarningMode := false;
 
   # Replace Rods with Beams to be able to compute the displacements in all directions
-  for obj in map(GetObjByName, objs_names, struct_copy["objects"]) do
-    if IsRod(obj) then
-      subs_obj := MakeBeam(obj["name"], obj["length"], obj["frame"], parse("area") = obj["area"], parse("material") = obj["material"]);
+  for obj in map(TrussMe:-GetObjByName, objs_names, struct_copy["objects"]) do
+    if TrussMe:-IsRod(obj) then
+      subs_obj := TrussMe:-MakeBeam(obj["name"], obj["length"], obj["frame"], parse("area") = obj["area"], parse("material") = obj["material"]);
       # Remove load on unconstrained direction
       subs_obj["admissible_loads"] := [1, 1, 1, 0, 1, 1];
       # Replace object in struct_copy
@@ -3529,17 +3223,17 @@ ComputePunctualDisplacement := proc(
 
   # Update struct_copy supports and joints for the new objects
   for obj in struct_copy["objects"] do
-    if IsSupport(obj) then
+    if TrussMe:-IsSupport(obj) then
       # Re-Make support to generate new loads and constraint compliant with substituted objects (joint is made because earth is already in the list of targets)
-      obj_targets := map(GetObjByName, remove(x -> x = earth["name"], obj["targets"]), struct_copy["objects"]);
+      obj_targets := map(TrussMe:-GetObjByName, remove(x -> x = m_earth["name"], obj["targets"]), struct_copy["objects"]);
       obj_coords  := obj["coordinates"][2..-1];
       subs_obj := MakeSupport(obj["name"], obj["constrained_dof"], obj_targets, obj_coords, obj["frame"], parse("stiffness") = obj["stiffness"]);
       # Replace object in struct_copy
       struct_copy["objects"] := remove(x -> x["name"] = obj["name"], struct_copy["objects"]);
       struct_copy["objects"] := struct_copy["objects"] union {eval(subs_obj)};
-    elif IsJoint(obj) then
+    elif TrussMe:-IsJoint(obj) then
       # Re-Make joint to generate new loads and constraint compliant with substituted objects
-      obj_targets := map(GetObjByName, obj["targets"], struct_copy["objects"]);
+      obj_targets := map(TrussMe:-GetObjByName, obj["targets"], struct_copy["objects"]);
       subs_obj := MakeJoint(obj["name"], obj["constrained_dof"], obj_targets, obj["coordinates"], obj["frame"], parse("stiffness") = obj["stiffness"]);
       # Replace object in struct_copy
       struct_copy["objects"] := remove(x -> x["name"] = obj["name"], struct_copy["objects"]);
@@ -3551,12 +3245,12 @@ ComputePunctualDisplacement := proc(
   subs_null_dummy := [];
   for i from 1 to nops(objs_names) do
     dummy_loads := eval~([
-    `if`(directions[i,1] = 1, MakeForce( [dFx_||i,0,0], d_coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
-    `if`(directions[i,2] = 1, MakeForce( [0,dFy_||i,0], d_coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
-    `if`(directions[i,3] = 1, MakeForce( [0,0,dFz_||i], d_coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
-    `if`(directions[i,4] = 1, MakeMoment([dMx_||i,0,0], d_coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
-    `if`(directions[i,5] = 1, MakeMoment([0,dMy_||i,0], d_coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
-    `if`(directions[i,6] = 1, MakeMoment([0,0,dMz_||i], d_coords[i], GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL)
+    `if`(directions[i,1] = 1, TrussMe:-MakeForce( [dFx_||i,0,0], d_coords[i], TrussMe:-GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
+    `if`(directions[i,2] = 1, TrussMe:-MakeForce( [0,dFy_||i,0], d_coords[i], TrussMe:-GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
+    `if`(directions[i,3] = 1, TrussMe:-MakeForce( [0,0,dFz_||i], d_coords[i], TrussMe:-GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
+    `if`(directions[i,4] = 1, TrussMe:-MakeMoment([dMx_||i,0,0], d_coords[i], TrussMe:-GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
+    `if`(directions[i,5] = 1, TrussMe:-MakeMoment([0,dMy_||i,0], d_coords[i], TrussMe:-GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL),
+    `if`(directions[i,6] = 1, TrussMe:-MakeMoment([0,0,dMz_||i], d_coords[i], TrussMe:-GetObjByName(objs_names[i], struct_copy["objects"]), RFs[i]), NULL)
     ]);
 
     # Null dummy loads substitution list
@@ -3566,7 +3260,7 @@ ComputePunctualDisplacement := proc(
     struct_copy["external_actions"] := struct_copy["external_actions"] union dummy_loads;
   end do;
 
-  StoredData := StoredData union subs_null_dummy;
+  m_StoredData := m_StoredData union subs_null_dummy;
 
   # Solve the structure copy
   SolveStructure(
@@ -3581,7 +3275,7 @@ ComputePunctualDisplacement := proc(
     );
 
   # Enable warnings
-  suppress_warnings := sw_tmp;
+  m_WarningMode := sw_tmp;
 
   # Compute punctual displacements
   out := [];
@@ -3609,12 +3303,11 @@ ComputePunctualDisplacement := proc(
     out := out union [disp];
   end do;
 
-   struct_copy["veils"] := subs(subs_null_dummy,  struct_copy["veils"]);
+   struct_copy["veils"] := subs(subs_null_dummy, struct_copy["veils"]);
 
   # Simplify output
-  out := Simplify(out);
+  out := TrussMe:-Simplify(out);
 
-  PrintEndProc(procname);
   if _nresults = 1 then
     return out;
   else
@@ -3624,18 +3317,17 @@ end proc: # ComputePunctualDisplacement
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-ComputeObjectFrameDisplacements := proc(
+export ComputeObjectFrameDisplacements := proc(
   struct::STRUCTURE, # Structure to compute the total displacements
   {
-    timoshenko_beam::{boolean} := false, # Timoshenko beam flag
-    unveil_results::{boolean}  := true   # Unveil results flag
+    timoshenko_beam::boolean := false, # Timoshenko beam flag
+    unveil_results::boolean  := true   # Unveil results flag
   },
-  $)::{STRUCTRURE};
+  $)::list;
 
 description "Compute the total displacements of the structure <struct>.";
 
   local i, RF_nt, nx, ny, nz, theta, subs_n, subs_t, disp, veils, objs;
-  PrintStartProc(procname);
 
   # Compute punctual displacements at origin for all the structure objects
   # FIXME: this is overkill, we should compute only the displacements in the
@@ -3664,20 +3356,18 @@ description "Compute the total displacements of the structure <struct>.";
                                                    subs(subs_n, subs_t, RF_nt);
   end do;
 
-  PrintEndProc(procname);
   return veils;
 end proc; # ComputeObjectFrameDisplacements
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-CopyStructure := proc(
-  struct::{STRUCTURE}, # Structure to copy
-  $)::{STRUCTURE};
+export CopyStructure := proc(
+  struct::STRUCTURE, # Structure to copy
+  $)::STRUCTURE;
 
 description "Create a copy of the structure <struct> and its objects.";
 
   local struct_copy, obj, action;
-  PrintStartProc(procname);
 
   # Create a copy of the structure
   struct_copy := copy(struct);
@@ -3694,134 +3384,155 @@ description "Create a copy of the structure <struct> and its objects.";
     struct_copy["external_actions"] := struct_copy["external_actions"] union {copy(action)};
   end do;
 
-  PrintEndProc(procname);
   return struct_copy;
 end proc: # CopyStructure
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-LinearSolver := proc(
+export LinearSolver := proc(
   eqns::{list, set}, # Equations
   vars::{list, set}, # Variables
-  $)::{list};
+  $)::list;
 
   description "Solve the linear system of equations <eqns> for the variables "
   "<vars>.";
 
-  local T, sol, sol_tmp, A, b, _Q, PivotingStrategy;
-  PrintStartProc(procname);
+  local T, sol, sol_tmp, A, B, _Q, PivotingStrategy;
 
   # Matrix form of the linear system
-  A, b := LinearAlgebra[GenerateMatrix](eqns, vars);
+  A, B := LinearAlgebra:-GenerateMatrix(eqns, vars);
 
-  use LULEM in
-  LULEM[SetVerbosity](true);
-  #LULEM[AssignData](StoredData);
-  if has(map(type, A, constant), false) then
-    PivotingStrategy := PivotingStrategy_Slength;
-  else
-    PivotingStrategy := PivotingStrategy_numeric;
+  if (m_VerboseMode > 0) then
+    printf("TrussMe:-LinearSolver(...): performing LU decomposition... ");
   end if;
-  T := LU(A, veiling_label);
-  printf("Solved with rank: %d\n", T["rank"]);
-  sol_tmp := SolveLinearSystem(T, b, veiling_label);
-  if keep_veiled then
+
+  # LU decomposition
+  T := LU(A);
+
+  if (m_VerboseMode > 0) then
+    printf("DONE (rank = %d)\n", T["rank"]);
+    printf("TrussMe:-LinearSolver(...): solved linear system... ");
+  end if;
+
+  # Solve linear system
+  sol_tmp := SolveLinearSystem(T, b);
+
+  if (m_VerboseMode > 0) then
+    printf("DONE\n");
+    printf("TrussMe:-LinearSolver(...): substituting veils... ");
+  end if;
+
+  # Substitute veils to solution
+  if m_KeepVeiled then
     # Remove indexed type from veils
-    LEM[VeilList](veiling_label);
-    lhs~(%) =~ map2(op,0,lhs~(%)) ||~ __ ||~ (op~(lhs~(%)));
-    # Add veils to solution
-    sol := convert(vars =~ subs(%, sol_tmp), list) union [subs(%,%%)];
+    m_LEM:-VeilList();
+    lhs~(%) =~ map2(op, 0, lhs~(%)) ||~ __ ||~ (op~(lhs~(%)));
+    # Substitutution
+    sol := convert(vars =~ subs(%, sol_tmp), list) union [subs(%, %%)];
   else
-    sol := convert(vars =~ LEM[VeilSubs](sol_tmp, veiling_label), list);
+    sol := convert(vars =~ m_LEM:-VeilSubs(sol_tmp), list);
   end if;
-  ForgetVeil(veiling_label);
-  #LULEM[ForgetData]();
-  end use;
+  m_LEM:-VeilForget();
 
-  PrintEndProc(procname);
-  return Simplify(sol);
+  if (m_VerboseMode > 0) then
+    printf("DONE\n");
+  end if;
+
+  return TrussMe:-Simplify(sol);
 end proc: # LinearSolver
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-ObjectColor := proc(
-  obj::{BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH}, # Object to be colored
-  $)::{string};
+export ObjectColor := proc( # REVIEWED
+  obj::{BEAM, ROD, RIGID_BODY, SUPPORT, JOINT, EARTH},
+  $)::string;
 
-description "Return the color of the object <obj>.";
+  description "Return the color of the object <obj>.";
 
-  local color;
-  PrintStartProc(procname);
-
-  if IsBeam(obj) then
-    color := Beam_color;
-  elif IsRod(obj) then
-    color := Rod_color;
-  elif IsRigidBody(obj) then
-    color := RigidBody_color;
-  elif IsCompliantSupport(obj) then
-    color := CompliantSupport_color;
-  elif IsSupport(obj) then
-    color := Support_color;
-  elif IsCompliantJoint(obj) then
-    color := CompliantJoint_color;
-  elif IsJoint(obj) then
-    color := Joint_color;
-  elif IsEarth(obj) then
-    color := Earth_color;
+  if TrussMe:-IsBeam(obj) then
+    return m_BeamColor;
+  elif TrussMe:-IsRod(obj) then
+    return m_RodColor;
+  elif TrussMe:-IsRigidBody(obj) then
+    return m_RigidBodyColor;
+  elif TrussMe:-IsCompliantSupport(obj) then
+    return m_CompliantSupportColor;
+  elif TrussMe:-IsSupport(obj) then
+    return m_SupportColor;
+  elif TrussMe:-IsCompliantJoint(obj) then
+    return m_CompliantJointColor;
+  elif TrussMe:-IsJoint(obj) then
+    return m_JointColor;
+  elif TrussMe:-IsEarth(obj) then
+    return m_EarthColor;
+  else
+    error "invalid object detected.";
   end if;
-
-  PrintEndProc(procname);
-  return color;
 end proc: # ObjectColor
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-PlotRigidBody := proc(
-  obj::RIGID_BODY, # Rigid body to be plot
-  joints::{ # Joint and support objects
+export PlotRigidBody := proc( # REVIEWED
+  obj::RIGID_BODY,
+  joints::{
     list({SUPPORT, JOINT}),
     set({SUPPORT, JOINT})
   },
-  c_loads::{ # Concentrated loads
+  c_loads::{
     list({FORCE, MOMENT}),
     set({FORCE, MOMENT})
   },
   {
-    data::{list(`=`),set(`=`)} := [] # Substitutions
+    data::{list(`=`), set(`=`)} := []
   },
-  $)::{procedure};
+  $)::function;
 
   description "Plot the RIGID_BODY object <obj>.";
 
-  local P1, P2, js, idx, lines, load, out;
-  PrintStartProc(procname);
+  local p_1, p_2, i, idx, lines, load;
 
   lines := [];
-  P1 := subs(op(data), Project([op(obj["COM"]), 1], obj["frame"], ground));
-  for js in joints do
-    member(obj["name"], js["targets"], 'idx');
-    P2 := subs(op(data), Project([op(js["coordinates"][idx]), 1], obj["frame"], ground));
-    lines := lines union [plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 6)];
+  p_1 := subs(op(data),
+    TrussMe:-Project([op(obj["COM"]), 1], obj["frame"], ground)
+  );
+  for i in joints do
+    member(obj["name"], i["targets"], 'idx');
+    p_2 := subs(op(data),
+      TrussMe:-Project([op(i["coordinates"][idx]), 1], obj["frame"], ground)
+    );
+    lines := lines union [
+      plottools:-line(
+        convert(p_1[1..3], list),
+        convert(p_2[1..3], list),
+        thickness = 6
+    )];
   end do;
 
   for load in c_loads do
-    P2 :=  subs(op(data), Project([op(load["coordinate"]), 1], obj["frame"], ground));
-    lines := lines union [plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 6)];
+    p_2 :=  subs(op(data),
+      TrussMe:-Project([op(load["coordinate"]), 1], obj["frame"], ground)
+    );
+    lines := lines union [
+      plottools:-line(
+        convert(p_1[1..3], list),
+        convert(p_2[1..3], list),
+        thickness = 6
+    )];
   end do;
 
-  out := plots:-display(lines, linestyle = solid, color = ObjectColor(obj), scaling = constrained);
-
-  PrintEndProc(procname);
-  return out;
+  return plots:-display(
+    lines,
+    linestyle = solid,
+    color     = TrussMe:-ObjectColor(obj),
+    scaling   = constrained
+  );
 end proc: # PlotRigidBody
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-PlotDeformedRigidBody := proc(
+export PlotDeformedRigidBody := proc(
   obj::RIGID_BODY, # Rigid body to be plot
-  joints::{ # Joint and support objects
+  joints::{        # Joint and support objects
     list({SUPPORT, JOINT}),
     set({SUPPORT, JOINT})
   },
@@ -3830,521 +3541,559 @@ PlotDeformedRigidBody := proc(
     set({FORCE, MOMENT})
   },
   {
-    data::{list(`=`),set(`=`)} := [], # Substitutions
-    scaling::{numeric}         := 1.0 # Scaling factor
+    data::{list(`=`), set(`=`)} := [], # Substitutions
+    scaling::numeric            := 1.0 # Scaling factor
   },
-  $)::{procedure};
+  $)::function;
 
   description "Plot the deformed RIGID_BODY object <obj>.";
 
   local P1, P2, rfd, js, idx, lines, load, out;
-  PrintStartProc(procname);
 
   lines := [];
-  rfd := subs(op(data), obj["frame"] . ((obj["frame_displacements"] - LinearAlgebra[IdentityMatrix](4)) *~ scaling + LinearAlgebra[IdentityMatrix](4)));
-  P1 := subs(op(data), Project([op(obj["COM"]), 1], rfd, ground));
+  rfd := subs(op(data), obj["frame"] . ((obj["frame_displacements"] - LinearAlgebra:-IdentityMatrix(4)) *~ scaling + LinearAlgebra:-IdentityMatrix(4)));
+  P1 := subs(op(data), TrussMe:-Project([op(obj["COM"]), 1], rfd, ground));
   for js in joints do
     member(obj["name"], js["targets"], 'idx');
-    P2 := subs(op(data), Project([op(js["coordinates"][idx]), 1], rfd, ground));
+    P2 := subs(op(data), TrussMe:-Project([op(js["coordinates"][idx]), 1], rfd, ground));
     lines := lines union [plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 6)];
   end do;
 
   for load in c_loads do
-    P2 :=  subs(op(data), Project([op(load["coordinate"]), 1], rfd, ground));
+    P2 :=  subs(op(data), TrussMe:-Project([op(load["coordinate"]), 1], rfd, ground));
     lines := lines union [plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 6)];
   end do;
 
   out := plots:-display(lines, linestyle = solid, color = ObjectColor(obj), parse("scaling") = constrained);
 
-  PrintEndProc(procname);
   return out;
 end proc: # PlotDeformedRigidBody
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-PlotBeam := proc(
-  obj::{BEAM}, # Beam to be plot
+export PlotBeam := proc( # REVIEWED
+  obj::BEAM,
   {
-    data::{list(`=`),set(`=`)} := [] # Substitutions
+    data::{list(`=`), set(`=`)} := []
   },
-  $)::{procedure};
+  $)::function;
 
   description "Plot the BEAM object <obj>.";
 
-  local P1, P2, out;
-  PrintStartProc(procname);
+  local p_1, p_2;
 
-  P1 := subs(op(data), Origin(obj["frame"]));
-  P2 := subs(op(data), Project([obj["length"], 0, 0, 1], obj["frame"], ground));
+  p_1 := subs(op(data), TrussMe:-Origin(obj["frame"]));
+  p_2 := subs(op(data),
+    TrussMe:-Project([obj["length"], 0, 0, 1], obj["frame"], ground)
+  );
 
-  out := plots:-display(
-    plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 6),
-    linestyle = solid, color = ObjectColor(obj), scaling = constrained);
-
-  PrintEndProc(procname);
-  return out;
+  return plots:-display(
+    plottools:-line(
+      convert(p_1[1..3], list),
+      convert(p_2[1..3], list),
+      thickness = 6
+    ),
+    linestyle = solid,
+    color     = TrussMe:-ObjectColor(obj),
+    scaling   = constrained
+  );
 end proc: # PlotBeam
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-PlotDeformedBeam := proc(
-  obj::{BEAM}, # Beam to be plot
+export PlotDeformedBeam := proc( # REVIEWED
+  obj::BEAM,
   {
-    data::{list(`=`),set(`=`)} := [], # Substitutions
-    scaling::{numeric}         := 1   # Scaling factor
+    data::{list(`=`), set(`=`)} := [],
+    scaling::numeric            := 1.0
   },
-  $)::{procedure};
+  $)::function;
 
   description "Plot the BEAM object <obj>.";
 
-  local sc, rfd, x, out;
-  PrintStartProc(procname);
+  local sc, rfd, x;
 
-  rfd := subs(op(data), obj["frame"] . ((obj["frame_displacements"] - LinearAlgebra[IdentityMatrix](4)) *~ scaling + LinearAlgebra[IdentityMatrix](4)));
+  rfd := subs(op(data), obj["frame"] . ((obj["frame_displacements"] -
+    LinearAlgebra:-IdentityMatrix(4)) *~ scaling + LinearAlgebra:-IdentityMatrix(4)));
 
-  sc := subs(op(data), Project(subs(obj["displacements"](x), [x, 0, 0, 0] +~ [ux(x) *~ scaling, uy(x) *~ scaling, uz(x) *~ scaling, 1]), rfd, ground)[1..3]);
+  sc := subs(op(data), TrussMe:-Project(
+    subs(obj["displacements"](x),
+      [x, 0, 0, 0] +~ [ux(x) *~ scaling, uy(x) *~ scaling, uz(x) *~ scaling, 1]
+      ), rfd, ground)[1..3]);
 
-  out := plots:-display(
-    plots:-spacecurve(sc, x = subs(op(data), 0..obj["length"]), thickness = 6),
-    linestyle = solid, color = ObjectColor(obj), parse("scaling") = constrained);
-
-  PrintEndProc(procname);
-  return out;
+  return plots:-display(
+    plots:-spacecurve(
+      sc, x = subs(op(data), 0..obj["length"]),
+      thickness = 6
+    ),
+    linestyle        = solid,
+    color            = TrussMe:-ObjectColor(obj),
+    parse("scaling") = constrained
+  );
 end proc: # PlotDeformedBeam
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-PlotRod := proc(
-  obj::{ROD}, # Rod to be plot
+export PlotRod := proc( # REVIEWED
+  obj::ROD,
   {
-    data::{list(`=`),set(`=`)} := [] # Substitutions
+    data::{list(`=`), set(`=`)} := []
   },
-  $)::{procedure};
+  $)::function;
 
-  description "Plot the ROD object <obj>.";
+  description "Plot the ROD object <obj> given a list or set of substitutions "
+    "data <data>.";
 
-  local P1, P2, out;
-  PrintStartProc(procname);
+  local p_1, p_2, out;
 
-  P1 := subs(op(data), Origin(obj["frame"]));
-  P2 := subs(op(data), Project([obj["length"], 0, 0, 1], obj["frame"], ground));
+  p_1 := subs(op(data), TrussMe:-Origin(obj["frame"]));
+  p_2 := subs(op(data),
+    TrussMe:-Project([obj["length"], 0, 0, 1], obj["frame"], ground)
+  );
 
-  out := plots:-display(
-    plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 4),
-    linestyle = solid, color = ObjectColor(obj), scaling = constrained);
-
-  PrintEndProc(procname);
-  return out;
+  return plots:-display(
+    plottools:-line(
+      convert(p_1[1..3], list),
+      convert(p_2[1..3], list),
+      thickness = 4
+    ),
+    linestyle = solid,
+    color     = TrussMe:-ObjectColor(obj),
+    scaling   = constrained
+  );
 end proc: # PlotRod
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-PlotDeformedRod := proc(
-  obj::{ROD}, # Rod to be plot
+export PlotDeformedRod := proc(
+  obj::ROD,
   {
-    data::{list(`=`),set(`=`)} := [], # Substitutions
-    scaling::{numeric}         := 1   # Scaling factor
+    data::{list(`=`), set(`=`)} := [],
+    scaling::numeric            := 1
   },
-  $)::{procedure};
+  $)::function;
 
-  description "Plot the ROD object <obj>.";
+  description "Plot the ROD object <obj> give the list of <targets> and "
+    "a list or set of substitutions data <data>.";
 
-  local P1, P2, rfd, out;
-  PrintStartProc(procname);
+  local P1, P2, rfd;
 
-  rfd := obj["frame"] . ((obj["frame_displacements"] - LinearAlgebra[IdentityMatrix](4)) *~ scaling + LinearAlgebra[IdentityMatrix](4));
+  rfd := obj["frame"] . ((obj["frame_displacements"] -
+    LinearAlgebra:-IdentityMatrix(4)) *~ scaling + LinearAlgebra:-IdentityMatrix(4));
 
-  P1 := subs(op(data), Origin(rfd));
-  P2 := subs(op(data), Project([obj["length"] + subs(obj["displacements"](obj["length"]), ux(obj["length"]) *~ scaling), 0, 0, 1], rfd, ground));
+  P1 := subs(op(data), TrussMe:-Origin(rfd));
+  P2 := subs(op(data), TrussMe:-Project(
+    [obj["length"] + subs(obj["displacements"](obj["length"]
+    ), ux(obj["length"]) *~ scaling), 0, 0, 1], rfd, ground));
 
-  out := plots:-display(
-    plottools:-line(convert(P1[1..3], list), convert(P2[1..3], list), thickness = 4),
-    linestyle = solid, color = ObjectColor(obj), parse("scaling") = constrained);
-
-  PrintEndProc(procname);
-  return out;
+  return plots:-display(
+    plottools:-line(
+      convert(P1[1..3], list),
+      convert(P2[1..3], list),
+      thickness = 4
+    ),
+    linestyle        = solid,
+    color            = TrussMe:-ObjectColor(obj),
+    parse("scaling") = constrained
+  );
 end proc: # PlotDeformedRod
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-PlotJoint := proc(
-  obj::{JOINT}, # Joint to be plot
-  targets::{ # Joint targets
+export PlotJoint := proc( # REVIEWED
+  obj::JOINT,
+  targets::{
     list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
     set({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
   },
   {
-    data::{list(`=`),set(`=`)} := [] # Substitutions
+    data::{list(`=`), set(`=`)} := []
   },
-  $)::{procedure};
+  $)::function;
 
-  description "Plot the JOINT object <obj>.";
+  description "Plot the JOINT object <obj> give the list of <targets> and "
+    "a list or set of substitutions data <data>.";
 
-  local O, out;
-  PrintStartProc(procname);
+  local O;
 
-  O := subs(op(data), Origin(
-    GetObjByName(obj["targets"][1], targets)["frame"].
-    Translate(op(ListPadding(obj["coordinates"][1],3)))
+  O := subs(op(data), TrussMe:-Origin(
+    TrussMe:-GetObjByName(obj["targets"][1], targets)["frame"].
+    TrussMe:-Translate(op(TrussMe:-ListPadding(obj["coordinates"][1],3)))
     ));
 
-  out := plots:-display(
-    plottools:-point(convert(O[1..3], list), symbol='solidsphere', symbolsize = 20),
-    linestyle = solid, color = ObjectColor(obj), scaling = constrained);
-
-  PrintEndProc(procname);
-  return out;
+  return plots:-display(
+    plottools:-point(
+      convert(O[1..3], list),
+      symbol     = solidsphere,
+      symbolsize = 20
+    ),
+    linestyle = solid,
+    color     = TrussMe:-ObjectColor(obj),
+    scaling   = constrained
+  );
 end proc: # PlotJoint
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-PlotDeformedJoint := proc(
-  obj::{JOINT}, # Joint to be plot
-  targets::{ # Joint targets
+export PlotDeformedJoint := proc( # REVIEWED
+  obj::JOINT,
+  targets::{
     list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
     set({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
   },
   {
-    data::{list(`=`),set(`=`)} := [], # Substitutions
-    scaling::{numeric}         := 1   # Scaling factor
+    data::{list(`=`), set(`=`)} := [],
+    scaling::numeric            := 1
   },
-  $)::{procedure};
+  $)::function;
 
   description "Plot the JOINT object <obj>.";
 
-  local O, rfd, out;
-  PrintStartProc(procname);
+  local O, rfd;
+
   #TODO: add compliant joint deformation
 
-  rfd := ((obj["frame_displacements"] - LinearAlgebra[IdentityMatrix](4)) *~ scaling + LinearAlgebra[IdentityMatrix](4));
+  rfd := ((obj["frame_displacements"] - LinearAlgebra:-IdentityMatrix(4)) *~ scaling + LinearAlgebra:-IdentityMatrix(4));
 
   # FIXME: joint target may be a joint itself
-  O := subs(op(data), Origin(
-     GetObjByName(obj["targets"][1], targets)["frame"].
-     Translate(op(ListPadding(obj["coordinates"][1],3))))[1..3] +~
-     Project(Origin(rfd)[1..3], obj["frame"], ground)
+  O := subs(op(data), TrussMe:-Origin(
+     TrussMe:-GetObjByName(obj["targets"][1], targets)["frame"].
+     TrussMe:-Translate(op(TrussMe:-ListPadding(obj["coordinates"][1],3))))[1..3] +~
+     TrussMe:-Project(TrussMe:-Origin(rfd)[1..3], obj["frame"], ground)
     );
 
-  out := plots:-display(
-    plottools:-point(convert(O, list), symbol='solidsphere', symbolsize = 20),
-    linestyle = solid, color = ObjectColor(obj), parse("scaling") = constrained);
-
-  PrintEndProc(procname);
-  return out;
+  return plots:-display(
+    plottools:-point(
+      convert(O, list),
+      symbol     = solidsphere,
+      symbolsize = 20
+    ),
+    linestyle        = solid,
+    color            = TrussMe:-ObjectColor(obj),
+    parse("scaling") = constrained);
 end proc: # PlotDeformedJoint
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-PlotSupport := proc(
-  obj::{SUPPORT}, # Support to be plotted
-  targets::{ # Support targets
+export PlotSupport := proc( # REVIEWED
+  obj::SUPPORT,
+  targets::{
     list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
     set({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
   },
   {
-    data::{list(`=`),set(`=`)} := [] # Substitutions
+    data::{list(`=`), set(`=`)} := []
   },
-  $)::{procedure};
+  $)::function;
 
   description "Plot the SUPPORT object <obj>.";
 
   local O, out;
-  PrintStartProc(procname);
 
   if (nops(obj["targets"]) > 1) then
-    O := subs(op(data), Origin(
-      GetObjByName(obj["targets"][2], targets)["frame"].
-      Translate(op(ListPadding(obj["coordinates"][2],3)))
+    O := subs(op(data), TrussMe:-Origin(
+      TrussMe:-GetObjByName(obj["targets"][2], targets)["frame"].
+      TrussMe:-Translate(op(TrussMe:-ListPadding(obj["coordinates"][2],3)))
       ));
   else
-    O := subs(op(data), Origin(
-      earth["frame"].
-      Translate(op(ListPadding(obj["coordinates"][1],3)))
+    O := subs(op(data), TrussMe:-Origin(
+      m_earth["frame"].
+      TrussMe:-Translate(op(TrussMe:-ListPadding(obj["coordinates"][1],3)))
       ));
   end if;
 
-  out := plots:-display(
-    plottools:-point(convert(O[1..3], list), symbol='solidbox', symbolsize = 20),
-    linestyle = solid, color = ObjectColor(obj), scaling = constrained);
-
-  PrintEndProc(procname);
-  return out;
+  return plots:-display(
+    plottools:-point(
+      convert(O[1..3], list),
+      symbol     = solidbox,
+      symbolsize = 20
+    ),
+    linestyle = solid,
+    color     = TrussMe:-ObjectColor(obj),
+    scaling   = constrained
+  );
 end proc: # PlotSupport
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-PlotDeformedSupport := proc(
-  obj::{SUPPORT}, # Support to be plotted
-  targets::{ # Support targets
+export PlotDeformedSupport := proc( # REVIEWED
+  obj::SUPPORT,
+  targets::{
     list({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT}),
     set({BEAM, ROD, RIGID_BODY, SUPPORT, JOINT})
   },
   {
-    data::{list(`=`),set(`=`)} := [], # Substitutions
-    scaling::{numeric}         := 1   # Scaling factor
+    data::{list(`=`), set(`=`)} := [],
+    scaling::numeric            := 1.0
   },
-  $)::{procedure};
+  $)::function;
 
   description "Plot the deformed SUPPORT object <obj>.";
 
   local O, out;
-  PrintStartProc(procname);
-  #TODO: add compliant support deformation
+
+  # TODO: add compliant support deformation
 
   if (nops(obj["targets"]) > 1) then
-    O := subs(op(data), Origin(
-      GetObjByName(obj["targets"][2], targets)["frame"].
-      Translate(op(ListPadding(obj["coordinates"][2],3)))
+    O := subs(op(data), TrussMe:-Origin(
+      TrussMe:-GetObjByName(obj["targets"][2], targets)["frame"].
+      TrussMe:-Translate(op(TrussMe:-ListPadding(obj["coordinates"][2],3)))
       ));
   else
-    O := subs(op(data), Origin(
-      earth["frame"].
-      Translate(op(ListPadding(obj["coordinates"][1],3)))
+    O := subs(op(data), TrussMe:-Origin(
+      m_earth["frame"].
+      TrussMe:-Translate(op(TrussMe:-ListPadding(obj["coordinates"][1],3)))
       ));
   end if;
 
-  out := plots:-display(
-    plottools:-point(convert(O[1..3], list), symbol='solidbox', symbolsize = 20),
-    linestyle = solid, color = ObjectColor(obj), parse("scaling") = constrained);
-
-  PrintEndProc(procname);
-  return out;
+  return plots:-display(
+    plottools:-point(
+      convert(O[1..3], list),
+      symbol     = solidbox,
+      symbolsize = 20
+    ),
+    linestyle        = solid,
+    color            = TrussMe:-ObjectColor(obj),
+    parse("scaling") = constrained
+  );
 end proc: # PlotDeformedSupport
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-PlotStructure := proc(
-  str::{STRUCTURE},                  # Structure to be plotted
+export PlotStructure := proc( # REVIEWED
+  str::STRUCTURE,
   {
-    data::{list(`=`),set(`=`)} := [] # Substitutions
+    data::{list(`=`), set(`=`)} := []
   },
-  $)::{list(procedure)};
+  $)::{function, list(function)};
 
-  description "Plot the STRUCTURE object <str> given a list of substitutions <data>.";
+  description "Plot the STRUCTURE object <str> given a list of substitutions "
+    "<data>.";
 
-  local out, disp, rb_joints, rb_loads, obj;
-  PrintStartProc(procname);
+  local disp, rb_joints, rb_loads, obj;
 
   disp := []:
   for obj in str["objects"] do
-    if IsBeam(obj) then
-      disp := disp union [PlotBeam(obj, parse("data") = data)];
-    elif IsRod(obj) then
-      disp := disp union [PlotRod(obj, parse("data") = data)];
-    elif IsSupport(obj) then
-      disp := disp union [PlotSupport(obj, map(GetObjByName, obj["targets"], str["objects"]), parse("data") = data)];
-    elif IsJoint(obj) then
-      disp := disp union [PlotJoint(obj, map(GetObjByName, obj["targets"], str["objects"]), parse("data") = data)];
-    elif IsRigidBody(obj) then
-      GetObjsByType(['JOINT', 'SUPPORT'], str["objects"]);
+    if TrussMe:-IsBeam(obj) then
+      disp := disp union [
+        TrussMe:-PlotBeam(obj, parse("data") = data)
+      ];
+    elif TrussMe:-IsRod(obj) then
+      disp := disp union [
+        TrussMe:-PlotRod(obj, parse("data") = data)
+      ];
+    elif TrussMe:-IsSupport(obj) then
+      map(GetObjByName, obj["targets"], str["objects"]);
+      disp := disp union [TrussMe:-PlotSupport(obj, %, parse("data") = data)];
+    elif TrussMe:-IsJoint(obj) then
+      map(GetObjByName, obj["targets"], str["objects"]);
+      disp := disp union [TrussMe:-PlotJoint(obj, %, parse("data") = data)];
+    elif TrussMe:-IsRigidBody(obj) then
+      TrussMe:-GetObjsByType(['JOINT', 'SUPPORT'], str["objects"]);
       rb_joints := remove(x -> (not member(obj["name"], x["targets"])), %);
-      GetObjsByType(['FORCE', 'MOMENT'], str["external_actions"]);
+      TrussMe:-GetObjsByType(['FORCE', 'MOMENT'], str["external_actions"]);
       rb_loads := remove(x -> obj["name"] <> x["target"], %);
-      disp := disp union [PlotRigidBody(obj, rb_joints, rb_loads, parse("data") = data)];
+      disp := disp union [
+        TrussMe:-PlotRigidBody(obj, rb_joints, rb_loads, parse("data") = data)
+      ];
     end if;
   end do;
 
-  out := plots:-display(disp, axes = boxed, scaling = constrained, labels=['x', 'y', 'z']);
-
-  PrintEndProc(procname);
-  return out;
+  return plots:-display(
+    disp,
+    axes    = boxed,
+    scaling = constrained,
+    labels  = ['x', 'y', 'z']
+  );
 end proc: # PlotStructure
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-PlotDeformedStructure := proc(
-  str::{STRUCTURE},                   # Structure to be plotted
+export PlotDeformedStructure := proc(
+  str::STRUCTURE,
   {
-    data::{list(`=`),set(`=`)} := [], # Substitutions
-    scaling::{numeric}         := 1   # Scaling factor
+    data::{list(`=`), set(`=`)} := [],
+    scaling::numeric            := 1
   },
-  $)::{list(procedure)};
+  $)::{function, list(function)};
 
   description "Plot the deformed STRUCTURE object <str> given a list of "
-              "substitutions <data> and a scaling factor <scaling>.";
+    "substitutions <data> and a scaling factor <scaling>.";
 
-  local out, disp, rb_joints, rb_loads, obj;
-  PrintStartProc(procname);
+  local disp, rb_joints, rb_loads, obj;
 
   # Check if displacements and frame displacements are solved
-  if (str["displacements_solved"] = false) or
-      (str["frame_displacements_solved"] = false) then
-    error("Displacements and frame displacements must be solved before plotting the deformed structure");
+  if not str["displacements_solved"] or not str["frame_displacements_solved"] then
+    error "displacements and frame displacements must be solved before plotting "
+      "the deformed structure.";
   end if;
 
   disp := []:
   for obj in str["objects"] do
-    if IsBeam(obj) then
-      disp := disp union [PlotDeformedBeam(obj, parse("data") = data, parse("scaling") = scaling)];
-    elif IsRod(obj) then
-      disp := disp union [PlotDeformedRod(obj, parse("data") = data, parse("scaling") = scaling)];
-    elif IsSupport(obj) then
-      disp := disp union [PlotDeformedSupport(obj, map(GetObjByName, obj["targets"], str["objects"]), parse("data") = data, parse("scaling") = scaling)];
-    elif IsJoint(obj) then
-      disp := disp union [PlotDeformedJoint(obj, map(GetObjByName, obj["targets"], str["objects"]), parse("data") = data, parse("scaling") = scaling)];
-    elif IsRigidBody(obj) then
-      GetObjsByType(['JOINT', 'SUPPORT'], str["objects"]);
+    if TrussMe:-IsBeam(obj) then
+      disp := disp union [
+        TrussMe:-PlotDeformedBeam(obj, parse("data") = data, parse("scaling") = scaling)
+      ];
+    elif TrussMe:-IsRod(obj) then
+      disp := disp union [
+        TrussMe:-PlotDeformedRod(obj, parse("data") = data, parse("scaling") = scaling)
+      ];
+    elif TrussMe:-IsSupport(obj) then
+      disp := disp union [
+        TrussMe:-PlotDeformedSupport(obj, map(TrussMe:-GetObjByName, obj["targets"], str["objects"]), parse("data") = data, parse("scaling") = scaling)
+      ];
+    elif TrussMe:-IsJoint(obj) then
+      disp := disp union [
+        TrussMe:-PlotDeformedJoint(obj, map(TrussMe:-GetObjByName, obj["targets"], str["objects"]), parse("data") = data, parse("scaling") = scaling)
+      ];
+    elif TrussMe:-IsRigidBody(obj) then
+      TrussMe:-GetObjsByType(['JOINT', 'SUPPORT'], str["objects"]);
       rb_joints := remove(x -> (not member(obj["name"], x["targets"])), %);
-      GetObjsByType(['FORCE', 'MOMENT'], str["external_actions"]);
+      TrussMe:-GetObjsByType(['FORCE', 'MOMENT'], str["external_actions"]);
       rb_loads := remove(x -> obj["name"] <> x["target"], %);
-      disp := disp union [PlotDeformedRigidBody(obj, rb_joints, rb_loads, parse("data") = data, parse("scaling") = scaling)];
+      disp := disp union [
+        TrussMe:-PlotDeformedRigidBody(obj, rb_joints, rb_loads, parse("data") = data, parse("scaling") = scaling)
+      ];
     end if;
   end do;
 
-  out := plots:-display(disp, axes = boxed, parse("scaling") = constrained, labels=['x', 'y', 'z']);
-
-  PrintEndProc(procname);
-  return out;
+  return plots:-display(
+    disp, axes = boxed, parse("scaling") = constrained, labels = ['x', 'y', 'z']
+  );
 end proc: # PlotDeformedStructure
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsInsideJoint := proc(
-  obj::{JOINT},           # Joint object
-  p::{POINT},             # Point to be checked
-  tol::{numeric} := 1e-3, # Tolerance
-  $)::{boolean};
+export IsInsideJoint := proc( # REVIEWED
+  obj::JOINT,
+  pnt::POINT,
+  tol::numeric := 1e-4,
+  $)::boolean;
 
-  description "Check if the point <p> is inside the JOINT <obj>.";
+  description "Check if the point <pnt> is inside the JOINT <obj> within a "
+    "tolerance <tol>.";
 
-  local O, out;
-  PrintStartProc(procname);
+  local O;
 
-  if not (nops(p) = 3) then
-    error "The input point must be a list of 3 elements";
+  if not (nops(pnt) = 3) then
+    error "the input point must be a list of 3 elements.";
   end if;
 
   if (nops(obj["targets"]) > 1) then
-    O := Origin(
-      GetObjByName(obj["targets"][1], targets)["frame"].
-      Translate(obj["coordinates"][1], 0, 0)
+    O := TrussMe:-Origin(
+      TrussMe:-GetObjByName(obj["targets"][1], targets)["frame"]. # FIX 'targets' as a symbol???
+      TrussMe:-Translate(obj["coordinates"][1], 0, 0)
       );
-  elif (not suppress_warnings) then
+  elif m_WarningMode then
     WARNING("The support has no targets");
   end if;
 
-  out := (norm(p - O) <= tol);
-
-  PrintEndProc(procname);
-  return out;
+  return evalb(norm(pnt - O) <= tol);
 end proc: # IsInsideJoint
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsInsideSupport := proc(
-  obj::{SUPPORT},         # Support object
-  p::{POINT},             # Point to be checked
-  tol::{numeric} := 1e-3, # Tolerance
-  $)::{boolean};
+export IsInsideSupport := proc( # REVIEWED
+  obj::SUPPORT,
+  pnt::POINT,
+  tol::numeric := 1e-4,
+  $)::boolean;
 
-  description "Check if the point <p> is inside the SUPPORT <obj>.";
+  description "Check if the point <p> is inside the SUPPORT <obj> within a "
+    "tolerance <tol>.";
 
-  local O, out;
-  PrintStartProc(procname);
+  local O;
 
-  if not (nops(p) = 3) then
-    error "The input point must be a list of 3 elements";
+  if not (nops(pnt) = 3) then
+    error "the input point must be a list of 3 elements.";
   end if;
 
   if (nops(obj["targets"]) > 1) then
-    O := Origin(
-      GetObjByName(obj["targets"][2], targets)["frame"].
-      Translate(obj["coordinates"][2], 0, 0)
+    O := TrussMe:-Origin(
+      TrussMe:-GetObjByName(obj["targets"][2], targets)["frame"]. # FIX 'targets' as a symbol???
+      TrussMe:-Translate(obj["coordinates"][2], 0, 0)
       );
-  elif (not suppress_warnings) then
-    WARNING("The support has no targets");
+  elif m_WarningMode then
+    WARNING("the support has no targets");
   end if;
 
-  out := (norm(p - O) <= tol);
-
-  PrintEndProc(procname);
-  return out;
+  return evalb(norm(pnt - O) <= tol);
 end proc: # IsInsideSupport
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsInsideRod := proc(
-  obj::{ROD}, # Rod object
-  p::{POINT}, # Point to be checked
-  $)::{boolean};
+export IsInsideRod := proc( # REVIEWED
+  obj::ROD,
+  pnt::POINT,
+  $)::boolean;
 
-  description "Check if the point <p> is inside the ROD <obj>.";
+  description "Check if the point <pnt> is inside the ROD <obj>.";
 
-  local O, V, W, out;
-  PrintStartProc(procname);
+  local O, V, W;
 
-  if not (nops(p) = 3) then
-    error "The input point must be a list of 3 elements";
+  if not (nops(pnt) = 3) then
+    error "the input point must be a list of 3 elements.";
   end if;
 
-  O := Origin(obj["frame"]);
-  V := obj["frame"].Translate(obj["length"], 0, 0) - O;
-  W := p - O;
-
-  out := (dot(W, V) >= 0) and (dot(W, V) <= dot(V, V));
-
-  PrintEndProc(procname);
-  return out;
+  O := TrussMe:-Origin(obj["frame"]);
+  V := obj["frame"].TrussMe:-Translate(obj["length"], 0, 0) - O;
+  W := pnt - O;
+  return evalb(dot(W, V) >= 0) and (dot(W, V) <= dot(V, V));
 end proc: # IsInsideRod
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsInsideBeam := proc(
-  obj::{BEAM}, # Beam object
-  p::{POINT},  # Point to be checked
-  $)::{boolean};
+export IsInsideBeam := proc( # REVIEWED
+  obj::BEAM,
+  pnt::POINT,
+  $)::boolean;
 
-  description "Check if the point <p> is inside the BEAM <obj>.";
+  description "Check if the point <pnt> is inside the BEAM <obj>.";
 
   local O, V, W, out;
-  PrintStartProc(procname);
 
-  if not (nops(p) = 3) then
-    error "The input point must be a list of 3 elements";
+  if not (nops(pnt) = 3) then
+    error "the input point must be a list of 3 element.";
   end if;
 
-  O := Origin(obj["frame"]);
-  V := obj["frame"].Translate(obj["length"], 0, 0) - O;
-  W := p - O;
-
-  out := (dot(W, V) >= 0) and (dot(W, V) <= dot(V, V));
-
-  PrintEndProc(procname);
-  return out;
+  O := TrussMe:-Origin(obj["frame"]);
+  V := obj["frame"].TrussMe:-Translate(obj["length"], 0, 0) - O;
+  W := pnt - O;
+  return evalb((dot(W, V) >= 0) and (dot(W, V) <= dot(V, V)));
 end proc: # IsInsideBeam
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-IsInsideStructure := proc(
-  obj::{STRUCTURE}, # Structure object
-  p::{POINT},       # Point to be checked
-  $)::{boolean};
+export IsInsideStructure := proc( # REVIEWED
+  obj::STRUCTURE,
+  pnt::POINT,
+  $)::boolean;
 
-  description "Check if the point <p> is inside the STRUCTURE <obj>.";
+  description "Check if the point <pnt> is inside the STRUCTURE <obj>.";
 
   local i, out;
-  PrintStartProc(procname);
 
   out := false;
   for i in str["objects"] do
-    if IsJoint(i) then
-      out := out or IsInsideJoint(i, p);
-    elif IsSupport(i) then
-      out := out or IsInsideSupport(i, p);
-    elif IsBeam(i) then
-      out := out or IsInsideBeam(i, p);
-    elif IsRod(i) then
-      out := out or IsInsideRod(i, p);
+    if TrussMe:-IsJoint(i) then
+      out := out or TrussMe:-IsInsideJoint(i, pnt);
+    elif TrussMe:-IsSupport(i) then
+      out := out or TrussMe:-IsInsideSupport(i, pnt);
+    elif TrussMe:-IsBeam(i) then
+      out := out or TrussMe:-IsInsideBeam(i, pnt);
+    elif TrussMe:-IsRod(i) then
+      out := out or TrussMe:-IsInsideRod(i, pnt);
     else
-      error "Unknown object type";
+      error "unknown object type.";
+    end if;
+    if out then
+      break;
     end if;
   end do;
-
-  PrintEndProc(procname);
   return out;
 end proc: # IsInsideStructure
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 end module:
 
