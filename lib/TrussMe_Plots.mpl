@@ -173,8 +173,8 @@ export PlotBeam := proc(
   },
   $)::function;
 
-  description "Plot the 'BEAM' object <obj> given a list or set of "
-    "substitutions <data>.";
+  description "Plot the BEAM object <obj> given a list or set of substitution "
+    "<data>.";
 
   local p_1, p_2;
 
@@ -205,7 +205,7 @@ export PlotDeformedBeam := proc(
   },
   $)::function;
 
-  description "Plot the deformed 'BEAM' object <obj> given an optional list or "
+  description "Plot the deformed BEAM object <obj> given an optional list or "
     "set of substitution <data> and a scaling factor <scaling>.";
 
   local sc, rfd;
@@ -498,12 +498,13 @@ export PlotStructure := proc(
       disp := disp union [TrussMe:-PlotJoint(obj, %, parse("data") = data)];
     elif TrussMe:-IsRigidBody(obj) then
       TrussMe:-GetObjsByType([JOINT, SUPPORT], str["objects"]);
-      rb_joints := remove(x -> (not member(obj["name"], x["targets"])), %);
+      rb_joints := remove(x -> not member(obj["name"], x["targets"]), %);
       TrussMe:-GetObjsByType([FORCE, MOMENT], str["external_actions"]);
       rb_loads := remove(x -> obj["name"] <> x["target"], %);
       disp := disp union [
         TrussMe:-PlotRigidBody(obj, rb_joints, rb_loads, parse("data") = data)
       ];
+      plots:-display(TrussMe:-PlotRigidBody(obj, rb_joints, rb_loads, parse("data") = data));
     end if;
   end do;
 
@@ -669,7 +670,7 @@ export IsInsideBeam := proc(
   pnt::POINT,
   $)::boolean;
 
-  description "Check if the point <pnt> is inside the 'BEAM' <obj>.";
+  description "Check if the point <pnt> is inside the BEAM <obj>.";
 
   local O, V, W, out;
 

@@ -52,7 +52,7 @@ TrussMe := module()
 
   export Info := proc()
 
-    description "Print 'TrussMe' module information.";
+    description "Print module information.";
 
     printf(
       "+--------------------------------------------------------------------------+\n"
@@ -68,7 +68,7 @@ TrussMe := module()
 
   export ModuleLoad := proc()
 
-    description "Module 'TrussMe' load procedure.";
+    description "Module load procedure.";
 
     local lib_base_path, i;
 
@@ -92,7 +92,7 @@ TrussMe := module()
 
   export ModuleUnload := proc()
 
-    description "Module 'TrussMe' unload procedure.";
+    description "Module unload procedure.";
 
     TrussMe:-Unprotect();
     return NULL;
@@ -102,7 +102,7 @@ TrussMe := module()
 
   export TypeRegister := proc()
 
-    description "Register 'TrussMe' module types.";
+    description "Register module types.";
 
     TypeTools:-AddType('EARTH', TrussMe:-IsEarth);
     TypeTools:-AddType('FRAME', TrussMe:-IsFrame);
@@ -126,7 +126,7 @@ TrussMe := module()
 
   export InitTrussMe := proc()
 
-    description "Initialize 'TrussMe' module internal variables.";
+    description "Initialize module internal variables.";
 
     # Global variables
     ground := LinearAlgebra:-IdentityMatrix(4);
@@ -161,7 +161,7 @@ TrussMe := module()
 
   export Protect := proc()
 
-    description "Protect 'TrussMe' module variables.";
+    description "Protect module variables.";
 
     protect(
       # Global variables
@@ -187,7 +187,7 @@ TrussMe := module()
 
   export Unprotect := proc()
 
-    description "Unprotect 'TrussMe' module variables.";
+    description "Unprotect module variables.";
 
     unprotect(
       # Global variables
@@ -317,14 +317,17 @@ TrussMe := module()
 
   export SetModuleOptions := proc(
     {
-      VerboseMode::{integer, nothing} := NULL,
-      WarningMode::{boolean, nothing} := NULL,
-      TimeLimit::{constant, nothing}  := NULL
-    },
-    $)
+      VerboseMode::{integer, nothing}      := NULL,
+      WarningMode::{boolean, nothing}      := NULL,
+      TimeLimit::{constant, nothing}       := NULL,
+      LAST_VerboseMode::{boolean, nothing} := NULL,
+      LAST_WarningMode::{boolean, nothing} := NULL,
+      LAST_TimeLimit::{constant, nothing}  := NULL
+    }, $)
 
     description "Set the module options: <VerboseMode> = [0, 1, 2], <WarningMode> "
-      "= [true, false] and <TimeLimit> = [0, inf].";
+      "= [true, false], <TimeLimit> = [0, inf], <LAST_VerboseMode> = [true, false], "
+      "<LAST_WarningMode> = [true, false], <LAST_TimeLimit> = [0, inf].";
 
     if (VerboseMode <> NULL) then
       if (VerboseMode < 0) or (VerboseMode > 2) then
@@ -349,6 +352,30 @@ TrussMe := module()
         m_TimeLimit := TimeLimit;
       end if;
     end if;
+
+    if (LAST_VerboseMode <> NULL) then
+      if not type(LAST_VerboseMode, boolean) then
+        error "invalid LAST verbose mode detected.";
+      else
+        m_LAST:-SetVerboseMode(m_LAST, LAST_VerboseMode);
+      end if;
+    end if;
+
+    if (LAST_WarningMode <> NULL) then
+      if not type(LAST_WarningMode, boolean) then
+        error "invalid LAST warning mode detected.";
+      else
+        m_LAST:-SetWarningMode(m_LAST, LAST_WarningMode);
+      end if;
+    end if;
+
+    if (LAST_TimeLimit <> NULL) then
+      if (LAST_TimeLimit < 0) then
+        error "invalid LAST time limit detected.";
+      else
+        m_LAST:-SetTimeLimit(m_LAST, LAST_TimeLimit);
+      end if;
+    end if;
     return NULL;
   end proc: # SetModuleOptions
 
@@ -359,6 +386,7 @@ TrussMe := module()
     description "Enable the verbose mode of the module.";
 
     m_VerboseMode := 1;
+    m_LAST:-EnableVerboseMode(m_LAST);
     return NULL;
   end proc: # EnableVerboseMode
 
@@ -369,6 +397,7 @@ TrussMe := module()
     description "Disable the verbose mode of the module.";
 
     m_VerboseMode := false;
+    m_LAST:-DisableVerboseMode(m_LAST);
     return NULL;
   end proc: # DisableVerboseMode
 
@@ -543,7 +572,7 @@ TrussMe := module()
 
     out := [];
     for i in objs do
-      if (obj::convert(fld_type, set)) then
+      if (i::convert(fld_type, set)) then
         out := out union [eval(i)]; # Do not remove eval: eval(table)
       end if;
     end do;
@@ -566,7 +595,7 @@ TrussMe := module()
       out := timelimit(time_limit, simplify(obj, opt));
     catch:
       WARNING("time limit of %1s exceeded for simplify operation, raw solutions "
-        "is returned. The input <time_limit> can be modified by setting it in the "
+        "is returned. The input <TimeLimit> can be modified by setting it in the "
         "TrussMe:-SetModuleOptions(...) procedure.", time_limit
       );
       out := obj;
@@ -840,7 +869,7 @@ TrussMe := module()
     }, $)::MATERIAL;
 
     description "Define a MATERIAL object with inputs: name of the material "
-      "name>, elastic modulus <elastic_modulus> (default = 210.0E9 (Pa)), "
+      "<name>, elastic modulus <elastic_modulus> (default = 210.0E9 (Pa)), "
       "Poisson's ratio <poisson_ratio> (default = 0.3 (-)), shear modulus "
       "<shear_modulus> (default = E/(2*(1+nu))), density <density> (default = "
       "7.4E3 (kg/m^3)).";
@@ -994,11 +1023,10 @@ TrussMe := module()
       ell_max::algebraic := obj["length"]
     }, $)::QFORCE;
 
-    description "Define a QFORCE object with inputs: distributed load target "
-      "object components <components>, target object <obj>, optional reference "
-      "frame <RF> in which the load components are defined (default = ground), "
-      "and optional initial <ell_min> and final <ell_max> application points "
-      "(axial coordinates).";
+    description "Define a QFORCE object with inputs: distributed load components "
+      "<components>, target object <obj>, optional reference frame <RF> in which "
+      "the load components are defined (default = ground), and optional initial "
+      "<ell_min> and final <ell_max> application points (axial coordinates).";
 
     local proj_components, x;
 
@@ -1049,10 +1077,10 @@ TrussMe := module()
       ell_max::algebraic := obj["length"]
     }, $)::QMOMENT;
 
-    description "Define a QMOMENT object with inputs: distributed torque target "
-      "object components <components>, target object <obj>, optional reference "
-      "frame <RF> in which the load components are defined (default = ground), "
-      "and optional initial <ell_min> and final <ell_max> application points "
+    description "Define a QMOMENT object with inputs: distributed torque "
+      "components <components>, target object <obj>, optional reference frame "
+      "<RF> in which the load components are defined (default = ground), and "
+      "optional initial <ell_min> and final <ell_max> application points "
       "(axial coordinates).";
 
     local proj_components, x;
@@ -1766,7 +1794,7 @@ TrussMe := module()
     obj::anything,
     $)::boolean;
 
-    description "Check if the object <obj> is a 'BEAM' object.";
+    description "Check if the object <obj> is a BEAM object.";
 
     return type(obj, table) and evalb(obj["type"] = BEAM);
   end proc: # IsBeam
@@ -1777,7 +1805,7 @@ TrussMe := module()
     obj::BEAM,
     $)
 
-    description "Clean 'BEAM' object <obj> internal variables.";
+    description "Clean BEAM object <obj> internal variables.";
 
     obj["internal_actions"] := [];
     obj["displacements"]    := [];

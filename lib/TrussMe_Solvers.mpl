@@ -32,7 +32,7 @@ export ComputeDOF := proc(
   vertex := [];
   colors := [];
   if (m_VerboseMode > 0) then
-    printf("TrussMe:-ComputeDOF(...): checking structure connections... ");
+    printf("TrussMe:-ComputeDOF(...): checking structure connections...\n");
   end if;
   for i from 1 to nops(objs_tmp) do
     vertex := vertex union [objs_tmp[i]["name"]];
@@ -51,25 +51,21 @@ export ComputeDOF := proc(
   end do;
 
   if (m_VerboseMode > 0) then
-    printf("DONE\n");
-    printf("TrussMe:-ComputeDOF(...): displaying connections graph... ");
-    if (m_VerboseMode > 1) then
-      print(GraphTheory:-DrawGraph(G), layout = tree);
-    end if;
+    printf("TrussMe:-ComputeDOF(...): checking structure connections... DONE\n");
   end if;
 
   # Check graph connections
   if GraphTheory:-IsConnected(G) then
-    if (m_VerboseMode > 0) then
-      printf("DONE\n");
+    if (m_VerboseMode > 1) then
+      print(GraphTheory:-DrawGraph(G), layout = tree);
     end if;
   else
     print(GraphTheory:-DrawGraph(G), layout = tree);
-    WARNING("unconnected elements detected in the structure");
+    WARNING("unconnected elements detected in the structure.");
   end if;
 
   if (m_VerboseMode > 0) then
-    printf("TrussMe:-ComputeDOF(...): computing degrees of freedom... ");
+    printf("TrussMe:-ComputeDOF(...): computing DOF...\n");
   end if;
 
   # Compute dofs
@@ -93,7 +89,7 @@ export ComputeDOF := proc(
   end do;
 
   if (m_VerboseMode > 0) then
-    printf("DONE (DOF = %d)\n", dof);
+    printf("TrussMe:-ComputeDOF(...): computing DOF... DONE (DOF = %d)\n", dof);
   end if;
 
   return dof, G;
@@ -229,8 +225,8 @@ export SolveStructure := proc(
   TrussMe:-CleanStructure(struct);
 
   # Set veiling_label
-  veiling_idx := 1;
-  veiling_label := cat('_V', veiling_idx);
+  veiling_idx   := 1;
+  veiling_label := m_LEM:-GetVeilingLabel(m_LEM);
 
   # Parsing inputs
   S_obj        := {};
@@ -272,7 +268,7 @@ export SolveStructure := proc(
     end if;
 
     if (m_VerboseMode > 0) then
-      printf("TrussMe:-SolveStructure(...): solving the isostatic structure... ");
+      printf("TrussMe:-SolveStructure(...): solving the isostatic structure...\n");
     end if;
     sol, str_eq, str_vars := TrussMe:-IsostaticSolver(
       S_obj union S_rigid union S_joint union S_support,
@@ -284,10 +280,8 @@ export SolveStructure := proc(
     struct["equations"] := str_eq;
     struct["variables"] := str_vars;
     if (m_VerboseMode > 0) then
-      printf("DONE\n");
-      if (m_VerboseMode > 1) then
-        printf("TrussMe:-SolveStructure(...): updating support reactions fields... ");
-      end if;
+      printf("TrussMe:-SolveStructure(...): solving the isostatic structure... DONE\n");
+      printf("TrussMe:-SolveStructure(...): updating support reactions fields...\n");
     end if;
     # Update support reactions properties
     for obj in S_support do
@@ -296,8 +290,8 @@ export SolveStructure := proc(
         i = 1..nops(obj["support_reactions"]))
       ];
     end do;
-    if (m_VerboseMode > 1) then
-      printf("DONE\n");
+    if (m_VerboseMode > 0) then
+      printf("TrussMe:-SolveStructure(...): updating support reactions fields... DONE\n");
     end if;
 
   # Solve hyperstatic structure
@@ -308,7 +302,7 @@ export SolveStructure := proc(
         "static variables of the structure and update the structure object";
     end if;
     if (m_VerboseMode > 0) then
-      printf("TrussMe:-SolveStructure(...): solving the hyperstatic structure... ");
+      printf("TrussMe:-SolveStructure(...): solving the hyperstatic structure...\n");
     end if;
     sol, str_eq, str_vars, P_energy := TrussMe:-HyperstaticSolver(
       S_obj union S_rigid union S_joint union S_support,
@@ -320,7 +314,7 @@ export SolveStructure := proc(
       parse("implicit")        = implicit
       );
     if (m_VerboseMode > 0) then
-      printf("DONE\n");
+      printf("TrussMe:-SolveStructure(...): solving the hyperstatic structure... DONE\n");
       if (m_VerboseMode > 1) then
         printf("TrussMe:-SolveStructure(...): hyperstatic solver solution:\n");
         print(<sol>);
@@ -341,13 +335,13 @@ export SolveStructure := proc(
     struct["internal_actions_solved"] := true;
     # Update support reactions properties
     if (m_VerboseMode > 0) then
-      printf("TrussMe:-SolveStructure(...): updating support reactions fields... ");
+      printf("TrussMe:-SolveStructure(...): updating support reactions fields...\n");
     end if;
     for obj in S_support do
     obj["support_reactions"] := Subs(sol, obj["support_reactions"]);
     end do;
     if (m_VerboseMode > 0) then
-      printf("DONE\n");
+      printf("TrussMe:-SolveStructure(...): updating support reactions fields... DONE\n");
     end if;
   end if;
 
@@ -355,7 +349,7 @@ export SolveStructure := proc(
   if m_KeepVeiled and type(sol[-1], list) then
     struct["veils"] := struct["veils"] union sol[-1];
     veiling_idx     := veiling_idx + 1;
-    veiling_label   := cat('_V', veiling_idx);
+    veiling_label   := m_LEM:-GetVeilingLabel(m_LEM);
   end if;
 
   # Set support reactions solved flag
@@ -408,7 +402,7 @@ export SolveStructure := proc(
     if m_KeepVeiled then
       struct["veils"] := struct["veils"] union veils;
       veiling_idx     := veiling_idx + 1;
-      veiling_label   := cat('_V', veiling_idx);
+      veiling_label   := m_LEM:-GetVeilingLabel(m_LEM);
     end if;
   end if;
 
@@ -492,8 +486,8 @@ export HyperstaticSolver := proc(
   if (implicit) then
     hyper_sol := iso_sol;
   else
-    if (m_VerboseMode > 1) then
-      printf("TrussMe:-HyperstaticSolver(...): solving the hyperstatic variables... ");
+    if (m_VerboseMode > 0) then
+      printf("TrussMe:-HyperstaticSolver(...): solving the hyperstatic variables...\n");
     end if;
     # Solve hyperstatic equations
     hyper_sol := op(RealDomain:-solve(hyper_eq, hyper_vars));
@@ -506,8 +500,8 @@ export HyperstaticSolver := proc(
     # Substitute hyper_sol in P_energy
     P_energy := subs(hyper_sol, P_energy);
 
-    if (m_VerboseMode > 1) then
-      printf("DONE\n");
+    if (m_VerboseMode > 0) then
+      printf("TrussMe:-HyperstaticSolver(...): solving the hyperstatic variables... DONE\n");
     end if;
     sol := hyper_sol union subs(hyper_sol, iso_sol);
   end if;
@@ -768,9 +762,8 @@ export IsostaticSolver := proc(
     iso_vars;
 
   # Compute structure equations
-  if (m_VerboseMode > 1) then
-    printf("TrussMe:-IsostaticSolver(...): computing the equilibrium equation "
-      "for the isostatic structure...\n");
+  if (m_VerboseMode > 0) then
+    printf("TrussMe:-IsostaticSolver(...): computing the equilibrium equations...\n");
   end if;
   iso_eq := [];
   for i from 1 to nops(objs) do
@@ -821,12 +814,14 @@ export IsostaticSolver := proc(
     end if;
   end if;
 
-  if (m_VerboseMode > 1) then
-    printf("DONE\n");
-    printf("TrussMe:-IsostaticSolver(...): structure equilibrium equations.\n");
-    print(<op(iso_eq)>);
-    printf("TrussMe:-IsostaticSolver(...): structure unknown variables.\n");
-    print(iso_vars);
+  if (m_VerboseMode > 0) then
+    printf("TrussMe:-IsostaticSolver(...): computing the equilibrium equations... DONE\n");
+    if (m_VerboseMode > 1) then
+      printf("TrussMe:-IsostaticSolver(...): structure equilibrium equations:\n");
+      print(<op(iso_eq)>);
+      printf("TrussMe:-IsostaticSolver(...): structure unknown variables:\n");
+      print(iso_vars);
+    end if;
   end if;
 
   # Check for implicit solution flag
@@ -839,20 +834,22 @@ export IsostaticSolver := proc(
 
     if nops(iso_eq) = nops(iso_vars) then
 
-      if (m_VerboseMode > 1) then
-        printf("TrussMe:-IsostaticSolver(...): matrix visualization of the "
-          "linear system...\n");
-        print(plots:-sparsematrixplot(A, matrixview));
-      end if;
-      if (m_VerboseMode > 1) then
+      if (m_VerboseMode > 0) then
+        if (m_VerboseMode > 1) then
+          printf("TrussMe:-IsostaticSolver(...): matrix visualization of the "
+            "linear system:\n");
+          print(plots:-sparsematrixplot(A, matrixview));
+        end if;
         printf("TrussMe:-IsostaticSolver(...): computing the structure reaction "
-          "forces... ");
+          "forces...\n");
       end if;
       # Solve structure equations (LinearSolver)
       iso_sol := TrussMe:-LinearSolver(iso_eq, iso_vars);
       #iso_sol := op(RealDomain:-solve(iso_eq, iso_vars)); # Maple solver
       # FIXME: this is a temporary fix (use LULEM when stable)
+
     else
+
       if m_WarningMode then
         WARNING("TrussMe:-IsostaticSolver(...): the system of equations is not "
           "consistent, trying to solve the system of equations anyway without "
@@ -865,14 +862,16 @@ export IsostaticSolver := proc(
       if m_KeepVeiled then
         iso_sol := iso_sol union [[]];
       end if;
+
     end if;
 
     if iso_sol = NULL then
       error "isostatic solution not found.";
     end if;
 
-    if (m_VerboseMode > 1) then
-      printf("DONE\n");
+    if (m_VerboseMode > 0) then
+      printf("TrussMe:-IsostaticSolver(...): computing the structure reaction "
+          "forces... DONE\n");
     end if;
   end if;
 
@@ -930,8 +929,9 @@ export InternalActions := proc(
   $)
 
   description "Programmatic computation of internal actions for structure "
-    "object with given external actions, it returns the internal actions as "
-    "function of the axial variable 'x'.";
+    "objects <objs> with given external actions <exts> and structure solution "
+    "<sol>. The function return the internal actions as function of the axial "
+    "coordinate 'x'.";
 
   local i, ia, N_sol, Ty_sol, Tz_sol, Mx_sol, My_sol, Mz_sol, x, xx, xxx;
 
@@ -990,7 +990,7 @@ export InternalActions := proc(
 
   if (m_VerboseMode > 1) then
   printf(
-    "TrussMe:-InternalActions(...): updating %s %s's internal actions... ",
+    "TrussMe:-InternalActions(...): updating %s %s's internal actions...\n",
     obj["type"], obj["name"]
   );
   end if;
@@ -998,7 +998,10 @@ export InternalActions := proc(
   obj["internal_actions"] := ia;
 
   if (m_VerboseMode > 1) then
-    printf("DONE\n");
+    printf(
+      "TrussMe:-InternalActions(...): updating %s %s's internal actions... DONE\n",
+      obj["type"], obj["name"]
+    );
   end if;
 
   return NULL;
@@ -1011,7 +1014,7 @@ export ComputeSpringDisplacement := proc(
   spring_stiffness::procedure,
   $)::anything; # FIXME: anything is not correct
 
-  description "Compute the displacement of a spring give the load <spring_load> "
+  description "Compute the displacement of a spring given the load <spring_load> "
   "and spring stiffness <stiffness>.";
 
   local x, out;
@@ -1052,7 +1055,7 @@ export ComputeSpringEnergy := proc(
   spring_stiffness::procedure,
   $)::algebraic;
 
-  description "Compute the potential energy of a spring give the load "
+  description "Compute the potential energy of a spring given the load "
   "<spring_load> and spring stiffness <stiffness>.";
 
   local disp;
@@ -1089,17 +1092,18 @@ export ComputeSupportDisplacements := proc(
     end if;
   end do;
 
-  if (m_VerboseMode > 0) then
+  if (m_VerboseMode > 1) then
     printf(
-      "TrussMe:-ComputeSupportDisplacements(...): updating %s %s's displacements... ",
+      "TrussMe:-ComputeSupportDisplacements(...): updating %s %s's displacements...\n",
       obj["type"], obj["name"]
     );
   end if;
 
   obj["displacements"] := sup_disp;
 
-  if (m_VerboseMode > 0) then
-    printf("DONE\n");
+  if (m_VerboseMode > 1) then
+      "TrussMe:-ComputeSupportDisplacements(...): updating %s %s's displacements... "
+      "DONE\n", obj["type"], obj["name"]
   end if;
   return NULL;
 end proc: # ComputeSupportDisplacements
@@ -1143,17 +1147,20 @@ export ComputeJointDisplacements := proc(
     end if;
   end do;
 
-  if (m_VerboseMode > 0) then
+  if (m_VerboseMode > 1) then
     printf(
-      "TrussMe:-ComputeJointDisplacements(...): updating %s %s's displacements... ",
+      "TrussMe:-ComputeJointDisplacements(...): updating %s %s's displacements...\n",
       obj["type"], obj["name"]
     );
   end if;
 
   obj["displacements"] := jnt_disp;
 
-  if (m_VerboseMode > 0) then
-    printf("DONE\n");
+  if (m_VerboseMode > 1) then
+    printf(
+      "TrussMe:-ComputeJointDisplacements(...): updating %s %s's displacements... "
+      "DONE\n", obj["type"], obj["name"]
+    );
   end if;
 
 return NULL;
@@ -1177,7 +1184,7 @@ export ComputeDisplacements := proc(
 
   description "Compute the structure displacements and rotations given the "
     "structure objects <objs>, the exteranl forces <exts>, the solution <sol>, "
-    "and the timoshenko beam flag <timoshenko_beam>.";
+    "and the Timoshenko beam flag <timoshenko_beam>.";
 
   local obj, x, disp, rx_sol, ry_sol, rz_sol, ux_sol, uy_sol, uz_sol;
 
@@ -1249,8 +1256,8 @@ export ComputePunctualDisplacement := proc(
   description "Compute the structure <struct> punctual displacements of the "
     "object <obj> at the coordinates <coords> in the directions <directions>. "
     "The directions are defined in the reference frame <RFs>. Optional argument "
-    "<timoshenko_beam> is a boolean flag to use Timoshenko beam model, "
-    "<unveil_results> is a boolean flag to unveil the results.";
+    "are: <timoshenko_beam> boolean flag to use Timoshenko beam model, and "
+    "<unveil_results> boolean flag to unveil the results.";
 
   local out, struct_copy, obj, objs_names, dummy_loads, subs_obj, obj_coords,
     obj_targets, x, subs_null_dummy, disp, i, j, d_coords, sw_tmp;
@@ -1508,25 +1515,27 @@ export LinearSolver := proc(
   # Matrix form of the linear system
   A, B := LinearAlgebra:-GenerateMatrix(eqns, vars);
 
-  if (m_VerboseMode > 1) then
-    printf("\n");
-    printf("TrussMe:-LinearSolver(...): performing LU decomposition... ");
+  if (m_VerboseMode > 0) then
+    printf("TrussMe:-LinearSolver(...): performing LU decomposition...\n");
   end if;
 
   # LU decomposition
   m_LAST:-LU(m_LAST, A);
 
-  if (m_VerboseMode > 1) then
-    printf("DONE\n");
-    printf("TrussMe:-LinearSolver(...): solved linear system... ");
+  if (m_VerboseMode > 0) then
+    printf("TrussMe:-LinearSolver(...): performing LU decomposition... DONE\n");
+    printf("TrussMe:-LinearSolver(...): solved linear system...\n");
   end if;
 
   # Solve linear system
   sol_tmp := m_LAST:-SolveLinearSystem(m_LAST, B);
 
-  if (m_VerboseMode > 1) then
-    printf("DONE\n");
-    printf("TrussMe:-LinearSolver(...): substituting veils... ");
+  if (m_VerboseMode > 0) then
+    printf("TrussMe:-LinearSolver(...): solved linear system... DONE\n");
+    if (m_VerboseMode > 1) then
+      print("sol_tmp", sol_tmp);
+    end if;
+    printf("TrussMe:-LinearSolver(...): substituting veils...\n");
   end if;
 
   # Substitute veils to solution
@@ -1541,8 +1550,8 @@ export LinearSolver := proc(
   end if;
   m_LEM:-VeilForget(m_LEM);
 
-  if (m_VerboseMode > 1) then
-    printf("DONE\n");
+  if (m_VerboseMode > 0) then
+    printf("TrussMe:-LinearSolver(...): substituting veils... DONE\n");
   end if;
 
   return TrussMe:-Simplify(sol);

@@ -124,15 +124,15 @@
 </Input>
 </Group></Presentation-Block>
 <Group labelreference="L256805" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
-<Input><Text-field style="Text" layout="Normal">Check bin directory</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Normal">if not FileTools[Exists](BINARY_DIR) then
-  FileTools[MakeDirectory](BINARY_DIR);
+<Input><Text-field style="Text" layout="Normal">Check bin directory</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Normal">if not FileTools:-Exists(BINARY_DIR) then
+  FileTools:-MakeDirectory(BINARY_DIR);
 end if;
 </Text-field>
 </Input>
 </Group>
 <Group labelreference="L256814" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
-<Input><Text-field style="Text" layout="Normal">Check MLA file</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Normal">if FileTools[Exists](LIBRARY_MLA) then
-  FileTools[Remove](LIBRARY_MLA);
+<Input><Text-field style="Text" layout="Normal">Check MLA file</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Normal">if FileTools:-Exists(LIBRARY_MLA) then
+  FileTools:-Remove(LIBRARY_MLA);
 end if;
 </Text-field>
 </Input>
@@ -145,12 +145,12 @@ end if;
   bin_path := cat(BINARY_DIR, ds, MODULE_NAME, &quot;.mla&quot;);
   src_path := cat(SOURCE_DIR, ds, MODULE_NAME, &quot;.mpl&quot;);
 
-  if FileTools[Exists](src_path) then
-    if not FileTools[Exists](BINARY_DIR) then
-      FileTools[MakeDirectory](BINARY_DIR);
+  if FileTools:-Exists(src_path) then
+    if not FileTools:-Exists(BINARY_DIR) then
+      FileTools:-MakeDirectory(BINARY_DIR);
     end if;
-    if FileTools[Exists](bin_path) then
-      FileTools[Remove](bin_path):
+    if FileTools:-Exists(bin_path) then
+      FileTools:-Remove(bin_path):
     end if;
     read(src_path);
     march('create', bin_path );
@@ -174,33 +174,33 @@ end proc:
 </Input>
 </Group>
 <Group hide-input="false" labelreference="L256802" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
-<Input><Text-field style="Text" layout="Normal">Create destination path</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Normal">dest := cat(kernelopts(mapledir), ds, &quot;toolbox&quot;, ds, MODULE_NAME, ds, &quot;lib&quot;, ds);
-</Text-field>
+<Input><Text-field style="Text" layout="Normal">Create destination path</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Normal">dest := cat(kernelopts(mapledir), ds, &quot;toolbox&quot;, ds, MODULE_NAME, ds, &quot;lib&quot;, ds):
+printf(dest)</Text-field>
 </Input>
-<Output><Text-field style="2D Output" layout="Maple Output"><Equation executable="false" style="2D Output" display="LUklbXJvd0c2Iy9JK21vZHVsZW5hbWVHNiJJLFR5cGVzZXR0aW5nR0koX3N5c2xpYkdGJzYmLUkjbWlHRiQ2JVElZGVzdEYnLyUnaXRhbGljR1EldHJ1ZUYnLyUsbWF0aHZhcmlhbnRHUSdpdGFsaWNGJy1JI21vR0YkNi1RKSZBc3NpZ247RicvRjNRJ25vcm1hbEYnLyUmZmVuY2VHUSZmYWxzZUYnLyUqc2VwYXJhdG9yR0Y9LyUpc3RyZXRjaHlHRj0vJSpzeW1tZXRyaWNHRj0vJShsYXJnZW9wR0Y9LyUubW92YWJsZWxpbWl0c0dGPS8lJ2FjY2VudEdGPS8lJ2xzcGFjZUdRLDAuMjc3Nzc3OGVtRicvJSdyc3BhY2VHRkwtSSNtc0dGJDYjUWFvL0xpYnJhcnkvRnJhbWV3b3Jrcy9NYXBsZS5mcmFtZXdvcmsvVmVyc2lvbnMvMjAyMC90b29sYm94L1RydXNzTWUvbGliL0YnRjk=">LV9JLFR5cGVzZXR0aW5nRzYkJSpwcm90ZWN0ZWRHSShfc3lzbGliRzYiSSxtcHJpbnRzbGFzaEdGKDYkNyM+SSVkZXN0R0YoUWFvL0xpYnJhcnkvRnJhbWV3b3Jrcy9NYXBsZS5mcmFtZXdvcmsvVmVyc2lvbnMvMjAyMC90b29sYm94L1RydXNzTWUvbGliL0YoNyNGLg==</Equation></Text-field>
+<Output><Text-field style="Line Printed Output" layout="Line Printed Output">/Library/Frameworks/Maple.framework/Versions/2020/toolbox/TrussMe/lib/</Text-field>
 </Output>
 </Group>
 <Group labelreference="L256803" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
-<Input><Text-field style="Text" layout="Normal">Procedure for deep directory removal</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Normal">RmDir := proc( dirpath::{string}, $ )
+<Input><Text-field style="Text" layout="Normal">Procedure for deep directory removal</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Normal">RmDir := proc( dirpath::string, $ )
 
   local d, dd, ds;
 
   ds := kernelopts('dirsep');
-  if FileTools[Exists](dirpath) and FileTools[IsDirectory](dirpath) then
-    for d in FileTools[ListDirectory](dirpath, 'all') do
+  if FileTools:-Exists(dirpath) and FileTools:-IsDirectory(dirpath) then
+    for d in FileTools:-ListDirectory(dirpath, 'all') do
       if evalb((d &lt;&gt; &quot;.&quot;) and (d &lt;&gt; &quot;..&quot;)) then
         dd := cat(dirpath, ds, d);
-        if FileTools[Exists](dd) then
-          if FileTools[IsDirectory](dd) then
+        if FileTools:-Exists(dd) then
+          if FileTools:-IsDirectory(dd) then
             RmDir(dd);
-            # FileTools[RemoveDirectory](dd, forceremove = true);
+            # FileTools:-RemoveDirectory(dd, forceremove = true);
           else
-           FileTools[Remove](dd);
+           FileTools:-Remove(dd);
           end if;
         end if;
       end if;
     end do;
-    FileTools[RemoveDirectory](dirpath, forceremove = true);
+    FileTools:-RemoveDirectory(dirpath, forceremove = true);
   end if;
   return;
 
@@ -210,7 +210,7 @@ end proc:
 </Group>
 <Group hide-input="false" labelreference="L256821" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
 <Input><Text-field style="Text" layout="Normal">Check destination path</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Normal">RmDir(dest);
-FileTools[MakeDirectory](dest, recurse = true);
+FileTools:-MakeDirectory(dest, recurse = true);
 </Text-field>
 </Input>
 </Group>
@@ -219,12 +219,12 @@ FileTools[MakeDirectory](dest, recurse = true);
 </Input>
 </Group>
 <Group hide-input="false" labelreference="L256815" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
-<Input><Text-field prompt="&gt; " style="Maple Input" layout="Normal">for r in FileTools[Walk](file, 'topdown', 'followlinks') do
+<Input><Text-field prompt="&gt; " style="Maple Input" layout="Normal">for r in FileTools:-Walk(file, 'topdown', 'followlinks') do
   limb := cat(dest, ds, r[dir][n..], ds);
   for d in r[subdirs] do
-    ((d) -&gt; `if`(FileTools[Exists](d), 0, FileTools[MakeDirectory](d)))(cat(limb, d));
+    ((d) -&gt; `if`(FileTools:-Exists(d), 0, FileTools:-MakeDirectory(d)))(cat(limb, d));
   end do;
-  seq(FileTools[Copy](cat(r[dir], ds, f), cat(limb, f)), f = r[files]);
+  seq(FileTools:-Copy(cat(r[dir], ds, f), cat(limb, f)), f = r[files]);
 end do:</Text-field>
 </Input>
 </Group>
@@ -237,7 +237,7 @@ end do:</Text-field>
 <Group hide-input="false" labelreference="L256804" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
 <Input><Text-field prompt="&gt; " style="Maple Input" layout="Normal">with(TrussMe);</Text-field>
 </Input>
-<Output><Text-field style="2D Output" layout="Maple Output"><Equation executable="false" style="2D Output" display="LUkobWZlbmNlZEc2Iy9JK21vZHVsZW5hbWVHNiJJLFR5cGVzZXR0aW5nR0koX3N5c2xpYkdGJzYmLUklbXJvd0dGJDZieS1JI21pR0YkNiVRK0Fzc2lnbkRhdGFGJy8lJ2l0YWxpY0dRJXRydWVGJy8lLG1hdGh2YXJpYW50R1EnaXRhbGljRictSSNtb0dGJDYtUSIsRicvRjZRJ25vcm1hbEYnLyUmZmVuY2VHUSZmYWxzZUYnLyUqc2VwYXJhdG9yR0Y0LyUpc3RyZXRjaHlHRkAvJSpzeW1tZXRyaWNHRkAvJShsYXJnZW9wR0ZALyUubW92YWJsZWxpbWl0c0dGQC8lJ2FjY2VudEdGQC8lJ2xzcGFjZUdRJjAuMGVtRicvJSdyc3BhY2VHUSwwLjMzMzMzMzNlbUYnLUYvNiVRKkNoZWNrSW5pdEYnRjJGNUY4LUYvNiVRKkNsZWFuQmVhbUYnRjJGNUY4LUYvNiVRK0NsZWFuSm9pbnRGJ0YyRjVGOC1GLzYlUSlDbGVhblJvZEYnRjJGNUY4LUYvNiVRL0NsZWFuU3RydWN0dXJlRidGMkY1RjgtRi82JVEtQ2xlYW5TdXBwb3J0RidGMkY1RjgtRi82JVEqQ2xlYXJMQVNURidGMkY1RjgtRi82JVErQ29tcHV0ZURPRkYnRjJGNUY4LUYvNiVRNUNvbXB1dGVEaXNwbGFjZW1lbnRzRidGMkY1RjgtRi82JVE3Q29tcHV0ZUludGVybmFsQWN0aW9uc0YnRjJGNUY4LUYvNiVROkNvbXB1dGVKb2ludERpc3BsYWNlbWVudHNGJ0YyRjVGOC1GLzYlUUBDb21wdXRlT2JqZWN0RnJhbWVEaXNwbGFjZW1lbnRzRidGMkY1RjgtRi82JVE3Q29tcHV0ZVBvdGVudGlhbEVuZXJneUYnRjJGNUY4LUYvNiVRPENvbXB1dGVQdW5jdHVhbERpc3BsYWNlbWVudEYnRjJGNUY4LUYvNiVROkNvbXB1dGVTcHJpbmdEaXNwbGFjZW1lbnRGJ0YyRjVGOC1GLzYlUTRDb21wdXRlU3ByaW5nRW5lcmd5RidGMkY1RjgtRi82JVE8Q29tcHV0ZVN1cHBvcnREaXNwbGFjZW1lbnRzRidGMkY1RjgtRi82JVEuQ29weVN0cnVjdHVyZUYnRjJGNUY4LUYvNiVRJURpZmZGJ0YyRjVGOC1GLzYlUTNEaXNhYmxlVmVyYm9zZU1vZGVGJ0YyRjVGOC1GLzYlUTNEaXNhYmxlV2FybmluZ01vZGVGJ0YyRjVGOC1GLzYlUTNEcmF3U3RydWN0dXJlR3JhcGhGJ0YyRjVGOC1GLzYlUTpEcmF3U3RydWN0dXJlU3BhcnNlTWF0cml4RidGMkY1RjgtRi82JVEyRW5hYmxlVmVyYm9zZU1vZGVGJ0YyRjVGOC1GLzYlUTJFbmFibGVXYXJuaW5nTW9kZUYnRjJGNUY4LUYvNiVRK0dldEdyYXZpdHlGJ0YyRjVGOC1GLzYlUShHZXRMQVNURidGMkY1RjgtRi82JVEnR2V0TEVNRidGMkY1RjgtRi82JVEpR2V0TmFtZXNGJ0YyRjVGOC1GLzYlUS1HZXRPYmpCeU5hbWVGJ0YyRjVGOC1GLzYlUS5HZXRPYmpzQnlUeXBlRidGMkY1RjgtRi82JVEySHlwZXJzdGF0aWNTb2x2ZXJGJ0YyRjVGOC1GLzYlUSVJbmZvRidGMkY1RjgtRi82JVEpSW5pdExBU1RGJ0YyRjVGOC1GLzYlUSxJbml0VHJ1c3NNZUYnRjJGNUY4LUYvNiVRMEludGVybmFsQWN0aW9uc0YnRjJGNUY4LUYvNiVRLUludmVyc2VGcmFtZUYnRjJGNUY4LUYvNiVRJ0lzQmVhbUYnRjJGNUY4LUYvNiVRMUlzQ29tcGxpYW50Sm9pbnRGJ0YyRjVGOC1GLzYlUTNJc0NvbXBsaWFudFN1cHBvcnRGJ0YyRjVGOC1GLzYlUShJc0VhcnRoRidGMkY1RjgtRi82JVEoSXNGb3JjZUYnRjJGNUY4LUYvNiVRKElzRnJhbWVGJ0YyRjVGOC1GLzYlUS1Jc0luc2lkZUJlYW1GJ0YyRjVGOC1GLzYlUS5Jc0luc2lkZUpvaW50RidGMkY1RjgtRi82JVEsSXNJbnNpZGVSb2RGJ0YyRjVGOC1GLzYlUTJJc0luc2lkZVN0cnVjdHVyZUYnRjJGNUY4LUYvNiVRMElzSW5zaWRlU3VwcG9ydEYnRjJGNUY4LUYvNiVRKElzSm9pbnRGJ0YyRjVGOC1GLzYlUStJc01hdGVyaWFsRidGMkY1RjgtRi82JVEpSXNNb21lbnRGJ0YyRjVGOC1GLzYlUShJc1BvaW50RidGMkY1RjgtRi82JVEpSXNRRm9yY2VGJ0YyRjVGOC1GLzYlUSpJc1FNb21lbnRGJ0YyRjVGOC1GLzYlUSxJc1JpZ2lkQm9keUYnRjJGNUY4LUYvNiVRJklzUm9kRidGMkY1RjgtRi82JVEsSXNTdHJ1Y3R1cmVGJ0YyRjVGOC1GLzYlUSpJc1N1cHBvcnRGJ0YyRjVGOC1GLzYlUSlJc1ZlY3RvckYnRjJGNUY4LUYvNiVRMElzb3N0YXRpY1NvbHZlckYnRjJGNUY4LUYvNiVRLUxpbmVhclNvbHZlckYnRjJGNUY4LUYvNiVRLExpc3RQYWRkaW5nRidGMkY1RjgtRi82JVEpTWFrZUJlYW1GJ0YyRjVGOC1GLzYlUS9NYWtlQmVhbVBvaW50c0YnRjJGNUY4LUYvNiVRKk1ha2VGb3JjZUYnRjJGNUY4LUYvNiVRKk1ha2VKb2ludEYnRjJGNUY4LUYvNiVRLU1ha2VNYXRlcmlhbEYnRjJGNUY4LUYvNiVRK01ha2VNb21lbnRGJ0YyRjVGOC1GLzYlUStNYWtlUUZvcmNlRidGMkY1RjgtRi82JVEsTWFrZVFNb21lbnRGJ0YyRjVGOC1GLzYlUS5NYWtlUmlnaWRCb2R5RidGMkY1RjgtRi82JVEoTWFrZVJvZEYnRjJGNUY4LUYvNiVRLk1ha2VSb2RQb2ludHNGJ0YyRjVGOC1GLzYlUS5NYWtlU3RydWN0dXJlRidGMkY1RjgtRi82JVEsTWFrZVN1cHBvcnRGJ0YyRjVGOC1GLzYlUStNb2R1bGVMb2FkRidGMkY1RjgtRi82JVEtTW9kdWxlVW5sb2FkRidGMkY1RjgtRi82JVEsTmV3dG9uRXVsZXJGJ0YyRjVGOC1GLzYlUSZOb3JtMkYnRjJGNUY4LUYvNiVRLE9iamVjdENvbG9yRidGMkY1RjgtRi82JVEnT3JpZ2luRidGMkY1RjgtRi82JVEpUGxvdEJlYW1GJ0YyRjVGOC1GLzYlUTFQbG90RGVmb3JtZWRCZWFtRidGMkY1RjgtRi82JVEyUGxvdERlZm9ybWVkSm9pbnRGJ0YyRjVGOC1GLzYlUTZQbG90RGVmb3JtZWRSaWdpZEJvZHlGJ0YyRjVGOC1GLzYlUTBQbG90RGVmb3JtZWRSb2RGJ0YyRjVGOC1GLzYlUTZQbG90RGVmb3JtZWRTdHJ1Y3R1cmVGJ0YyRjVGOC1GLzYlUTRQbG90RGVmb3JtZWRTdXBwb3J0RidGMkY1RjgtRi82JVEqUGxvdEpvaW50RidGMkY1RjgtRi82JVEuUGxvdFJpZ2lkQm9keUYnRjJGNUY4LUYvNiVRKFBsb3RSb2RGJ0YyRjVGOC1GLzYlUS5QbG90U3RydWN0dXJlRidGMkY1RjgtRi82JVEsUGxvdFN1cHBvcnRGJ0YyRjVGOC1GLzYlUShQcm9qZWN0RidGMkY1RjgtRi82JVEoUHJvdGVjdEYnRjJGNUY4LUYvNiVRJ1JvdGF0ZUYnRjJGNUY4LUYvNiVRK1NldEdyYXZpdHlGJ0YyRjVGOC1GLzYlUShTZXRMQVNURidGMkY1RjgtRi82JVEnU2V0TEVNRidGMkY1RjgtRi82JVExU2V0TW9kdWxlT3B0aW9uc0YnRjJGNUY4LUYvNiVRJVNob3dGJ0YyRjVGOC1GLzYlUSlTaW1wbGlmeUYnRjJGNUY4LUYvNiVRL1NvbHZlU3RydWN0dXJlRidGMkY1RjgtRi82JVElU3Vic0YnRjJGNUY4LUYvNiVRKlRyYW5zbGF0ZUYnRjJGNUY4LUYvNiVRLVR5cGVSZWdpc3RlckYnRjJGNUY4LUYvNiVRLVVuQXNzaWduRGF0YUYnRjJGNUY4LUYvNiVRKlVucHJvdGVjdEYnRjJGNUY4LUYvNiVRJVV2ZWNGJ0YyRjVGOC1GLzYlUSZVdmVjWEYnRjJGNUY4LUYvNiVRJlV2ZWNZRidGMkY1RjgtRi82JVEmVXZlY1pGJ0YyRjVGOC1GLzYlUSZ1bmlvbkYnRjJGNS8lK2ZvcmVncm91bmRHUShbMCwwLDBdRicvJSlyZWFkb25seUdGQEY8RjwvJSVvcGVuR1EnJmxzcWI7RicvJSZjbG9zZUdRJyZyc3FiO0Yn">N15ySStBc3NpZ25EYXRhRzYiSSpDaGVja0luaXRHRiRJKkNsZWFuQmVhbUdGJEkrQ2xlYW5Kb2ludEdGJEkpQ2xlYW5Sb2RHRiRJL0NsZWFuU3RydWN0dXJlR0YkSS1DbGVhblN1cHBvcnRHRiRJKkNsZWFyTEFTVEdGJEkrQ29tcHV0ZURPRkdGJEk1Q29tcHV0ZURpc3BsYWNlbWVudHNHRiRJN0NvbXB1dGVJbnRlcm5hbEFjdGlvbnNHRiRJOkNvbXB1dGVKb2ludERpc3BsYWNlbWVudHNHRiRJQENvbXB1dGVPYmplY3RGcmFtZURpc3BsYWNlbWVudHNHRiRJN0NvbXB1dGVQb3RlbnRpYWxFbmVyZ3lHRiRJPENvbXB1dGVQdW5jdHVhbERpc3BsYWNlbWVudEdGJEk6Q29tcHV0ZVNwcmluZ0Rpc3BsYWNlbWVudEdGJEk0Q29tcHV0ZVNwcmluZ0VuZXJneUdGJEk8Q29tcHV0ZVN1cHBvcnREaXNwbGFjZW1lbnRzR0YkSS5Db3B5U3RydWN0dXJlR0YkSSVEaWZmRzYkJSpwcm90ZWN0ZWRHSShfc3lzbGliR0YkSTNEaXNhYmxlVmVyYm9zZU1vZGVHRiRJM0Rpc2FibGVXYXJuaW5nTW9kZUdGJEkzRHJhd1N0cnVjdHVyZUdyYXBoR0YkSTpEcmF3U3RydWN0dXJlU3BhcnNlTWF0cml4R0YkSTJFbmFibGVWZXJib3NlTW9kZUdGJEkyRW5hYmxlV2FybmluZ01vZGVHRiRJK0dldEdyYXZpdHlHRiRJKEdldExBU1RHRiRJJ0dldExFTUdGJEkpR2V0TmFtZXNHRiRJLUdldE9iakJ5TmFtZUdGJEkuR2V0T2Jqc0J5VHlwZUdGJEkySHlwZXJzdGF0aWNTb2x2ZXJHRiRJJUluZm9HRiRJKUluaXRMQVNUR0YkSSxJbml0VHJ1c3NNZUdGJEkwSW50ZXJuYWxBY3Rpb25zR0YkSS1JbnZlcnNlRnJhbWVHRiRJJ0lzQmVhbUdGJEkxSXNDb21wbGlhbnRKb2ludEdGJEkzSXNDb21wbGlhbnRTdXBwb3J0R0YkSShJc0VhcnRoR0YkSShJc0ZvcmNlR0YkSShJc0ZyYW1lR0YkSS1Jc0luc2lkZUJlYW1HRiRJLklzSW5zaWRlSm9pbnRHRiRJLElzSW5zaWRlUm9kR0YkSTJJc0luc2lkZVN0cnVjdHVyZUdGJEkwSXNJbnNpZGVTdXBwb3J0R0YkSShJc0pvaW50R0YkSStJc01hdGVyaWFsR0YkSSlJc01vbWVudEdGJEkoSXNQb2ludEdGJEkpSXNRRm9yY2VHRiRJKklzUU1vbWVudEdGJEksSXNSaWdpZEJvZHlHRiRJJklzUm9kR0YkSSxJc1N0cnVjdHVyZUdGJEkqSXNTdXBwb3J0R0YkSSlJc1ZlY3RvckdGJEkwSXNvc3RhdGljU29sdmVyR0YkSS1MaW5lYXJTb2x2ZXJHRiRJLExpc3RQYWRkaW5nR0YkSSlNYWtlQmVhbUdGJEkvTWFrZUJlYW1Qb2ludHNHRiRJKk1ha2VGb3JjZUdGJEkqTWFrZUpvaW50R0YkSS1NYWtlTWF0ZXJpYWxHRiRJK01ha2VNb21lbnRHRiRJK01ha2VRRm9yY2VHRiRJLE1ha2VRTW9tZW50R0YkSS5NYWtlUmlnaWRCb2R5R0YkSShNYWtlUm9kR0YkSS5NYWtlUm9kUG9pbnRzR0YkSS5NYWtlU3RydWN0dXJlR0YkSSxNYWtlU3VwcG9ydEdGJEkrTW9kdWxlTG9hZEdGJEktTW9kdWxlVW5sb2FkR0YkSSxOZXd0b25FdWxlckdGJEkmTm9ybTJHRiRJLE9iamVjdENvbG9yR0YkSSdPcmlnaW5HRiRJKVBsb3RCZWFtR0YkSTFQbG90RGVmb3JtZWRCZWFtR0YkSTJQbG90RGVmb3JtZWRKb2ludEdGJEk2UGxvdERlZm9ybWVkUmlnaWRCb2R5R0YkSTBQbG90RGVmb3JtZWRSb2RHRiRJNlBsb3REZWZvcm1lZFN0cnVjdHVyZUdGJEk0UGxvdERlZm9ybWVkU3VwcG9ydEdGJEkqUGxvdEpvaW50R0YkSS5QbG90UmlnaWRCb2R5R0YkSShQbG90Um9kR0YkSS5QbG90U3RydWN0dXJlR0YkSSxQbG90U3VwcG9ydEdGJEkoUHJvamVjdEdGJEkoUHJvdGVjdEdGJEknUm90YXRlR0YkSStTZXRHcmF2aXR5R0YkSShTZXRMQVNUR0YkSSdTZXRMRU1HRiRJMVNldE1vZHVsZU9wdGlvbnNHRiRJJVNob3dHRiRJKVNpbXBsaWZ5R0YkSS9Tb2x2ZVN0cnVjdHVyZUdGJEklU3Vic0dGJEkqVHJhbnNsYXRlR0YkSS1UeXBlUmVnaXN0ZXJHRiRJLVVuQXNzaWduRGF0YUdGJEkqVW5wcm90ZWN0R0YkSSVVdmVjR0YkSSZVdmVjWEdGJEkmVXZlY1lHRiRJJlV2ZWNaR0YkSSZ1bmlvbkdGOQ==</Equation></Text-field>
+<Output><Text-field style="2D Output" layout="Maple Output"><Equation executable="false" style="2D Output" display="LUkobWZlbmNlZEc2Iy9JK21vZHVsZW5hbWVHNiJJLFR5cGVzZXR0aW5nR0koX3N5c2xpYkdGJzYmLUklbXJvd0dGJDZeeS1JI21pR0YkNiVRKkNoZWNrSW5pdEYnLyUnaXRhbGljR1EldHJ1ZUYnLyUsbWF0aHZhcmlhbnRHUSdpdGFsaWNGJy1JI21vR0YkNi1RIixGJy9GNlEnbm9ybWFsRicvJSZmZW5jZUdRJmZhbHNlRicvJSpzZXBhcmF0b3JHRjQvJSlzdHJldGNoeUdGQC8lKnN5bW1ldHJpY0dGQC8lKGxhcmdlb3BHRkAvJS5tb3ZhYmxlbGltaXRzR0ZALyUnYWNjZW50R0ZALyUnbHNwYWNlR1EmMC4wZW1GJy8lJ3JzcGFjZUdRLDAuMzMzMzMzM2VtRictRi82JVEqQ2xlYW5CZWFtRidGMkY1RjgtRi82JVErQ2xlYW5Kb2ludEYnRjJGNUY4LUYvNiVRKUNsZWFuUm9kRidGMkY1RjgtRi82JVEvQ2xlYW5TdHJ1Y3R1cmVGJ0YyRjVGOC1GLzYlUS1DbGVhblN1cHBvcnRGJ0YyRjVGOC1GLzYlUSpDbGVhckxBU1RGJ0YyRjVGOC1GLzYlUStDb21wdXRlRE9GRidGMkY1RjgtRi82JVE1Q29tcHV0ZURpc3BsYWNlbWVudHNGJ0YyRjVGOC1GLzYlUTdDb21wdXRlSW50ZXJuYWxBY3Rpb25zRidGMkY1RjgtRi82JVE6Q29tcHV0ZUpvaW50RGlzcGxhY2VtZW50c0YnRjJGNUY4LUYvNiVRQENvbXB1dGVPYmplY3RGcmFtZURpc3BsYWNlbWVudHNGJ0YyRjVGOC1GLzYlUTdDb21wdXRlUG90ZW50aWFsRW5lcmd5RidGMkY1RjgtRi82JVE8Q29tcHV0ZVB1bmN0dWFsRGlzcGxhY2VtZW50RidGMkY1RjgtRi82JVE6Q29tcHV0ZVNwcmluZ0Rpc3BsYWNlbWVudEYnRjJGNUY4LUYvNiVRNENvbXB1dGVTcHJpbmdFbmVyZ3lGJ0YyRjVGOC1GLzYlUTxDb21wdXRlU3VwcG9ydERpc3BsYWNlbWVudHNGJ0YyRjVGOC1GLzYlUS5Db3B5U3RydWN0dXJlRidGMkY1RjgtRi82JVElRGlmZkYnRjJGNUY4LUYvNiVRM0Rpc2FibGVWZXJib3NlTW9kZUYnRjJGNUY4LUYvNiVRM0Rpc2FibGVXYXJuaW5nTW9kZUYnRjJGNUY4LUYvNiVRM0RyYXdTdHJ1Y3R1cmVHcmFwaEYnRjJGNUY4LUYvNiVROkRyYXdTdHJ1Y3R1cmVTcGFyc2VNYXRyaXhGJ0YyRjVGOC1GLzYlUTJFbmFibGVWZXJib3NlTW9kZUYnRjJGNUY4LUYvNiVRMkVuYWJsZVdhcm5pbmdNb2RlRidGMkY1RjgtRi82JVErR2V0R3Jhdml0eUYnRjJGNUY4LUYvNiVRKEdldExBU1RGJ0YyRjVGOC1GLzYlUSdHZXRMRU1GJ0YyRjVGOC1GLzYlUSlHZXROYW1lc0YnRjJGNUY4LUYvNiVRLUdldE9iakJ5TmFtZUYnRjJGNUY4LUYvNiVRLkdldE9ianNCeVR5cGVGJ0YyRjVGOC1GLzYlUTJIeXBlcnN0YXRpY1NvbHZlckYnRjJGNUY4LUYvNiVRJUluZm9GJ0YyRjVGOC1GLzYlUSlJbml0TEFTVEYnRjJGNUY4LUYvNiVRLEluaXRUcnVzc01lRidGMkY1RjgtRi82JVEwSW50ZXJuYWxBY3Rpb25zRidGMkY1RjgtRi82JVEtSW52ZXJzZUZyYW1lRidGMkY1RjgtRi82JVEnSXNCZWFtRidGMkY1RjgtRi82JVExSXNDb21wbGlhbnRKb2ludEYnRjJGNUY4LUYvNiVRM0lzQ29tcGxpYW50U3VwcG9ydEYnRjJGNUY4LUYvNiVRKElzRWFydGhGJ0YyRjVGOC1GLzYlUShJc0ZvcmNlRidGMkY1RjgtRi82JVEoSXNGcmFtZUYnRjJGNUY4LUYvNiVRLUlzSW5zaWRlQmVhbUYnRjJGNUY4LUYvNiVRLklzSW5zaWRlSm9pbnRGJ0YyRjVGOC1GLzYlUSxJc0luc2lkZVJvZEYnRjJGNUY4LUYvNiVRMklzSW5zaWRlU3RydWN0dXJlRidGMkY1RjgtRi82JVEwSXNJbnNpZGVTdXBwb3J0RidGMkY1RjgtRi82JVEoSXNKb2ludEYnRjJGNUY4LUYvNiVRK0lzTWF0ZXJpYWxGJ0YyRjVGOC1GLzYlUSlJc01vbWVudEYnRjJGNUY4LUYvNiVRKElzUG9pbnRGJ0YyRjVGOC1GLzYlUSlJc1FGb3JjZUYnRjJGNUY4LUYvNiVRKklzUU1vbWVudEYnRjJGNUY4LUYvNiVRLElzUmlnaWRCb2R5RidGMkY1RjgtRi82JVEmSXNSb2RGJ0YyRjVGOC1GLzYlUSxJc1N0cnVjdHVyZUYnRjJGNUY4LUYvNiVRKklzU3VwcG9ydEYnRjJGNUY4LUYvNiVRKUlzVmVjdG9yRidGMkY1RjgtRi82JVEwSXNvc3RhdGljU29sdmVyRidGMkY1RjgtRi82JVEtTGluZWFyU29sdmVyRidGMkY1RjgtRi82JVEsTGlzdFBhZGRpbmdGJ0YyRjVGOC1GLzYlUSlNYWtlQmVhbUYnRjJGNUY4LUYvNiVRL01ha2VCZWFtUG9pbnRzRidGMkY1RjgtRi82JVEqTWFrZUZvcmNlRidGMkY1RjgtRi82JVEqTWFrZUpvaW50RidGMkY1RjgtRi82JVEtTWFrZU1hdGVyaWFsRidGMkY1RjgtRi82JVErTWFrZU1vbWVudEYnRjJGNUY4LUYvNiVRK01ha2VRRm9yY2VGJ0YyRjVGOC1GLzYlUSxNYWtlUU1vbWVudEYnRjJGNUY4LUYvNiVRLk1ha2VSaWdpZEJvZHlGJ0YyRjVGOC1GLzYlUShNYWtlUm9kRidGMkY1RjgtRi82JVEuTWFrZVJvZFBvaW50c0YnRjJGNUY4LUYvNiVRLk1ha2VTdHJ1Y3R1cmVGJ0YyRjVGOC1GLzYlUSxNYWtlU3VwcG9ydEYnRjJGNUY4LUYvNiVRK01vZHVsZUxvYWRGJ0YyRjVGOC1GLzYlUS1Nb2R1bGVVbmxvYWRGJ0YyRjVGOC1GLzYlUSxOZXd0b25FdWxlckYnRjJGNUY4LUYvNiVRJk5vcm0yRidGMkY1RjgtRi82JVEsT2JqZWN0Q29sb3JGJ0YyRjVGOC1GLzYlUSdPcmlnaW5GJ0YyRjVGOC1GLzYlUSlQbG90QmVhbUYnRjJGNUY4LUYvNiVRMVBsb3REZWZvcm1lZEJlYW1GJ0YyRjVGOC1GLzYlUTJQbG90RGVmb3JtZWRKb2ludEYnRjJGNUY4LUYvNiVRNlBsb3REZWZvcm1lZFJpZ2lkQm9keUYnRjJGNUY4LUYvNiVRMFBsb3REZWZvcm1lZFJvZEYnRjJGNUY4LUYvNiVRNlBsb3REZWZvcm1lZFN0cnVjdHVyZUYnRjJGNUY4LUYvNiVRNFBsb3REZWZvcm1lZFN1cHBvcnRGJ0YyRjVGOC1GLzYlUSpQbG90Sm9pbnRGJ0YyRjVGOC1GLzYlUS5QbG90UmlnaWRCb2R5RidGMkY1RjgtRi82JVEoUGxvdFJvZEYnRjJGNUY4LUYvNiVRLlBsb3RTdHJ1Y3R1cmVGJ0YyRjVGOC1GLzYlUSxQbG90U3VwcG9ydEYnRjJGNUY4LUYvNiVRKFByb2plY3RGJ0YyRjVGOC1GLzYlUShQcm90ZWN0RidGMkY1RjgtRi82JVEnUm90YXRlRidGMkY1RjgtRi82JVErU2V0R3Jhdml0eUYnRjJGNUY4LUYvNiVRKFNldExBU1RGJ0YyRjVGOC1GLzYlUSdTZXRMRU1GJ0YyRjVGOC1GLzYlUTFTZXRNb2R1bGVPcHRpb25zRidGMkY1RjgtRi82JVElU2hvd0YnRjJGNUY4LUYvNiVRKVNpbXBsaWZ5RidGMkY1RjgtRi82JVEvU29sdmVTdHJ1Y3R1cmVGJ0YyRjVGOC1GLzYlUSVTdWJzRidGMkY1RjgtRi82JVEqVHJhbnNsYXRlRidGMkY1RjgtRi82JVEtVHlwZVJlZ2lzdGVyRidGMkY1RjgtRi82JVEqVW5wcm90ZWN0RidGMkY1RjgtRi82JVElVXZlY0YnRjJGNUY4LUYvNiVRJlV2ZWNYRidGMkY1RjgtRi82JVEmVXZlY1lGJ0YyRjVGOC1GLzYlUSZVdmVjWkYnRjJGNUY4LUYvNiVRJnVuaW9uRidGMkY1LyUrZm9yZWdyb3VuZEdRKFswLDAsMF1GJy8lKXJlYWRvbmx5R0ZARjxGPC8lJW9wZW5HUScmbHNxYjtGJy8lJmNsb3NlR1EnJnJzcWI7Ric=">N1xySSpDaGVja0luaXRHNiJJKkNsZWFuQmVhbUdGJEkrQ2xlYW5Kb2ludEdGJEkpQ2xlYW5Sb2RHRiRJL0NsZWFuU3RydWN0dXJlR0YkSS1DbGVhblN1cHBvcnRHRiRJKkNsZWFyTEFTVEdGJEkrQ29tcHV0ZURPRkdGJEk1Q29tcHV0ZURpc3BsYWNlbWVudHNHRiRJN0NvbXB1dGVJbnRlcm5hbEFjdGlvbnNHRiRJOkNvbXB1dGVKb2ludERpc3BsYWNlbWVudHNHRiRJQENvbXB1dGVPYmplY3RGcmFtZURpc3BsYWNlbWVudHNHRiRJN0NvbXB1dGVQb3RlbnRpYWxFbmVyZ3lHRiRJPENvbXB1dGVQdW5jdHVhbERpc3BsYWNlbWVudEdGJEk6Q29tcHV0ZVNwcmluZ0Rpc3BsYWNlbWVudEdGJEk0Q29tcHV0ZVNwcmluZ0VuZXJneUdGJEk8Q29tcHV0ZVN1cHBvcnREaXNwbGFjZW1lbnRzR0YkSS5Db3B5U3RydWN0dXJlR0YkSSVEaWZmRzYkJSpwcm90ZWN0ZWRHSShfc3lzbGliR0YkSTNEaXNhYmxlVmVyYm9zZU1vZGVHRiRJM0Rpc2FibGVXYXJuaW5nTW9kZUdGJEkzRHJhd1N0cnVjdHVyZUdyYXBoR0YkSTpEcmF3U3RydWN0dXJlU3BhcnNlTWF0cml4R0YkSTJFbmFibGVWZXJib3NlTW9kZUdGJEkyRW5hYmxlV2FybmluZ01vZGVHRiRJK0dldEdyYXZpdHlHRiRJKEdldExBU1RHRiRJJ0dldExFTUdGJEkpR2V0TmFtZXNHRiRJLUdldE9iakJ5TmFtZUdGJEkuR2V0T2Jqc0J5VHlwZUdGJEkySHlwZXJzdGF0aWNTb2x2ZXJHRiRJJUluZm9HRiRJKUluaXRMQVNUR0YkSSxJbml0VHJ1c3NNZUdGJEkwSW50ZXJuYWxBY3Rpb25zR0YkSS1JbnZlcnNlRnJhbWVHRiRJJ0lzQmVhbUdGJEkxSXNDb21wbGlhbnRKb2ludEdGJEkzSXNDb21wbGlhbnRTdXBwb3J0R0YkSShJc0VhcnRoR0YkSShJc0ZvcmNlR0YkSShJc0ZyYW1lR0YkSS1Jc0luc2lkZUJlYW1HRiRJLklzSW5zaWRlSm9pbnRHRiRJLElzSW5zaWRlUm9kR0YkSTJJc0luc2lkZVN0cnVjdHVyZUdGJEkwSXNJbnNpZGVTdXBwb3J0R0YkSShJc0pvaW50R0YkSStJc01hdGVyaWFsR0YkSSlJc01vbWVudEdGJEkoSXNQb2ludEdGJEkpSXNRRm9yY2VHRiRJKklzUU1vbWVudEdGJEksSXNSaWdpZEJvZHlHRiRJJklzUm9kR0YkSSxJc1N0cnVjdHVyZUdGJEkqSXNTdXBwb3J0R0YkSSlJc1ZlY3RvckdGJEkwSXNvc3RhdGljU29sdmVyR0YkSS1MaW5lYXJTb2x2ZXJHRiRJLExpc3RQYWRkaW5nR0YkSSlNYWtlQmVhbUdGJEkvTWFrZUJlYW1Qb2ludHNHRiRJKk1ha2VGb3JjZUdGJEkqTWFrZUpvaW50R0YkSS1NYWtlTWF0ZXJpYWxHRiRJK01ha2VNb21lbnRHRiRJK01ha2VRRm9yY2VHRiRJLE1ha2VRTW9tZW50R0YkSS5NYWtlUmlnaWRCb2R5R0YkSShNYWtlUm9kR0YkSS5NYWtlUm9kUG9pbnRzR0YkSS5NYWtlU3RydWN0dXJlR0YkSSxNYWtlU3VwcG9ydEdGJEkrTW9kdWxlTG9hZEdGJEktTW9kdWxlVW5sb2FkR0YkSSxOZXd0b25FdWxlckdGJEkmTm9ybTJHRiRJLE9iamVjdENvbG9yR0YkSSdPcmlnaW5HRiRJKVBsb3RCZWFtR0YkSTFQbG90RGVmb3JtZWRCZWFtR0YkSTJQbG90RGVmb3JtZWRKb2ludEdGJEk2UGxvdERlZm9ybWVkUmlnaWRCb2R5R0YkSTBQbG90RGVmb3JtZWRSb2RHRiRJNlBsb3REZWZvcm1lZFN0cnVjdHVyZUdGJEk0UGxvdERlZm9ybWVkU3VwcG9ydEdGJEkqUGxvdEpvaW50R0YkSS5QbG90UmlnaWRCb2R5R0YkSShQbG90Um9kR0YkSS5QbG90U3RydWN0dXJlR0YkSSxQbG90U3VwcG9ydEdGJEkoUHJvamVjdEdGJEkoUHJvdGVjdEdGJEknUm90YXRlR0YkSStTZXRHcmF2aXR5R0YkSShTZXRMQVNUR0YkSSdTZXRMRU1HRiRJMVNldE1vZHVsZU9wdGlvbnNHRiRJJVNob3dHRiRJKVNpbXBsaWZ5R0YkSS9Tb2x2ZVN0cnVjdHVyZUdGJEklU3Vic0dGJEkqVHJhbnNsYXRlR0YkSS1UeXBlUmVnaXN0ZXJHRiRJKlVucHJvdGVjdEdGJEklVXZlY0dGJEkmVXZlY1hHRiRJJlV2ZWNZR0YkSSZVdmVjWkdGJEkmdW5pb25HRjg=</Equation></Text-field>
 </Output>
 </Group>
 <Group labelreference="L256816" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
@@ -247,25 +247,25 @@ end do:</Text-field>
 # A Maple Library for Truss Elements Structures.
 module TrussMe:
 
-    # Print 'TrussMe' module information.
+    # Print module information.
     Info( )
 
-    # Module 'TrussMe' load procedure.
+    # Module load procedure.
     ModuleLoad( )
 
-    # Module 'TrussMe' unload procedure.
+    # Module unload procedure.
     ModuleUnload( )
 
-    # Register 'TrussMe' module types.
+    # Register module types.
     TypeRegister( )
 
-    # Initialize 'TrussMe' module internal variables.
+    # Initialize module internal variables.
     InitTrussMe( )
 
-    # Protect 'TrussMe' module variables.
+    # Protect module variables.
     Protect( )
 
-    # Unprotect 'TrussMe' module variables.
+    # Unprotect module variables.
     Unprotect( )
 
     # Check if the 'LAST' object is initialized.
@@ -290,12 +290,16 @@ module TrussMe:
     union( A::{list, set}, B::{list, set}, $ ) :: {list, set}
 
     # Set the module options: &lt;VerboseMode&gt; = [0, 1, 2], &lt;WarningMode&gt; = [true, 
-    # false] and &lt;TimeLimit&gt; = [0, +inf].
-    SetModuleOptions( { TimeLimit::{nothing, constant} := NULL, 
+    # false], &lt;TimeLimit&gt; = [0, inf], &lt;LAST_VerboseMode&gt; = [true, false], 
+    # &lt;LAST_WarningMode&gt; = [true, false], &lt;LAST_TimeLimit&gt; = [0, inf].
+    SetModuleOptions( { LAST_TimeLimit::{nothing, constant} := NULL, 
+                        LAST_VerboseMode::{boolean, nothing} := NULL, 
+                        LAST_WarningMode::{boolean, nothing} := NULL, 
+                        TimeLimit::{nothing, constant} := NULL, 
                         VerboseMode::{integer, nothing} := NULL, 
                         WarningMode::{boolean, nothing} := NULL }, $ )
 
-    # Test if an object &lt;obj&gt; is the EARTH object.
+    # Check if the object &lt;obj&gt; is a EARTH object.
     IsEarth( obj::anything, $ ) :: boolean
 
     # Set gravity vector with [x, y, z]^T components of &lt;vec&gt;.
@@ -307,9 +311,9 @@ module TrussMe:
     # Compute the Euclidean norm of the input vector &lt;vec&gt;.
     Norm2( vec::{list, vector}, $ ) :: algebraic
 
-    # Pad a list or vector &lt;lst&gt; with &lt;value&gt; to have &lt;n&gt; elements.
-    ListPadding( lst::{Vector, list, algebraic}, n::integer, 
-                 value::algebraic := 0, $ ) :: {Vector, list}
+    # Pad a list or vector &lt;lst&gt; with value &lt;val&gt; to have &lt;num&gt; elements.
+    ListPadding( lst::{Vector, list, algebraic}, num::integer, 
+                 val::algebraic := 0, $ ) :: {Vector, list}
 
     # Show the content of a table &lt;tab&gt;.
     Show( tab::table, $ )
@@ -320,30 +324,24 @@ module TrussMe:
                 RIGID_BODY})}, 
               $ ) :: {list({string}), set({string})}
 
-    # Get object which name field is &lt;name&gt; from a list or set of objects 
+    # Get object which field name is &lt;fld_name&gt; from a list or set of objects 
     # &lt;objs&gt;.
-    GetObjByName( name::string, 
+    GetObjByName( fld_name::string, 
                   objs::{list({BEAM, EARTH, JOINT, ROD, SUPPORT, MATERIAL, 
                     RIGID_BODY}), set({BEAM, EARTH, JOINT, ROD, SUPPORT, 
                     MATERIAL, RIGID_BODY})}, 
                   $ )
                 :: {BEAM, EARTH, JOINT, ROD, SUPPORT, MATERIAL, RIGID_BODY, anything}
 
-    # Get objects which type field is in &lt;types&gt; from a list or set of objects 
-    # &lt;objs&gt;.
-    GetObjsByType( types::{list(symbol), set(symbol)}, objs::{list, set}, $ )
-                 :: list
+    # Get objects which field type is in &lt;fld_type&gt; from a list or set of 
+    # objects &lt;objs&gt;.
+    GetObjsByType( fld_type::{list(symbol), set(symbol)}, objs::{list, set}, 
+                   $ ) :: list
 
     # Simplify an algebraic expression &lt;obj&gt;.
     Simplify( obj::anything, opt::anything := NULL, $ ) :: anything
 
-    # Assign the list &lt;x&gt; to the local variable &lt;m_StoredData&gt;.
-    AssignData( data::{list, set}, $ )
-
-    # Unassign the local variable &lt;m_StoredData&gt;.
-    UnAssignData( $ )
-
-    # Perform subs command neglecting sub-lists and sub-sets from the 
+    # Perform substitution command neglecting sub-lists and sub-sets from the 
     # substitution list.
     Subs( )
 
@@ -351,26 +349,26 @@ module TrussMe:
     # &lt;veils&gt;.
     Diff( { veils := NULL } ) :: anything
 
-    # Inverse transformation matrix of an affine transformation &lt;RF&gt;.
+    # Inverse of the affine transformation matrix &lt;RF&gt;.
     InverseFrame( RF::FRAME, $ ) :: FRAME
 
-    # Check if the input object &lt;obj&gt; is a FRAME object.
+    # Check if the object &lt;obj&gt; is a FRAME object.
     IsFrame( obj::anything, $ ) :: boolean
 
     # Transformation matrix corresponding to the rotation &lt;angle&gt; around the 
-    # given &lt;axis&gt;
+    # given &lt;axis&gt;.
     Rotate( axis::{string, symbol}, angle::algebraic, $ ) :: FRAME
 
-    # Transformation matrix corresponding to the translation &lt;x, y, z&gt;.
+    # Affine transformation matrix corresponding to a translation &lt;x, y, z&gt;.
     Translate( x::algebraic, y::algebraic, z::algebraic, $ ) :: FRAME
 
     # Extract the origin of the reference frame &lt;RF&gt;.
     Origin( RF::FRAME, $ ) :: Vector
 
-    # Check if the input object &lt;obj&gt; is a POINT object.
+    # Check if the object &lt;obj&gt; is a POINT object.
     IsPoint( obj::anything, $ ) :: boolean
 
-    # Check if the input object &lt;obj&gt; is a VECTOR object.
+    # Check if the object &lt;obj&gt; is a VECTOR object.
     IsVector( obj::anything, $ ) :: boolean
 
     # Extract the unit vector of the reference frame &lt;RF&gt; along the given 
@@ -386,28 +384,27 @@ module TrussMe:
     # Extract the z-axis unit vector of the reference frame &lt;RF&gt;.
     UvecZ( RF::FRAME := ground, $ ) :: Vector
 
-    # Project &lt;x,y,z&gt;, or vector &lt;x,y,z,0&gt;, or point &lt;x,y,z,1&gt; from reference 
-    # frame &lt;RF_ini&gt; to reference frame &lt;RF_end&gt;.
+    # Project the list of vector &lt;x&gt; (of the form [x, y, z], [x, y, z, 0], or 
+    # [x, y, z, 1]) from reference frame &lt;RF_ini&gt; to reference frame &lt;RF_end&gt;.
     Project( x::{Vector, list}, RF_ini::FRAME, RF_end::FRAME, $ )
            :: {Vector, list}
 
-    # Define a MATERIAL object with inputs: name of the material 
-    # &lt;material_name&gt;, elastic modulus &lt;elastic_modulus&gt; (default = 210.0E9 
-    # Pa), Poisson ratio &lt;poisson_ratio&gt; (default = 0.3), shear modulus 
-    # &lt;shear_modulus&gt; (default = E/(2*(1+nu))), density &lt;density&gt; (default = 
-    # 7.4E3 kg/m^3).
+    # Define a MATERIAL object with inputs: name of the material &lt;name&gt;, 
+    # elastic modulus &lt;elastic_modulus&gt; (default = 210.0E9 (Pa)), Poisson's 
+    # ratio &lt;poisson_ratio&gt; (default = 0.3 (-)), shear modulus &lt;shear_modulus&gt; 
+    # (default = E/(2*(1+nu))), density &lt;density&gt; (default = 7.4E3 (kg/m^3)).
     MakeMaterial( { density::algebraic := .74e4, 
                     elastic_modulus::algebraic := .2100e12, 
-                    material_name::string := &quot;DeafultSteel&quot;, 
+                    name::string := &quot;DeafultSteel&quot;, 
                     poisson_ratio::algebraic := .3, 
                     shear_modulus::algebraic := 
                       elastic_modulus/(2+2*poisson_ratio) }, 
                   $ ) :: MATERIAL
 
-    # Check if the input object &lt;obj&gt; is a MATERIAL object.
+    # Check if the object &lt;obj&gt; is a MATERIAL object.
     IsMaterial( obj::anything, $ ) :: boolean
 
-    # Define a 'FORCE' object with inputs: force components &lt;components&gt;, force 
+    # Define a FORCE object with inputs: force components &lt;components&gt;, force 
     # application axial coordinate &lt;coords&gt;, target object &lt;obj&gt;, and optional 
     # reference frame &lt;RF&gt; in which the force is defined (default = ground).
     MakeForce( components::{Vector, list}, 
@@ -415,10 +412,10 @@ module TrussMe:
                obj::{BEAM, EARTH, JOINT, ROD, SUPPORT, RIGID_BODY}, 
                RF::FRAME := ground, $ ) :: FORCE
 
-    # Check if the object &lt;obj&gt; is a FORCE object
+    # Check if the object &lt;obj&gt; is a FORCE object.
     IsForce( obj::anything, $ ) :: boolean
 
-    # Define a 'MOMENT' object with inputs: moment components &lt;components&gt;, 
+    # Define a MOMENT object with inputs: moment components &lt;components&gt;, 
     # moment application axial coordinate &lt;coords&gt;, target object &lt;obj&gt;, and 
     # optional reference frame &lt;RF&gt; in which the moment is defined (default = 
     # ground).
@@ -430,11 +427,10 @@ module TrussMe:
     # Check if the object &lt;obj&gt; is a MOMENT object.
     IsMoment( obj::anything, $ ) :: boolean
 
-    # Define a QFORCE object with inputs: distributed load target object 
-    # components &lt;components&gt;, target object &lt;obj&gt;, optional reference frame 
-    # &lt;RF&gt; in which the load components are defined (default = ground), and 
-    # optional initial &lt;ell_min&gt; and final &lt;ell_max&gt; application points (axial 
-    # coordinates).
+    # Define a QFORCE object with inputs: distributed load components 
+    # &lt;components&gt;, target object &lt;obj&gt;, optional reference frame &lt;RF&gt; in which 
+    # the load components are defined (default = ground), and optional initial 
+    # &lt;ell_min&gt; and final &lt;ell_max&gt; application points (axial coordinates).
     MakeQForce( components::{procedure, list(algebraic)}, obj::{BEAM, ROD}, 
                 RF::FRAME := ground, 
                 { ell_max::algebraic := obj[&quot;length&quot;], 
@@ -443,17 +439,16 @@ module TrussMe:
     # Check if the object &lt;obj&gt; is a QFORCE object.
     IsQForce( obj::anything, $ ) :: boolean
 
-    # Define a QMOMENT object with inputs: distributed torque target object 
-    # components &lt;components&gt;, target object &lt;obj&gt;, optional reference frame 
-    # &lt;RF&gt; in which the load components are defined (default = ground), and 
-    # optional initial &lt;ell_min&gt; and final &lt;ell_max&gt; application points (axial 
-    # coordinates).
+    # Define a QMOMENT object with inputs: distributed torque components 
+    # &lt;components&gt;, target object &lt;obj&gt;, optional reference frame &lt;RF&gt; in which 
+    # the load components are defined (default = ground), and optional initial 
+    # &lt;ell_min&gt; and final &lt;ell_max&gt; application points (axial coordinates).
     MakeQMoment( components::{procedure, list(algebraic)}, obj::BEAM, 
                  RF::FRAME := ground, 
                  { ell_max::algebraic := obj[&quot;length&quot;], 
                    ell_min::algebraic := 0 }, $ ) :: QMOMENT
 
-    # Check if the object &lt;obj&gt; is a QMOMENT object
+    # Check if the object &lt;obj&gt; is a QMOMENT object.
     IsQMoment( obj::anything, $ ) :: boolean
 
     # Make a SUPPORT object with inputs: support name &lt;name&gt;, constrained 
@@ -476,7 +471,7 @@ module TrussMe:
     # Check if the object &lt;obj&gt; is a SUPPORT object with compliant constraints.
     IsCompliantSupport( obj::anything, $ ) :: boolean
 
-    # Clean SUPPORT object &lt;obj&gt; internal variables
+    # Clean SUPPORT object &lt;obj&gt; internal variables.
     CleanSupport( obj::SUPPORT, $ )
 
     # Make a JOINT object with inputs: joint name &lt;name&gt;, constrained degrees 
@@ -496,7 +491,7 @@ module TrussMe:
                    constrained_dof }, 
                $ ) :: JOINT
 
-    # Check if the objecy &lt;obj&gt; is a JOINT object.
+    # Check if the object &lt;obj&gt; is a JOINT object.
     IsJoint( obj::anything, $ ) :: boolean
 
     # Check if the object &lt;obj&gt; is a JOINT object with compliant constraints.
@@ -505,18 +500,18 @@ module TrussMe:
     # Clean JOINT object &lt;obj&gt; internal variables.
     CleanJoint( obj::JOINT, $ )
 
-    # Create a ROD object with inputs: object name &lt;rod_name&gt;, first point 
-    # &lt;p_1&gt;, second point &lt;p_2&gt;, vector in XY-plane &lt;vec&gt;, optional section 
-    # area &lt;area&gt; and material type &lt;material&gt;.
-    MakeRodPoints( rod_name::string, p_1::POINT, p_2::POINT, vec::Vector, 
+    # Create a ROD object with inputs: object name &lt;name&gt;, first point &lt;p_1&gt;, 
+    # second point &lt;p_2&gt;, vector in XY-plane &lt;vec&gt;, optional section area 
+    # &lt;area&gt; and material type &lt;material&gt;.
+    MakeRodPoints( name::string, p_1::POINT, p_2::POINT, vec::{Vector, list}, 
                    { area::{algebraic, procedure} := infinity, 
                      material::MATERIAL := TrussMe:-MakeMaterial() }, $ )
                  :: ROD
 
-    # Create a ROD object with inputs: object name &lt;rod_name&gt;, reference length 
+    # Create a ROD object with inputs: object name &lt;name&gt;, reference length 
     # &lt;ell&gt;, optional reference frame &lt;RF&gt; in which the rod is defined, and 
     # optional section area &lt;area&gt; and material type &lt;material&gt;.
-    MakeRod( rod_name::string, ell::algebraic, RF::FRAME := ground, 
+    MakeRod( name::string, ell::algebraic, RF::FRAME := ground, 
              { area::{algebraic, procedure} := infinity, 
                material::MATERIAL := TrussMe:-MakeMaterial() }, $ ) :: ROD
 
@@ -526,13 +521,13 @@ module TrussMe:
     # Clean ROD object &lt;obj&gt; internal variables.
     CleanRod( obj::ROD, $ )
 
-    # Create a BEAM object with inputs: object name &lt;beam_name&gt;, first point 
-    # &lt;p_1&gt;, second point &lt;p_2&gt;, vector in XY-plane &lt;vec&gt;, optional section 
-    # area &lt;area&gt;, optional Timoshenko shear coefficient &lt;timo_shear_coeff&gt;, 
+    # Create a BEAM object with inputs: object name &lt;name&gt;, first point &lt;p_1&gt;, 
+    # second point &lt;p_2&gt;, vector in XY-plane &lt;vec&gt;, optional section area 
+    # &lt;area&gt;, optional Timoshenko shear coefficient &lt;timo_shear_coeff&gt;, 
     # optional material type &lt;material&gt;, optional section x-axis inertia 
     # &lt;I_xx&gt;, optional section y-axis inertia &lt;I_yy&gt; and optional section 
     # z-axis inertia &lt;I_zz&gt;.
-    MakeBeamPoints( beam_name::string, p_1::POINT, p_2::POINT, vec::Vector, 
+    MakeBeamPoints( name::string, p_1::POINT, p_2::POINT, vec::{Vector, list}, 
                     { I_xx::{algebraic, procedure} := infinity, 
                       I_yy::{algebraic, procedure} := infinity, 
                       I_zz::{algebraic, procedure} := infinity, 
@@ -542,11 +537,11 @@ module TrussMe:
                         5/6] }, 
                     $ ) :: BEAM
 
-    # Create a BEAM object with inputs: object name &lt;beam_name&gt;, reference 
-    # length &lt;ell&gt;, optional reference frame &lt;RF&gt; in which the rod is defined, 
-    # and optional section area &lt;area&gt; and material type &lt;material&gt; and 
-    # inertias on x- &lt;I_xx&gt;, y- &lt;I_yy&gt;, and z-axis &lt;I_zz&gt;.
-    MakeBeam( beam_name::string, ell::algebraic, RF::FRAME := ground, 
+    # Create a BEAM object with inputs: object name &lt;name&gt;, reference length 
+    # &lt;ell&gt;, optional reference frame &lt;RF&gt; in which the rod is defined, and 
+    # optional section area &lt;area&gt; and material type &lt;material&gt; and inertias on 
+    # x- &lt;I_xx&gt;, y- &lt;I_yy&gt;, and z-axis &lt;I_zz&gt;.
+    MakeBeam( name::string, ell::algebraic, RF::FRAME := ground, 
               { I_xx::{algebraic, procedure} := infinity, 
                 I_yy::{algebraic, procedure} := infinity, 
                 I_zz::{algebraic, procedure} := infinity, 
@@ -562,32 +557,15 @@ module TrussMe:
     # Clean BEAM object &lt;obj&gt; internal variables.
     CleanBeam( obj::BEAM, $ )
 
-    # Create a RIGID_BODY object with inputs: object name &lt;body_name&gt;, 
-    # reference frame &lt;RF&gt; in which the rigid body is defined, and optional 
-    # center of mass position &lt;COM&gt; and mass &lt;mass&gt;.
-    MakeRigidBody( body_name::string, RF::FRAME := ground, 
+    # Create a RIGID_BODY object with inputs: object name &lt;name&gt;, reference 
+    # frame &lt;RF&gt; in which the rigid body is defined, and optional center of 
+    # mass position &lt;COM&gt; and mass &lt;mass&gt;.
+    MakeRigidBody( name::string, RF::FRAME := ground, 
                    { COM::list(algebraic) := [0, 0, 0], 
                      mass::algebraic := 0 }, $ ) :: RIGID_BODY
 
     # Check if the object &lt;obj&gt; is a RIGID_BODY object.
     IsRigidBody( obj::anything, $ ) :: boolean
-
-    # Compute the displacement of a spring give the load &lt;spring_load&gt; and 
-    # spring stiffness &lt;stiffness&gt;.
-    ComputeSpringDisplacement( spring_load::algebraic, 
-                               spring_stiffness::procedure, $ ) :: algebraic
-
-    # Compute the potential energy of a spring give the load &lt;spring_load&gt; and 
-    # spring stiffness &lt;stiffness&gt;.
-    ComputeSpringEnergy( spring_load::algebraic, spring_stiffness::procedure, 
-                         $ ) :: algebraic
-
-    # Compute the displacements of the support &lt;obj&gt; from its support 
-    # reactions.
-    ComputeSupportDisplacements( obj::SUPPORT, $ )
-
-    # Compute the displacements of the joint &lt;obj&gt; given the solution &lt;sol&gt;.
-    ComputeJointDisplacements( obj::JOINT, sol::{list, set}, $ )
 
     # Create a STRUCTURE object with inputs: structure objects &lt;objs&gt;, external 
     # actions &lt;exts&gt;, optional hyperstatic variables &lt;hyper_vars&gt;, optional 
@@ -606,6 +584,118 @@ module TrussMe:
     # Clean STRUCTURE object &lt;obj&gt; internal variables.
     CleanStructure( obj::STRUCTURE, $ )
 
+    # Create a copy of the structure &lt;struct&gt; and its objects.
+    CopyStructure( struct::STRUCTURE, $ ) :: STRUCTURE
+
+    # Return the color of the object &lt;obj&gt;.
+    ObjectColor( obj::{BEAM, EARTH, JOINT, ROD, SUPPORT, RIGID_BODY}, $ )
+               :: string
+
+    # Plot the RIGID_BODY object &lt;obj&gt; given the supports/joints list or set 
+    # &lt;joints&gt;, the concentrated loads list or set &lt;c_loads&gt;, and the optional 
+    # list or set of substitution &lt;data&gt;.
+    PlotRigidBody( obj::RIGID_BODY, 
+                   joints::{list({JOINT, SUPPORT}), set({JOINT, SUPPORT})}, 
+                   c_loads::{list({FORCE, MOMENT}), set({FORCE, MOMENT})}, 
+                   { data::{list(`=`), set(`=`)} := [] }, $ ) :: function
+
+    # Plot the deformed RIGID_BODY object &lt;obj&gt; given the supports/joints list 
+    # or set &lt;joints&gt;, the concentrated loads list or set &lt;c_loads&gt;, the 
+    # optional list or set of substitution &lt;data&gt; and scaling factor &lt;scaling&gt;.
+    PlotDeformedRigidBody( obj::RIGID_BODY, 
+                           joints::{list({JOINT, SUPPORT}), set({JOINT, 
+                             SUPPORT})}, 
+                           c_loads::{list({FORCE, MOMENT}), set({FORCE, 
+                             MOMENT})}, 
+                           { data::{list(`=`), set(`=`)} := [], 
+                             scaling::numeric := 1 }, $ ) :: function
+
+    # Plot the BEAM object &lt;obj&gt; given a list or set of substitution &lt;data&gt;.
+    PlotBeam( obj::BEAM, 
+              { data::{list(`=`), set(`=`)} := [] }, $ ) :: function
+
+    # Plot the deformed BEAM object &lt;obj&gt; given an optional list or set of 
+    # substitution &lt;data&gt; and a scaling factor &lt;scaling&gt;.
+    PlotDeformedBeam( obj::BEAM, 
+                      { data::{list(`=`), set(`=`)} := [], 
+                        scaling::numeric := 1 }, $ ) :: function
+
+    # Plot the ROD object &lt;obj&gt; given an optional list or set of substitution 
+    # data &lt;data&gt;.
+    PlotRod( obj::ROD, 
+             { data::{list(`=`), set(`=`)} := [] }, $ ) :: function
+
+    # Plot the ROD object &lt;obj&gt; given the list of &lt;targets&gt;, an optional list 
+    # or set of substitution data &lt;data&gt; and scaling factor &lt;scaling&gt;.
+    PlotDeformedRod( obj::ROD, 
+                     { data::{list(`=`), set(`=`)} := [], 
+                       scaling::numeric := 1 }, $ ) :: function
+
+    # Plot the JOINT object &lt;obj&gt; given the list of &lt;targets&gt; and an optional 
+    # list or set of substitution data &lt;data&gt;.
+    PlotJoint( obj::JOINT, 
+               targets::{list({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY}), 
+                 set({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY})}, 
+               { data::{list(`=`), set(`=`)} := [] }, $ ) :: function
+
+    # Plot the JOINT object &lt;obj&gt; given the list of &lt;targets&gt;, an optional list 
+    # or set of substitution data &lt;data&gt; and scaling factor &lt;scaling&gt;.
+    PlotDeformedJoint( obj::JOINT, 
+                       targets::{list({BEAM, JOINT, ROD, SUPPORT, 
+                         RIGID_BODY}), set({BEAM, JOINT, ROD, SUPPORT, 
+                         RIGID_BODY})}, 
+                       { data::{list(`=`), set(`=`)} := [], 
+                         scaling::numeric := 1 }, $ ) :: function
+
+    # Plot the SUPPORT object &lt;obj&gt; given the list of &lt;targets&gt;, an optional 
+    # list or set of substitution data &lt;data&gt; and scaling factor &lt;scaling&gt;.
+    PlotSupport( obj::SUPPORT, 
+                 targets::{list({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY}), 
+                   set({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY})}, 
+                 { data::{list(`=`), set(`=`)} := [] }, $ ) :: function
+
+    # Plot the deformed SUPPORT object &lt;obj&gt; given the list of &lt;targets&gt;, an 
+    # optional list or set of substitution data &lt;data&gt; and scaling factor 
+    # &lt;scaling&gt;.
+    PlotDeformedSupport( obj::SUPPORT, 
+                         targets::{list({BEAM, JOINT, ROD, SUPPORT, 
+                           RIGID_BODY}), set({BEAM, JOINT, ROD, SUPPORT, 
+                           RIGID_BODY})}, 
+                         { data::{list(`=`), set(`=`)} := [], 
+                           scaling::numeric := 1 }, $ ) :: function
+
+    # Plot the STRUCTURE object &lt;str&gt; given an optional list or set of 
+    # substitution data &lt;data&gt;.
+    PlotStructure( str::STRUCTURE, 
+                   { data::{list(`=`), set(`=`)} := [] }, $ )
+                 :: {function, list(function)}
+
+    # Plot the deformed 'STRUCTURE' object &lt;str&gt; given a optional list or set 
+    # of substitution data &lt;data&gt; and scaling factor &lt;scaling&gt;.
+    PlotDeformedStructure( str::STRUCTURE, 
+                           { data::{list(`=`), set(`=`)} := [], 
+                             scaling::numeric := 1 }, $ )
+                         :: {function, list(function)}
+
+    # Check if the point &lt;pnt&gt; is inside the JOINT &lt;obj&gt; within a optianl 
+    # tolerance value &lt;tol&gt;.
+    IsInsideJoint( obj::JOINT, pnt::POINT, tol::numeric := .1e-3, $ )
+                 :: boolean
+
+    # Check if the point &lt;p&gt; is inside the SUPPORT &lt;obj&gt; within a optianol 
+    # tolerance &lt;tol&gt; value.
+    IsInsideSupport( obj::SUPPORT, pnt::POINT, tol::numeric := .1e-3, $ )
+                   :: boolean
+
+    # Check if the point &lt;pnt&gt; is inside the ROD &lt;obj&gt;.
+    IsInsideRod( obj::ROD, pnt::POINT, $ ) :: boolean
+
+    # Check if the point &lt;pnt&gt; is inside the BEAM &lt;obj&gt;.
+    IsInsideBeam( obj::BEAM, pnt::POINT, $ ) :: boolean
+
+    # Check if the point &lt;pnt&gt; is inside the STRUCTURE &lt;obj&gt;.
+    IsInsideStructure( obj::STRUCTURE, pnt::POINT, $ ) :: boolean
+
     # Compute the degree of freedom of the input structure objects &lt;objs&gt;.
     ComputeDOF( objs::{list({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY}), 
                   set({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY})}, 
@@ -619,7 +709,7 @@ module TrussMe:
     # &lt;gauss_elimin&gt;.
     DrawStructureSparseMatrix( obj::STRUCTURE, 
                                { gauss_elimin::boolean := false }, $ )
-                             :: procedure
+                             :: function
 
     # Compute the Newton-Euler static equilibrium equations given a set of 
     # external actions &lt;exts&gt;, and object to compute the equilibrium &lt;obj&gt;, the 
@@ -677,22 +767,42 @@ module TrussMe:
                      vars::list, 
                      { implicit::boolean := false }, $ )
 
-    # Programmatic computation of internal actions for structureobjects with 
-    # given external actions and structure solution.
+    # Programmatic computation of internal actions for structure objects &lt;objs&gt; 
+    # with given external actions &lt;exts&gt; and structure solution &lt;sol&gt;.
     ComputeInternalActions( objs::{list({BEAM, ROD}), set({BEAM, ROD})}, 
                             exts::{list({FORCE, MOMENT, QFORCE, QMOMENT}), 
                               set({FORCE, MOMENT, QFORCE, QMOMENT})}, 
                             sol::{list, set}, $ )
 
-    # Programmatic computation of internal actions for structure object with 
-    # given external actions, it returns the internal actions as function of 
-    # the axial variable 'x'.
+    # Programmatic computation of internal actions for structure objects &lt;objs&gt; 
+    # with given external actions &lt;exts&gt; and structure solution &lt;sol&gt;. The 
+    # function return the internal actions as function of the axial coordinate 
+    # 'x'.
     InternalActions( obj::{BEAM, ROD}, 
                      exts::{list({FORCE, MOMENT, QFORCE, QMOMENT}), 
                        set({FORCE, MOMENT, QFORCE, QMOMENT})}, 
                      $ )
 
-    # Compute the structure displacements and rotations.
+    # Compute the displacement of a spring given the load &lt;spring_load&gt; and 
+    # spring stiffness &lt;stiffness&gt;.
+    ComputeSpringDisplacement( spring_load::algebraic, 
+                               spring_stiffness::procedure, $ ) :: anything
+
+    # Compute the potential energy of a spring given the load &lt;spring_load&gt; and 
+    # spring stiffness &lt;stiffness&gt;.
+    ComputeSpringEnergy( spring_load::algebraic, spring_stiffness::procedure, 
+                         $ ) :: algebraic
+
+    # Compute the displacements of the support &lt;obj&gt; from its support 
+    # reactions.
+    ComputeSupportDisplacements( obj::SUPPORT, $ )
+
+    # Compute the displacements of the joint &lt;obj&gt; given the solution &lt;sol&gt;.
+    ComputeJointDisplacements( obj::JOINT, sol::{list, set}, $ )
+
+    # Compute the structure displacements and rotations given the structure 
+    # objects &lt;objs&gt;, the exteranl forces &lt;exts&gt;, the solution &lt;sol&gt;, and the 
+    # Timoshenko beam flag &lt;timoshenko_beam&gt;.
     ComputeDisplacements( objs::{list({BEAM, JOINT, ROD, SUPPORT}), 
                             set({BEAM, JOINT, ROD, SUPPORT})}, 
                           exts::{list({FORCE, MOMENT, QFORCE, QMOMENT}), 
@@ -700,129 +810,27 @@ module TrussMe:
                           sol::{list, set}, 
                           { timoshenko_beam::boolean := false }, $ )
 
-    # Compute the Structure &lt;struct&gt; punctual displacements of the object &lt;obj&gt; 
+    # Compute the structure &lt;struct&gt; punctual displacements of the object &lt;obj&gt; 
     # at the coordinates &lt;coords&gt; in the directions &lt;directions&gt;. The 
     # directions are defined in the reference frame &lt;RFs&gt;. Optional argument 
-    # &lt;timoshenko_beam&gt; is a boolean flag to use Timoshenko beam model, 
-    # &lt;unveil_results&gt; is a boolean flag to unveil the results.
+    # are: &lt;timoshenko_beam&gt; boolean flag to use Timoshenko beam model, and 
+    # &lt;unveil_results&gt; boolean flag to unveil the results.
     ComputePunctualDisplacement( struct::STRUCTURE, 
                                  objs::{list({BEAM, JOINT, ROD, SUPPORT, 
                                    RIGID_BODY})}, 
                                  coords::list, directions::list, RFs::list, 
                                  { timoshenko_beam::boolean := false, 
                                    unveil_results::boolean := true }, $ )
-                               :: list
 
-    # Compute the total displacements of the structure &lt;struct&gt;.
+    # Compute the total displacements of the structure &lt;struct&gt; with optional 
+    # &lt;timoshenko_beam&gt; and &lt;unveil_results&gt; flags.
     ComputeObjectFrameDisplacements( struct::STRUCTURE, 
                                      { timoshenko_beam::boolean := false, 
                                        unveil_results::boolean := true }, $ )
                                    :: list
 
-    # Create a copy of the structure &lt;struct&gt; and its objects.
-    CopyStructure( struct::STRUCTURE, $ ) :: STRUCTURE
-
     # Solve the linear system of equations &lt;eqns&gt; for the variables &lt;vars&gt;.
     LinearSolver( eqns::{list, set}, vars::{list, set}, $ ) :: list
-
-    # Return the color of the object &lt;obj&gt;.
-    ObjectColor( obj::{BEAM, EARTH, JOINT, ROD, SUPPORT, RIGID_BODY}, $ )
-               :: string
-
-    # Plot the RIGID_BODY object &lt;obj&gt;.
-    PlotRigidBody( obj::RIGID_BODY, 
-                   joints::{list({JOINT, SUPPORT}), set({JOINT, SUPPORT})}, 
-                   c_loads::{list({FORCE, MOMENT}), set({FORCE, MOMENT})}, 
-                   { data::{list(`=`), set(`=`)} := [] }, $ ) :: function
-
-    # Plot the deformed RIGID_BODY object &lt;obj&gt;.
-    PlotDeformedRigidBody( obj::RIGID_BODY, 
-                           joints::{list({JOINT, SUPPORT}), set({JOINT, 
-                             SUPPORT})}, 
-                           c_loads::{list({FORCE, MOMENT}), set({FORCE, 
-                             MOMENT})}, 
-                           { data::{list(`=`), set(`=`)} := [], 
-                             scaling::numeric := 1.0 }, $ ) :: function
-
-    # Plot the BEAM object &lt;obj&gt;.
-    PlotBeam( obj::BEAM, 
-              { data::{list(`=`), set(`=`)} := [] }, $ ) :: function
-
-    # Plot the BEAM object &lt;obj&gt;.
-    PlotDeformedBeam( obj::BEAM, 
-                      { data::{list(`=`), set(`=`)} := [], 
-                        scaling::numeric := 1.0 }, $ ) :: function
-
-    # Plot the ROD object &lt;obj&gt; given a list or set of substitutions data 
-    # &lt;data&gt;.
-    PlotRod( obj::ROD, 
-             { data::{list(`=`), set(`=`)} := [] }, $ ) :: function
-
-    # Plot the ROD object &lt;obj&gt; give the list of &lt;targets&gt; and a list or set of 
-    # substitutions data &lt;data&gt;.
-    PlotDeformedRod( obj::ROD, 
-                     { data::{list(`=`), set(`=`)} := [], 
-                       scaling::numeric := 1 }, $ ) :: function
-
-    # Plot the JOINT object &lt;obj&gt; give the list of &lt;targets&gt; and a list or set 
-    # of substitutions data &lt;data&gt;.
-    PlotJoint( obj::JOINT, 
-               targets::{list({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY}), 
-                 set({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY})}, 
-               { data::{list(`=`), set(`=`)} := [] }, $ ) :: function
-
-    # Plot the JOINT object &lt;obj&gt;.
-    PlotDeformedJoint( obj::JOINT, 
-                       targets::{list({BEAM, JOINT, ROD, SUPPORT, 
-                         RIGID_BODY}), set({BEAM, JOINT, ROD, SUPPORT, 
-                         RIGID_BODY})}, 
-                       { data::{list(`=`), set(`=`)} := [], 
-                         scaling::numeric := 1 }, $ ) :: function
-
-    # Plot the SUPPORT object &lt;obj&gt;.
-    PlotSupport( obj::SUPPORT, 
-                 targets::{list({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY}), 
-                   set({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY})}, 
-                 { data::{list(`=`), set(`=`)} := [] }, $ ) :: function
-
-    # Plot the deformed SUPPORT object &lt;obj&gt;.
-    PlotDeformedSupport( obj::SUPPORT, 
-                         targets::{list({BEAM, JOINT, ROD, SUPPORT, 
-                           RIGID_BODY}), set({BEAM, JOINT, ROD, SUPPORT, 
-                           RIGID_BODY})}, 
-                         { data::{list(`=`), set(`=`)} := [], 
-                           scaling::numeric := 1.0 }, $ ) :: function
-
-    # Plot the STRUCTURE object &lt;str&gt; given a list of substitutions &lt;data&gt;.
-    PlotStructure( str::STRUCTURE, 
-                   { data::{list(`=`), set(`=`)} := [] }, $ )
-                 :: {function, list(function)}
-
-    # Plot the deformed STRUCTURE object &lt;str&gt; given a list of substitutions 
-    # &lt;data&gt; and a scaling factor &lt;scaling&gt;.
-    PlotDeformedStructure( str::STRUCTURE, 
-                           { data::{list(`=`), set(`=`)} := [], 
-                             scaling::numeric := 1 }, $ )
-                         :: {function, list(function)}
-
-    # Check if the point &lt;pnt&gt; is inside the JOINT &lt;obj&gt; within a tolerance 
-    # &lt;tol&gt;.
-    IsInsideJoint( obj::JOINT, pnt::POINT, tol::numeric := .1e-3, $ )
-                 :: boolean
-
-    # Check if the point &lt;p&gt; is inside the SUPPORT &lt;obj&gt; within a tolerance 
-    # &lt;tol&gt;.
-    IsInsideSupport( obj::SUPPORT, pnt::POINT, tol::numeric := .1e-3, $ )
-                   :: boolean
-
-    # Check if the point &lt;pnt&gt; is inside the ROD &lt;obj&gt;.
-    IsInsideRod( obj::ROD, pnt::POINT, $ ) :: boolean
-
-    # Check if the point &lt;pnt&gt; is inside the BEAM &lt;obj&gt;.
-    IsInsideBeam( obj::BEAM, pnt::POINT, $ ) :: boolean
-
-    # Check if the point &lt;pnt&gt; is inside the STRUCTURE &lt;obj&gt;.
-    IsInsideStructure( obj::STRUCTURE, pnt::POINT, $ ) :: boolean
 
 </Text-field>
 </Output>
@@ -833,7 +841,7 @@ module TrussMe:
 </Group>
 </Section><Presentation-Block>
 <Group view="presentation" inline-output="false" labelreference="L256808" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
-<Input><Text-field style="Text" layout="Normal"><Equation executable="true" style="2D Math" input-equation="" display="LUklbXJvd0c2Iy9JK21vZHVsZW5hbWVHNiJJLFR5cGVzZXR0aW5nR0koX3N5c2xpYkdGJzYlLUkjbW9HRiQ2LVEhRicvJSxtYXRodmFyaWFudEdRJ25vcm1hbEYnLyUmZmVuY2VHUSZmYWxzZUYnLyUqc2VwYXJhdG9yR1EldHJ1ZUYnLyUpc3RyZXRjaHlHRjQvJSpzeW1tZXRyaWNHRjQvJShsYXJnZW9wR0Y0LyUubW92YWJsZWxpbWl0c0dGNC8lJ2FjY2VudEdGNC8lJ2xzcGFjZUdRJjAuMGVtRicvJSdyc3BhY2VHUSwwLjMzMzMzMzNlbUYnLyUrZXhlY3V0YWJsZUdGNEYv">LUklbXJvd0c2Iy9JK21vZHVsZW5hbWVHNiJJLFR5cGVzZXR0aW5nR0koX3N5c2xpYkdGJzYlLUkjbW9HRiQ2LVEhRicvJSxtYXRodmFyaWFudEdRJ25vcm1hbEYnLyUmZmVuY2VHUSZmYWxzZUYnLyUqc2VwYXJhdG9yR1EldHJ1ZUYnLyUpc3RyZXRjaHlHRjQvJSpzeW1tZXRyaWNHRjQvJShsYXJnZW9wR0Y0LyUubW92YWJsZWxpbWl0c0dGNC8lJ2FjY2VudEdGNC8lJ2xzcGFjZUdRJjAuMGVtRicvJSdyc3BhY2VHUSwwLjMzMzMzMzNlbUYnLyUrZXhlY3V0YWJsZUdGNEYv</Equation></Text-field>
+<Input><Text-field style="Text" layout="Normal"><Equation executable="true" style="2D Math" input-equation="" display="LUklbXJvd0c2Iy9JK21vZHVsZW5hbWVHNiJJLFR5cGVzZXR0aW5nR0koX3N5c2xpYkdGJzYlLUkjbWlHRiQ2I1EhRicvJStleGVjdXRhYmxlR1EmZmFsc2VGJy8lLG1hdGh2YXJpYW50R1Enbm9ybWFsRic=">JSFH</Equation></Text-field>
 </Input>
 </Group></Presentation-Block>
 </Worksheet>
