@@ -46,6 +46,7 @@ TrussMe := module()
   local m_CompliantJointColor;
   local m_JointColor;
   local m_EarthColor;
+  local m_VeilingLabel;
   local m_StoredData;
 
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -145,6 +146,7 @@ TrussMe := module()
     m_CompliantJointColor   := "LightSalmon";
     m_JointColor            := "MediumSeaGreen";
     m_EarthColor            := "Firebrick";
+    m_VeilingLabel          := "_V";
     m_StoredData            := [];
     m_earth := table({
       "type"                 = EARTH,

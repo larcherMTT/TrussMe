@@ -115,8 +115,7 @@ export DrawStructureSparseMatrix := proc(
   obj::STRUCTURE,
   {
     gauss_elimin::boolean := false
-  },
-  $)::function;
+  }, $)::function;
 
   description "Draw the sparse matrix for the equation system of STRUCTURE "
     "object <obj> and optionally apply Gaussian elimination to the matrix with "
@@ -225,8 +224,8 @@ export SolveStructure := proc(
   TrussMe:-CleanStructure(struct);
 
   # Set veiling_label
-  veiling_idx   := 1;
-  veiling_label := m_LEM:-GetVeilingLabel(m_LEM);
+  veiling_idx := 1;
+  m_LEM:-SetVeilingLabel(m_LEM, cat(m_VeilingLabel, veiling_idx));
 
   # Parsing inputs
   S_obj        := {};
@@ -286,7 +285,7 @@ export SolveStructure := proc(
     # Update support reactions properties
     for obj in S_support do
       obj["support_reactions"] := [
-        seq(lhs(obj["support_reactions"][i]) = Subs(sol, rhs(obj["support_reactions"][i])),
+        seq(lhs(obj["support_reactions"][i]) = TrussMe:-Subs(sol, rhs(obj["support_reactions"][i])),
         i = 1..nops(obj["support_reactions"]))
       ];
     end do;
@@ -338,7 +337,7 @@ export SolveStructure := proc(
       printf("TrussMe:-SolveStructure(...): updating support reactions fields...\n");
     end if;
     for obj in S_support do
-    obj["support_reactions"] := Subs(sol, obj["support_reactions"]);
+    obj["support_reactions"] := TrussMe:-Subs(sol, obj["support_reactions"]);
     end do;
     if (m_VerboseMode > 0) then
       printf("TrussMe:-SolveStructure(...): updating support reactions fields... DONE\n");
@@ -349,7 +348,7 @@ export SolveStructure := proc(
   if m_KeepVeiled and type(sol[-1], list) then
     struct["veils"] := struct["veils"] union sol[-1];
     veiling_idx     := veiling_idx + 1;
-    veiling_label   := m_LEM:-GetVeilingLabel(m_LEM);
+    m_LEM:-SetVeilingLabel(m_LEM, cat(m_VeilingLabel, veiling_idx));
   end if;
 
   # Set support reactions solved flag
@@ -366,7 +365,7 @@ export SolveStructure := proc(
   end if;
 
   # Compute potential energy
-  if (compute_potential_energy) and not struct["potential_energy_solved"] then
+  if compute_potential_energy and not struct["potential_energy_solved"] then
     if implicit then
       error "potential energy cannot be computed in implicit mode";
     end if;
@@ -381,7 +380,7 @@ export SolveStructure := proc(
   end if;
 
   # Compute displacements
-  if (compute_displacements) and (not struct["displacements_solved"]) then
+  if compute_displacements and not struct["displacements_solved"] then
     TrussMe:-ComputeDisplacements(
       S_obj union S_joint union S_support, S_ext union S_con_forces, sol
     );
@@ -389,7 +388,7 @@ export SolveStructure := proc(
     struct["displacements_solved"] := true;
   end if;
 
-  if (compute_frame_displacements) and (not struct["frame_displacements_solved"]) then
+  if compute_frame_displacements and not struct["frame_displacements_solved"] then
     veils := TrussMe:-ComputeObjectFrameDisplacements(
       struct,
       parse("timoshenko_beam") = timoshenko_beam,
@@ -402,7 +401,7 @@ export SolveStructure := proc(
     if m_KeepVeiled then
       struct["veils"] := struct["veils"] union veils;
       veiling_idx     := veiling_idx + 1;
-      veiling_label   := m_LEM:-GetVeilingLabel(m_LEM);
+      m_LEM:-SetVeilingLabel(m_LEM, cat(m_VeilingLabel, veiling_idx));
     end if;
   end if;
 
@@ -483,16 +482,27 @@ export HyperstaticSolver := proc(
   hyper_eq := TrussMe:-Simplify(eval(hyper_eq, Float(undefined) = 0));
 
   # Check for implicit solution flag
-  if (implicit) then
+  if implicit then
     hyper_sol := iso_sol;
   else
     if (m_VerboseMode > 0) then
       printf("TrussMe:-HyperstaticSolver(...): solving the hyperstatic variables...\n");
     end if;
     # Solve hyperstatic equations
-    hyper_sol := op(RealDomain:-solve(hyper_eq, hyper_vars));
-    # hyper_sol := op(SolveTools:-Engine({op(hyper_eq)}, {op(hyper_vars)}, explicit));
+    hyper_sol := op(RealDomain:-solve(hyper_eq, hyper_vars)); # Maple solver
+    #hyper_sol := op(SolveTools:-Engine({op(hyper_eq)}, {op(hyper_vars)}, explicit));
     # FIXME: if used must be adapted for non list equations (single equation)
+
+    #m_LEM:-SetVeilingLabel(m_LEM, cat(m_VeilingLabel, "H"));
+    #hyper_sol := TrussMe:-LinearSolver(hyper_eq, hyper_vars); # LAST solver
+    #if (m_VerboseMode > 0) then
+    #  printf("TrussMe:-HyperstaticSolver(...): substituting veils...\n");
+    #end if;
+    #hyper_sol := m_LEM:-Unveil~(m_LEM, hyper_sol);
+    #if (m_VerboseMode > 0) then
+    #  printf("TrussMe:-HyperstaticSolver(...): substituting veils... DONE\n");
+    #end if;
+
     if (hyper_sol = NULL) then
       error "hyperstatic solution not found.";
     end if;
@@ -501,7 +511,8 @@ export HyperstaticSolver := proc(
     P_energy := subs(hyper_sol, P_energy);
 
     if (m_VerboseMode > 0) then
-      printf("TrussMe:-HyperstaticSolver(...): solving the hyperstatic variables... DONE\n");
+      printf("TrussMe:-HyperstaticSolver(...): solving the hyperstatic variables... "
+        "DONE\n");
     end if;
     sol := hyper_sol union subs(hyper_sol, iso_sol);
   end if;
@@ -751,8 +762,7 @@ export IsostaticSolver := proc(
   vars::list,
   {
     implicit::boolean := false
-  },
-  $)
+  }, $)
 
   description "Solve the isostatic structure equilibrium equation system given "
     "the structure objects <objs>, the external actions <exts> and the variables "
@@ -825,7 +835,7 @@ export IsostaticSolver := proc(
   end if;
 
   # Check for implicit solution flag
-  if (implicit) then
+  if implicit then
     iso_sol := [];
   else
     # Matrix form
@@ -844,7 +854,7 @@ export IsostaticSolver := proc(
           "forces...\n");
       end if;
       # Solve structure equations (LinearSolver)
-      iso_sol := TrussMe:-LinearSolver(iso_eq, iso_vars);
+      iso_sol := TrussMe:-LinearSolver(iso_eq, iso_vars); # LAST solver
       #iso_sol := op(RealDomain:-solve(iso_eq, iso_vars)); # Maple solver
       # FIXME: this is a temporary fix (use LULEM when stable)
 
@@ -865,13 +875,13 @@ export IsostaticSolver := proc(
 
     end if;
 
-    if iso_sol = NULL then
+    if (iso_sol = NULL) then
       error "isostatic solution not found.";
     end if;
 
     if (m_VerboseMode > 0) then
       printf("TrussMe:-IsostaticSolver(...): computing the structure reaction "
-          "forces... DONE\n");
+        "forces... DONE\n");
     end if;
   end if;
 
@@ -925,8 +935,7 @@ export InternalActions := proc(
   exts::{
     list({FORCE, MOMENT, QFORCE, QMOMENT}),
     set({FORCE, MOMENT, QFORCE, QMOMENT})
-  },
-  $)
+  }, $)
 
   description "Programmatic computation of internal actions for structure "
     "objects <objs> with given external actions <exts> and structure solution "
@@ -1250,8 +1259,7 @@ export ComputePunctualDisplacement := proc(
   {
     timoshenko_beam::boolean := false,
     unveil_results::boolean  := true
-  },
-  $)
+  }, $)
 
   description "Compute the structure <struct> punctual displacements of the "
     "object <obj> at the coordinates <coords> in the directions <directions>. "
@@ -1442,8 +1450,7 @@ export ComputeObjectFrameDisplacements := proc(
   {
     timoshenko_beam::boolean := false,
     unveil_results::boolean  := true
-  },
-  $)::list;
+  }, $)::list;
 
 description "Compute the total displacements of the structure <struct> with "
   "optional <timoshenko_beam> and <unveil_results> flags.";
@@ -1543,6 +1550,7 @@ export LinearSolver := proc(
     # Remove indexed type from veils
     m_LEM:-VeilList(m_LEM);
     lhs~(%) =~ map2(op, 0, lhs~(%)) ||~ __ ||~ (op~(lhs~(%)));
+    print("LinearSolver", m_LEM:-GetVeilingLabel(m_LEM), m_LEM:-VeilList(m_LEM));
     # Substitutution
     sol := convert(vars =~ subs(%, sol_tmp), list) union [subs(%, %%)];
   else

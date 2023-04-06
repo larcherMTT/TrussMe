@@ -57,8 +57,7 @@ export PlotRigidBody := proc(
   },
   {
     data::{list(`=`), set(`=`)} := []
-  },
-  $)::function;
+  }, $)::function;
 
   description "Plot the RIGID_BODY object <obj> given the supports/joints "
     "list or set <joints>, the concentrated loads list or set <c_loads>, and "
@@ -118,8 +117,7 @@ export PlotDeformedRigidBody := proc(
   {
     data::{list(`=`), set(`=`)} := [],
     scaling::numeric            := 1
-  },
-  $)::function;
+  }, $)::function;
 
   description "Plot the deformed RIGID_BODY object <obj> given the "
     "supports/joints list or set <joints>, the concentrated loads list or set "
@@ -170,8 +168,7 @@ export PlotBeam := proc(
   obj::BEAM,
   {
     data::{list(`=`), set(`=`)} := []
-  },
-  $)::function;
+  }, $)::function;
 
   description "Plot the BEAM object <obj> given a list or set of substitution "
     "<data>.";
@@ -202,8 +199,7 @@ export PlotDeformedBeam := proc(
   {
     data::{list(`=`), set(`=`)} := [],
     scaling::numeric            := 1
-  },
-  $)::function;
+  }, $)::function;
 
   description "Plot the deformed BEAM object <obj> given an optional list or "
     "set of substitution <data> and a scaling factor <scaling>.";
@@ -236,8 +232,7 @@ export PlotRod := proc(
   obj::ROD,
   {
     data::{list(`=`), set(`=`)} := []
-  },
-  $)::function;
+  }, $)::function;
 
   description "Plot the ROD object <obj> given an optional list or set of "
     "substitution data <data>.";
@@ -268,8 +263,7 @@ export PlotDeformedRod := proc(
   {
     data::{list(`=`), set(`=`)} := [],
     scaling::numeric            := 1
-  },
-  $)::function;
+  }, $)::function;
 
   description "Plot the ROD object <obj> given the list of <targets>, an "
     "optional list or set of substitution data <data> and scaling factor "
@@ -308,8 +302,7 @@ export PlotJoint := proc(
   },
   {
     data::{list(`=`), set(`=`)} := []
-  },
-  $)::function;
+  }, $)::function;
 
   description "Plot the JOINT object <obj> given the list of <targets> and "
     "an optional list or set of substitution data <data>.";
@@ -344,8 +337,7 @@ export PlotDeformedJoint := proc(
   {
     data::{list(`=`), set(`=`)} := [],
     scaling::numeric            := 1
-  },
-  $)::function;
+  }, $)::function;
 
   description "Plot the JOINT object <obj> given the list of <targets>, "
     "an optional list or set of substitution data <data> and scaling factor "
@@ -387,8 +379,7 @@ export PlotSupport := proc(
   },
   {
     data::{list(`=`), set(`=`)} := []
-  },
-  $)::function;
+  }, $)::function;
 
   description "Plot the SUPPORT object <obj> given the list of <targets>, "
     "an optional list or set of substitution data <data> and scaling factor "
@@ -431,8 +422,7 @@ export PlotDeformedSupport := proc(
   {
     data::{list(`=`), set(`=`)} := [],
     scaling::numeric            := 1
-  },
-  $)::function;
+  }, $)::function;
 
   description "Plot the deformed SUPPORT object <obj> given the list of "
     "<targets>, an optional list or set of substitution data <data> and scaling "
@@ -472,8 +462,7 @@ export PlotStructure := proc(
   str::STRUCTURE,
   {
     data::{list(`=`), set(`=`)} := []
-  },
-  $)::{function, list(function)};
+  }, $)::{function, list(function)};
 
   description "Plot the STRUCTURE object <str> given an optional list or set "
     "of substitution data <data>.";
@@ -523,8 +512,7 @@ export PlotDeformedStructure := proc(
   {
     data::{list(`=`), set(`=`)} := [],
     scaling::numeric            := 1
-  },
-  $)::{function, list(function)};
+  }, $)::{function, list(function)};
 
   description "Plot the deformed 'STRUCTURE' object <str> given a optional list "
     "or set of substitution data <data> and scaling factor <scaling>.";
