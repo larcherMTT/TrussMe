@@ -57,9 +57,9 @@ TrussMe := module()
 
     printf(
       "+--------------------------------------------------------------------------+\n"
-      "| 'TrussMe' module version 0.0 - BSD 3-Clause License - Copyright (c) 2023  |\n"
-      "| Current version authors:                                                  |\n"
-      "|   Matteo Larcher and Davide Stocco.                                       |\n"
+      "| 'TrussMe' module version 0.0 - BSD 3-Clause License - Copyright (c) 2023 |\n"
+      "| Current version authors:                                                 |\n"
+      "|   Matteo Larcher and Davide Stocco.                                      |\n"
       "+--------------------------------------------------------------------------+\n"
     );
     return NULL;
@@ -169,10 +169,13 @@ TrussMe := module()
       # Global variables
       'ground',
       # Types
-      'FRAME',
       'EARTH',
+      'FRAME',
+      'POINT',
+      'VECTOR',
       'BEAM',
       'ROD',
+      'RIGID_BODY',
       'FORCE',
       'MOMENT',
       'QFORCE',
@@ -195,10 +198,13 @@ TrussMe := module()
       # Global variables
       'ground',
       # Types
-      'FRAME',
       'EARTH',
+      'FRAME',
+      'POINT',
+      'VECTOR',
       'BEAM',
       'ROD',
+      'RIGID_BODY',
       'FORCE',
       'MOMENT',
       'QFORCE',
@@ -1709,9 +1715,9 @@ TrussMe := module()
       ell,
       TrussMe:-Simplify(
         <<e_x[1], e_x[2], e_x[3], 0>|
-        <e_y[1], e_y[2], e_y[3], 0>|
-        <e_z[1], e_z[2], e_z[3], 0>|
-        <p_1[1], p_1[2], p_1[3], 1>>
+         <e_y[1], e_y[2], e_y[3], 0>|
+         <e_z[1], e_z[2], e_z[3], 0>|
+         <p_1[1], p_1[2], p_1[3], 1>>
       ),
       parse("area")             = area,
       parse("timo_shear_coeff") = timo_shear_coeff,
