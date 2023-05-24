@@ -856,7 +856,7 @@ export IsostaticSolver := proc(
       # Solve structure equations (LinearSolver)
       iso_sol := TrussMe:-LinearSolver(iso_eq, iso_vars); # LAST solver
       #iso_sol := op(RealDomain:-solve(iso_eq, iso_vars)); # Maple solver
-      # FIXME: this is a temporary fix (use LULEM when stable)
+      # FIXME: this is a temporary fix (use LAST when stable)
 
     else
 
@@ -1554,9 +1554,9 @@ export LinearSolver := proc(
     # Substitutution
     sol := convert(vars =~ subs(%, sol_tmp), list) union [subs(%, %%)];
   else
-    sol := convert(vars =~ m_LEM:-VeilSubs(m_LEM, sol_tmp), list);
+    sol := convert(vars =~ m_LEM:-SubsVeil(m_LEM, sol_tmp), list);
   end if;
-  m_LEM:-VeilForget(m_LEM);
+  m_LEM:-ForgetVeil(m_LEM);
 
   if (m_VerboseMode > 0) then
     printf("TrussMe:-LinearSolver(...): substituting veils... DONE\n");

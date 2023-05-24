@@ -637,7 +637,7 @@ TrussMe := module()
 
     # TODO: optimize this procedure
 
-    local subs_diff, d_vars, v2f, f2v, last, veils_copy;
+    local subs_diff, i, tmp_vars, d_vars, v2f, f2v, last, veils_copy;
 
     if (veils = NULL) then
       veils_copy := [];
@@ -651,14 +651,22 @@ TrussMe := module()
     d_vars := _passed[2..last];
 
     # Veil to functions substitution list
-    v2f := map(x -> lhs(x) =~ lhs(x)(d_vars), veils_copy);
+    v2f := [];
+    for i from 1 to nops(veils_copy) do
+      tmp_vars := {d_vars} intersect indets(veils_copy[i]);
+      if (nops(tmp_vars) <> 0) then
+        v2f := [op(v2f), lhs(veils_copy[i]) = lhs(veils_copy[i])(op(tmp_vars))];
+      else
+        v2f := [op(v2f), lhs(veils_copy[i]) = lhs(veils_copy[i])];
+      end if;
+    end do;
 
     # Function to veils substitution list
     f2v := rhs~(v2f) =~ lhs~(v2f);
 
     subs(v2f, veils_copy);
     diff(lhs~(%), d_vars) =~ TrussMe:-Simplify(diff(rhs~(%), d_vars));
-    subs_diff := lhs~(%) =~ TrussMe:-Simplify(subs(op(ListTools:-Reverse(%)),rhs~(%))):
+    subs_diff := lhs~(%) =~ TrussMe:-Simplify(subs(op(ListTools:-Reverse(%)), rhs~(%))):
 
     # Compute the derivative of the veiled expression
     subs(subs_diff, diff(subs(v2f, _passed[1]), d_vars));
