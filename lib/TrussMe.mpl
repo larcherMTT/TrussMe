@@ -96,6 +96,7 @@ TrussMe := module()
     description "Module unload procedure.";
 
     TrussMe:-Unprotect();
+    TrussMe:-TypeUnRegister();
     return NULL;
   end proc: # ModuleUnload
 
@@ -122,6 +123,30 @@ TrussMe := module()
     TypeTools:-AddType('STRUCTURE', TrussMe:-IsStructure);
     return NULL;
   end proc: # TypeRegister
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  export TypeUnRegister := proc()
+
+    description "UnRegister module types.";
+
+    try TypeTools:-RemoveType('EARTH') catch: end try;
+    try TypeTools:-RemoveType('FRAME') catch: end try;
+    try TypeTools:-RemoveType('POINT') catch: end try;
+    try TypeTools:-RemoveType('VECTOR') catch: end try;
+    try TypeTools:-RemoveType('BEAM') catch: end try;
+    try TypeTools:-RemoveType('ROD') catch: end try;
+    try TypeTools:-RemoveType('RIGID_BODY') catch: end try;
+    try TypeTools:-RemoveType('FORCE') catch: end try;
+    try TypeTools:-RemoveType('MOMENT') catch: end try;
+    try TypeTools:-RemoveType('QFORCE') catch: end try;
+    try TypeTools:-RemoveType('QMOMENT') catch: end try;
+    try TypeTools:-RemoveType('SUPPORT') catch: end try;
+    try TypeTools:-RemoveType('JOINT') catch: end try;
+    try TypeTools:-RemoveType('MATERIAL') catch: end try;
+    try TypeTools:-RemoveType('STRUCTURE') catch: end try;
+    return NULL;
+  end proc: # TypeUnRegister
 
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -1240,10 +1265,8 @@ TrussMe := module()
         );
         for j from 1 to 3 do
           if (sr_F_values_tmp[j] <> 0) then
-            S["support_reactions"] := [
-              op(S["support_reactions"]),
-              sr_F_names[j] = -sr_F_values_tmp[j]
-              ];
+            S["support_reactions"] :=
+              S["support_reactions"] union [sr_F_names[j] = -sr_F_values_tmp[j]];
           end if;
         end do;
         break;
@@ -1317,6 +1340,7 @@ TrussMe := module()
     obj["constraint_loads"]  := [];
     obj["support_reactions"] := [];
     obj["displacements"]     := [];
+
     return NULL;
   end proc: # CleanSupport
 
@@ -1581,8 +1605,8 @@ TrussMe := module()
     }, $)::ROD;
 
     description "Create a ROD object with inputs: object name <name>, first "
-      "point <p_1>, second point <p_2>, vector in XY-plane <vec>, optional "
-      "section area <area> and material type <material>.";
+      "point <p_1>, second point <p_2>, vector ortogonal to XY-plane <vec>, "
+      "optional section area <area> and material type <material>.";
 
     local ell, e_x, e_y, e_z;
 
@@ -1995,7 +2019,10 @@ TrussMe := module()
 
     description "Clean STRUCTURE object <obj> internal variables.";
 
-    local i;
+    local str_obj;
+
+    print("Dirty structure");
+    print(map(Show,obj["objects"]));
 
     # Clean internal variables
     obj["equations"]                  := [];
@@ -2009,17 +2036,19 @@ TrussMe := module()
     obj["frame_displacements_solved"] := false;
 
     # Clean objects
-    for i from 1 to nops(obj["objects"]) do
-      if TrussMe:-IsBeam(obj[i]) then
-        obj["objects"][i] := TrussMe:-CleanBeam(i);
-      elif TrussMe:-IsRod(obj[i]) then
-        obj["objects"][i] := TrussMe:-CleanRod(i);
-      elif TrussMe:-IsSupport(obj[i]) then
-        obj["objects"][i] := TrussMe:-CleanSupport(i);
-      elif TrussMe:-IsJoint(obj[i]) then
-        obj["objects"][i] := TrussMe:-CleanJoint(i);
+    for str_obj in obj["objects"] do
+      if TrussMe:-IsBeam(str_obj) then
+        TrussMe:-CleanBeam(str_obj);
+      elif TrussMe:-IsRod(str_obj) then
+        TrussMe:-CleanRod(str_obj);
+      elif TrussMe:-IsSupport(str_obj) then
+        TrussMe:-CleanSupport(str_obj);
+      elif TrussMe:-IsJoint(str_obj) then
+        TrussMe:-CleanJoint(str_obj);
       end if;
     end do;
+    print("Clean structure");
+    print(map(Show,obj["objects"]));
     return NULL;
   end proc: # CleanStructure
 

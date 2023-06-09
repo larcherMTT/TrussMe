@@ -221,7 +221,7 @@ export SolveStructure := proc(
     sol, obj, x, str_eq, str_vars, P_energy, veiling_idx, veiling_label, veils, i;
 
   # Clean structure
-  TrussMe:-CleanStructure(struct);
+  #TrussMe:-CleanStructure(struct);
 
   # Set veiling_label
   veiling_idx := 1;
@@ -382,7 +382,8 @@ export SolveStructure := proc(
   # Compute displacements
   if compute_displacements and not struct["displacements_solved"] then
     TrussMe:-ComputeDisplacements(
-      S_obj union S_joint union S_support, S_ext union S_con_forces, sol
+      S_obj union S_joint union S_support, S_ext union S_con_forces, sol,
+      parse("timoshenko_beam") = timoshenko_beam
     );
     # Set displacements computed flag
     struct["displacements_solved"] := true;
@@ -1034,8 +1035,9 @@ export ComputeSpringDisplacement := proc(
   out := RealDomain:-solve(
     spring_load = TrussMe:-Simplify(integrate(spring_stiffness(x), x = 0..Dx)),
     Dx,
-    useassumptions = true
-    );
+    useassumptions = true,
+    dropmultiplicity = true
+    )[1]; # select the first solution
 
   ##print("DISP EQ: ", spring_load = TrussMe:-Simplify(integrate(spring_stiffness(x), x = 0..Dx)));
 
