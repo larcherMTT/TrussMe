@@ -63,16 +63,16 @@ export PlotRigidBody := proc(
     "list or set <joints>, the concentrated loads list or set <c_loads>, and "
     "the optional list or set of substitution <data>.";
 
-  local p_1, p_2, i, j, idx, lines;
+  local p_1, p_2, js, j, idx, lines;
 
   lines := [];
   p_1 := subs(op(data),
     TrussMe:-Project([op(obj["COM"]), 1], obj["frame"], ground)
   );
-  for i in joints do
-    member(obj["name"], i["targets"], 'idx');
+  for js in joints do
+    member(obj["name"], js["targets"], 'idx');
     p_2 := subs(op(data),
-      TrussMe:-Project([op(i["coordinates"][idx]), 1], obj["frame"], ground)
+      TrussMe:-Project([op(js["coordinates"][idx]), 1], obj["frame"], ground)
     );
     lines := lines union [
       plottools:-line(
@@ -265,9 +265,8 @@ export PlotDeformedRod := proc(
     scaling::numeric            := 1
   }, $)::function;
 
-  description "Plot the ROD object <obj> given the list of <targets>, an "
-    "optional list or set of substitution data <data> and scaling factor "
-    "<scaling>.";
+  description "Plot the ROD object <obj> given an optional list or set of "
+    "substitution data <data> and scaling factor <scaling>.";
 
   local p_1, p_2, rfd;
 
@@ -572,135 +571,3 @@ export PlotDeformedStructure := proc(
   );
 end proc: # PlotDeformedStructure
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-export IsInsideJoint := proc(
-  obj::JOINT,
-  pnt::POINT,
-  tol::numeric := 1e-4,
-  $)::boolean;
-
-  description "Check if the point <pnt> is inside the JOINT <obj> within a "
-    "optianl tolerance value <tol>.";
-
-  local O;
-
-  if (nops(pnt) <> 3) then
-    error "the input point must be a list of 3 elements.";
-  end if;
-
-  if (nops(obj["targets"]) > 1) then
-    O := TrussMe:-Origin(
-      TrussMe:-GetObjByName(obj["targets"][1], targets)["frame"] .
-      TrussMe:-Translate(obj["coordinates"][1], 0, 0)
-      );
-  elif m_WarningMode then
-    WARNING("the support has no targets.");
-  end if;
-
-  return evalb(norm(pnt - O) <= tol);
-end proc: # IsInsideJoint
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-export IsInsideSupport := proc(
-  obj::SUPPORT,
-  pnt::POINT,
-  tol::numeric := 1e-4,
-  $)::boolean;
-
-  description "Check if the point <p> is inside the SUPPORT <obj> within a "
-    "optianol tolerance <tol> value.";
-
-  local O;
-
-  if (nops(pnt) <> 3) then
-    error "the input point must be a list of 3 elements.";
-  end if;
-
-  if (nops(obj["targets"]) > 1) then
-    O := TrussMe:-Origin(
-      TrussMe:-GetObjByName(obj["targets"][2], targets)["frame"] .
-      TrussMe:-Translate(obj["coordinates"][2], 0, 0)
-      );
-  elif m_WarningMode then
-    WARNING("the support has no targets.");
-  end if;
-
-  return evalb(norm(pnt - O) <= tol);
-end proc: # IsInsideSupport
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-export IsInsideRod := proc(
-  obj::ROD,
-  pnt::POINT,
-  $)::boolean;
-
-  description "Check if the point <pnt> is inside the ROD <obj>.";
-
-  local O, V, W;
-
-  if (nops(pnt) <> 3) then
-    error "the input point must be a list of 3 elements.";
-  end if;
-
-  O := TrussMe:-Origin(obj["frame"]);
-  V := obj["frame"].TrussMe:-Translate(obj["length"], 0, 0) - O;
-  W := pnt - O;
-  return evalb(dot(W, V) >= 0) and (dot(W, V) <= dot(V, V));
-end proc: # IsInsideRod
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-export IsInsideBeam := proc(
-  obj::BEAM,
-  pnt::POINT,
-  $)::boolean;
-
-  description "Check if the point <pnt> is inside the BEAM <obj>.";
-
-  local O, V, W, out;
-
-  if (nops(pnt) <> 3) then
-    error "the input point must be a list of 3 element.";
-  end if;
-
-  O := TrussMe:-Origin(obj["frame"]);
-  V := obj["frame"].TrussMe:-Translate(obj["length"], 0, 0) - O;
-  W := pnt - O;
-  return evalb((dot(W, V) >= 0) and (dot(W, V) <= dot(V, V)));
-end proc: # IsInsideBeam
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-export IsInsideStructure := proc(
-  obj::STRUCTURE,
-  pnt::POINT,
-  $)::boolean;
-
-  description "Check if the point <pnt> is inside the STRUCTURE <obj>.";
-
-  local i, out;
-
-  out := false;
-  for i in str["objects"] do
-    if TrussMe:-IsJoint(i) then
-      out := out or TrussMe:-IsInsideJoint(i, pnt);
-    elif TrussMe:-IsSupport(i) then
-      out := out or TrussMe:-IsInsideSupport(i, pnt);
-    elif TrussMe:-IsBeam(i) then
-      out := out or TrussMe:-IsInsideBeam(i, pnt);
-    elif TrussMe:-IsRod(i) then
-      out := out or TrussMe:-IsInsideRod(i, pnt);
-    else
-      error "unknown object type.";
-    end if;
-    if out then
-      break;
-    end if;
-  end do;
-  return out;
-end proc: # IsInsideStructure
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

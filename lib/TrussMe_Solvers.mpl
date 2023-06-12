@@ -152,43 +152,43 @@ export NewtonEuler := proc(
     "the axial coordinate of the pole <pole>, and an optional upper limit of the "
     "integration <upper_lim>.";
 
-  local eq_T, eq_R, i, arm;
+  local eq_T, eq_R, ext, arm;
 
   eq_T := [0, 0, 0];
-  for i from 1 to nops(exts) do
-    if exts[i]["target"] = obj["name"] then
-      if TrussMe:-IsForce(exts[i]) then
-        eq_T := eq_T + exts[i]["components"];
-      elif TrussMe:-IsQForce(exts[i]) then
+  for ext in exts do
+    if ext["target"] = obj["name"] then
+      if TrussMe:-IsForce(ext) then
+        eq_T := eq_T + ext["components"];
+      elif TrussMe:-IsQForce(ext) then
         eq_T := eq_T + convert(map(
-          integrate, exts[i]["components"](x), x = 0..upper_lim
+          integrate, ext["components"](x), x = 0..upper_lim
         ), list);
       end if;
     elif m_WarningMode then
-      WARNING("TrussMe:-NewtonEuler(...): %1 is not applied to %2.", exts[i], obj);
+      WARNING("TrussMe:-NewtonEuler(...): %1 is not applied to %2.", ext, obj);
     end if;
   end do;
 
   eq_R := [0, 0, 0];
-  for i from 1 to nops(exts) do
-    if (exts[i]["target"] = obj["name"]) then
-      if TrussMe:-IsMoment(exts[i]) then
-        eq_R := eq_R + exts[i]["components"];
-      elif TrussMe:-IsForce(exts[i]) then
-        arm := <op(pole - exts[i]["coordinate"])>;
+  for ext in exts do
+    if (ext["target"] = obj["name"]) then
+      if TrussMe:-IsMoment(ext) then
+        eq_R := eq_R + ext["components"];
+      elif TrussMe:-IsForce(ext) then
+        arm := convert(pole - ext["coordinate"], Vector);
         eq_R := eq_R + convert(LinearAlgebra:-CrossProduct(
-          <op(exts[i]["components"])>, arm
+          convert(ext["components"], Vector), arm
         ), list);
-      elif TrussMe:-IsQForce(exts[i]) then
-        arm := <op(pole - [x, 0, 0])>;
+      elif TrussMe:-IsQForce(ext) then
+        arm := convert(pole - [x, 0, 0], Vector);
         eq_R := eq_R + map(integrate, convert(LinearAlgebra:-CrossProduct(
-          <op(exts[i]["components"])(x)>, arm
+          convert(ext["components"](x), Vector), arm
         ), list), x = 0..upper_lim);
-      elif TrussMe:-IsQMoment(FMQ[i]) then
-        eq_R := eq_R + map(integrate, exts[i]["components"](x), x = 0..upper_lim);
+      elif TrussMe:-IsQMoment(ext) then
+        eq_R := eq_R + map(integrate, ext["components"](x), x = 0..upper_lim);
       end if;
     elif m_WarningMode then
-      WARNING("TrussMe:-NewtonEuler(...): %1 is not applied to %2.", exts[i], obj);
+      WARNING("TrussMe:-NewtonEuler(...): %1 is not applied to %2.", ext, obj);
     end if;
   end do;
 
@@ -218,10 +218,8 @@ export SolveStructure := proc(
     "flag <unveil_results>.";
 
   local g_load, S_obj, S_rigid, S_ext, S_support, S_joint, S_con_forces, vars,
-    sol, obj, x, str_eq, str_vars, P_energy, veiling_idx, veiling_label, veils, i;
-
-  # Clean structure
-  #TrussMe:-CleanStructure(struct);
+    sol, obj, x, str_eq, str_vars, P_energy, veiling_idx, veiling_label, veils,
+    i, uveils;
 
   # Set veiling_label
   veiling_idx := 1;
@@ -269,7 +267,7 @@ export SolveStructure := proc(
     if (m_VerboseMode > 0) then
       printf("TrussMe:-SolveStructure(...): solving the isostatic structure...\n");
     end if;
-    sol, str_eq, str_vars := TrussMe:-IsostaticSolver(
+    sol, veils, str_eq, str_vars := TrussMe:-IsostaticSolver(
       S_obj union S_rigid union S_joint union S_support,
       S_ext union S_con_forces,
       vars,
@@ -284,10 +282,7 @@ export SolveStructure := proc(
     end if;
     # Update support reactions properties
     for obj in S_support do
-      obj["support_reactions"] := [
-        seq(lhs(obj["support_reactions"][i]) = TrussMe:-Subs(sol, rhs(obj["support_reactions"][i])),
-        i = 1..nops(obj["support_reactions"]))
-      ];
+      obj["support_reactions"] := subs(sol, obj["generic_support_reactions"]);
     end do;
     if (m_VerboseMode > 0) then
       printf("TrussMe:-SolveStructure(...): updating support reactions fields... DONE\n");
@@ -303,7 +298,7 @@ export SolveStructure := proc(
     if (m_VerboseMode > 0) then
       printf("TrussMe:-SolveStructure(...): solving the hyperstatic structure...\n");
     end if;
-    sol, str_eq, str_vars, P_energy := TrussMe:-HyperstaticSolver(
+    sol, veils, str_eq, str_vars, P_energy := TrussMe:-HyperstaticSolver(
       S_obj union S_rigid union S_joint union S_support,
       S_ext union S_con_forces,
       vars,
@@ -337,7 +332,7 @@ export SolveStructure := proc(
       printf("TrussMe:-SolveStructure(...): updating support reactions fields...\n");
     end if;
     for obj in S_support do
-    obj["support_reactions"] := TrussMe:-Subs(sol, obj["support_reactions"]);
+    obj["support_reactions"] := subs(sol, obj["generic_support_reactions"]);
     end do;
     if (m_VerboseMode > 0) then
       printf("TrussMe:-SolveStructure(...): updating support reactions fields... DONE\n");
@@ -345,9 +340,9 @@ export SolveStructure := proc(
   end if;
 
   # Add veils
-  if m_KeepVeiled and type(sol[-1], list) then
-    struct["veils"] := struct["veils"] union sol[-1];
-    veiling_idx     := veiling_idx + 1;
+  struct["veils"] := veils;
+  if m_KeepVeiled then
+    veiling_idx := veiling_idx + 1;
     m_LEM:-SetVeilingLabel(m_LEM, cat(m_VeilingLabel, veiling_idx));
   end if;
 
@@ -365,16 +360,19 @@ export SolveStructure := proc(
   end if;
 
   # Compute potential energy
-  if compute_potential_energy and not struct["potential_energy_solved"] then
+  if compute_potential_energy and (not struct["potential_energy_solved"] or nops(dummy_vars)>0) then
     if implicit then
       error "potential energy cannot be computed in implicit mode";
     end if;
-    P_energy := TrussMe:-ComputePotentialEnergy(
+    P_energy, uveils := TrussMe:-ComputePotentialEnergy(
       S_obj union S_support union S_joint, sol,
       parse("timoshenko_beam") = timoshenko_beam,
-      parse("dummy_vars")      = dummy_vars);
+      parse("dummy_vars")      = dummy_vars,
+      parse("veils")           = veils);
     # Update structure energy
     struct["potential_energy"] := P_energy;
+    # Update structure veils
+    struct["veils"] := struct["veils"] union uveils;
     # Set potential energy computed flag
     struct["potential_energy_solved"] := true;
   end if;
@@ -434,7 +432,7 @@ export HyperstaticSolver := proc(
     "<timoshenko_beam>.";
 
   local hyper_eq, i, obj, iso_vars, iso_sol, iso_eq, hyper_sol, P_energy,
-    S_objs, E_objs, sol;
+    S_objs, E_objs, sol, veils;
 
   # Parse input objects and find objects with internal actions property
   S_objs := [seq(
@@ -447,7 +445,7 @@ export HyperstaticSolver := proc(
     `if`(member(vars[i], hyper_vars), NULL, vars[i]),
     i = 1..nops(vars))
   ];
-  iso_sol, iso_eq, iso_vars := TrussMe:-IsostaticSolver(
+  iso_sol, veils, iso_eq, iso_vars := TrussMe:-IsostaticSolver(
     objs, exts, iso_vars, parse("implicit") = implicit
   );
 
@@ -465,16 +463,12 @@ export HyperstaticSolver := proc(
     E_objs, iso_sol,
     parse("timoshenko_beam") = timoshenko_beam
   );
-  P_energy := TrussMe:-Simplify[60](P_energy);
+  P_energy := TrussMe:-Simplify(P_energy);
 
   # Compute the hyperstatic equation
-  if m_KeepVeiled and type(iso_sol[-1], list) then
-    hyper_eq := TrussMe:-Diff~(
-      P_energy, hyper_vars, parse("veils") = iso_sol[-1]
-    ) =~ hyper_disp;
-  else
-    hyper_eq := diff~(P_energy, hyper_vars) =~ hyper_disp;
-  end if;
+  hyper_eq := TrussMe:-Diff~(
+    P_energy, hyper_vars, parse("veils") = veils
+  ) =~ hyper_disp;
 
   # Substitute Float(undefined) with 0 in the derivative of the potential energy
   # (this comes in case of non derivable piecewise functions in the compliant
@@ -492,17 +486,6 @@ export HyperstaticSolver := proc(
     # Solve hyperstatic equations
     hyper_sol := op(RealDomain:-solve(hyper_eq, hyper_vars)); # Maple solver
     #hyper_sol := op(SolveTools:-Engine({op(hyper_eq)}, {op(hyper_vars)}, explicit));
-    # FIXME: if used must be adapted for non list equations (single equation)
-
-    #m_LEM:-SetVeilingLabel(m_LEM, cat(m_VeilingLabel, "H"));
-    #hyper_sol := TrussMe:-LinearSolver(hyper_eq, hyper_vars); # LAST solver
-    #if (m_VerboseMode > 0) then
-    #  printf("TrussMe:-HyperstaticSolver(...): substituting veils...\n");
-    #end if;
-    #hyper_sol := m_LEM:-Unveil~(m_LEM, hyper_sol);
-    #if (m_VerboseMode > 0) then
-    #  printf("TrussMe:-HyperstaticSolver(...): substituting veils... DONE\n");
-    #end if;
 
     if (hyper_sol = NULL) then
       error "hyperstatic solution not found.";
@@ -518,10 +501,10 @@ export HyperstaticSolver := proc(
     sol := hyper_sol union subs(hyper_sol, iso_sol);
   end if;
 
-  if (_nresults = 4) then
-    return sol, iso_eq union hyper_eq, iso_vars union hyper_vars, P_energy;
+  if (_nresults = 5) then
+    return sol, veils, iso_eq union hyper_eq, iso_vars union hyper_vars, P_energy;
   else
-    return sol;
+    return sol, veils;
   end
 end proc: # HyperstaticSolver
 
@@ -535,15 +518,19 @@ export ComputePotentialEnergy := proc(
   sol::{list, set} := [],
   {
     timoshenko_beam::boolean := false,
-    dummy_vars::{list, set}  := []
+    dummy_vars::{list, set}  := [],
+    veils::{list, set}       := []
   }, $)
 
   description "Compute the internal potential energy of the structure given the "
     "objects <objs> and optional Timoshenko beam flag <timoshenko_beam>.";
 
-  local dummy_vars_subs, obj, P, x, f, FJX, FJY, FJZ, MJX, MJY, MJZ, i;
+  local dummy_vars_subs, obj, P, x, f, FJX, FJY, FJZ, MJX, MJY, MJZ, i, uveils_subs, uveils;
 
   dummy_vars_subs := dummy_vars =~ [seq(0, i = 1..nops(dummy_vars))];
+  # Compute undummy veils
+  uveils_subs := map(x-> lhs(x) = cat(lhs(x),__ud), veils);
+  uveils := subs(uveils_subs, dummy_vars_subs, veils);
 
   P := 0;
   for obj in objs do
@@ -552,7 +539,10 @@ export ComputePotentialEnergy := proc(
       if (member(N, map(lhs, obj["internal_actions"]))) and
           (subs(obj["internal_actions"](x), N(x)) <> 0) then
         subs(obj["internal_actions"](x), N(x));
-        subs(dummy_vars_subs, %);
+        subs(uveils_subs, dummy_vars_subs, %);
+        # (%% - %) -> internal action of the structure due to dummy loads only
+        # %        -> internal action of the structure without dummy loads
+        # %%       -> internal action of the structure with all loads
         P := P + integrate(
             eval(`if`(nops(dummy_vars) > 0, 2 * (%% - %) * %, %%^2))/
               (2*obj["material"]["elastic_modulus"]*obj["area"](x)),
@@ -563,7 +553,10 @@ export ComputePotentialEnergy := proc(
         if (member(Ty, map(lhs, obj["internal_actions"]))) and
             (subs(obj["internal_actions"](x), Ty(x)) <> 0) then
           subs(obj["internal_actions"](x), Ty(x));
-          subs(dummy_vars_subs, %);
+          subs(uveils_subs, dummy_vars_subs, %);
+          # (%% - %) -> internal action of the structure due to dummy loads only
+          # %        -> internal action of the structure without dummy loads
+          # %%       -> internal action of the structure with all loads
           P := P + integrate(
               eval(`if`(nops(dummy_vars) > 0, 2 * (%% - %) * %, %%^2))/
                 (2*obj["timo_shear_coeff"](x)[1]*obj["material"]["shear_modulus"]*obj["area"](x)),
@@ -573,7 +566,10 @@ export ComputePotentialEnergy := proc(
         if (member(Tz, map(lhs, obj["internal_actions"]))) and
             (subs(obj["internal_actions"](x), Tz(x)) <> 0) then
           subs(obj["internal_actions"](x), Tz(x));
-          subs(dummy_vars_subs, %);
+          subs(uveils_subs, dummy_vars_subs, %);
+          # (%% - %) -> internal action of the structure due to dummy loads only
+          # %        -> internal action of the structure without dummy loads
+          # %%       -> internal action of the structure with all loads
           P := P + integrate(
               eval(`if`(nops(dummy_vars) > 0, 2 * (%% - %) * %, %%^2))/
                 (2*obj["timo_shear_coeff"](x)[2]*obj["material"]["shear_modulus"]*obj["area"](x)),
@@ -584,7 +580,10 @@ export ComputePotentialEnergy := proc(
       if (member(Mx, map(lhs, obj["internal_actions"]))) and
           (subs(obj["internal_actions"](x), Mx(x)) <> 0) then
         subs(obj["internal_actions"](x), Mx(x));
-        subs(dummy_vars_subs, %);
+        subs(uveils_subs, dummy_vars_subs, %);
+        # (%% - %) -> internal action of the structure due to dummy loads only
+        # %        -> internal action of the structure without dummy loads
+        # %%       -> internal action of the structure with all loads
         P := P + integrate(
             eval(`if`(nops(dummy_vars) > 0, 2 * (%% - %) * %, %%^2))/
               (2*obj["material"]["shear_modulus"]*obj["inertias"][1](x)),
@@ -594,7 +593,10 @@ export ComputePotentialEnergy := proc(
       if (member(My, map(lhs, obj["internal_actions"]))) and
           (subs(obj["internal_actions"](x), My(x)) <> 0) then
         subs(obj["internal_actions"](x), My(x));
-        subs(dummy_vars_subs, %);
+        subs(uveils_subs, dummy_vars_subs, %);
+        # (%% - %) -> internal action of the structure due to dummy loads only
+        # %        -> internal action of the structure without dummy loads
+        # %%       -> internal action of the structure with all loads
         P := P + integrate(
             eval(`if`(nops(dummy_vars) > 0, 2 * (%% - %) * %, %%^2))/
               (2*obj["material"]["elastic_modulus"]*obj["inertias"][2](x)),
@@ -604,7 +606,10 @@ export ComputePotentialEnergy := proc(
       if (member(Mz, map(lhs, obj["internal_actions"]))) and
           (subs(obj["internal_actions"](x), Mz(x)) <> 0) then
         subs(obj["internal_actions"](x), Mz(x));
-        subs(dummy_vars_subs, %);
+        subs(uveils_subs, dummy_vars_subs, %);
+        # (%% - %) -> internal action of the structure due to dummy loads only
+        # %        -> internal action of the structure without dummy loads
+        # %%       -> internal action of the structure with all loads
         P := P + integrate(
             eval(`if`(nops(dummy_vars) > 0, 2 * (%% - %) * %, %%^2))/
               (2*obj["material"]["elastic_modulus"]*obj["inertias"][3](x)),
@@ -612,50 +617,50 @@ export ComputePotentialEnergy := proc(
       end if;
     elif TrussMe:-IsCompliantSupport(obj) then
       # Support reaction Fx contribution
-      if (subs(obj["support_reactions"], FX) <> 0) and
+      if (subs(obj["generic_support_reactions"], FX) <> 0) and
           (obj["stiffness"](x)[1] <> infinity) and
           (obj["constrained_dof"][1] <> 0) then
-        P := P + TrussMe:-Subs(obj["support_reactions"], sol,
+        P := P + subs(obj["generic_support_reactions"], sol,
             TrussMe:-ComputeSpringEnergy(-FX, (x -> obj["stiffness"](x)[1]))
           );
       end if;
       # Support reaction Fy contribution
-      if (subs(obj["support_reactions"], FY) <> 0) and
+      if (subs(obj["generic_support_reactions"], FY) <> 0) and
           (obj["stiffness"](x)[2] <> infinity) and
           (obj["constrained_dof"][2] <> 0) then
-        P := P + TrussMe:-Subs(obj["support_reactions"], sol,
+        P := P + subs(obj["generic_support_reactions"], sol,
             TrussMe:-ComputeSpringEnergy(-FY, (x -> obj["stiffness"](x)[2]))
           );
       end if;
       # Support reaction Fz contribution
-      if (subs(obj["support_reactions"], FZ) <> 0) and
+      if (subs(obj["generic_support_reactions"], FZ) <> 0) and
           (obj["stiffness"](x)[3] <> infinity) and
           (obj["constrained_dof"][3] <> 0) then
-        P := P + TrussMe:-Subs(obj["support_reactions"], sol,
+        P := P + subs(obj["generic_support_reactions"], sol,
             TrussMe:-ComputeSpringEnergy(-FZ, (x -> obj["stiffness"](x)[3]))
           );
       end if;
       # Support reaction Mx contribution
-      if (subs(obj["support_reactions"], MX) <> 0) and
+      if (subs(obj["generic_support_reactions"], MX) <> 0) and
           (obj["stiffness"](x)[4] <> infinity) and
           (obj["constrained_dof"][4] <> 0) then
-        P := P + TrussMe:-Subs(obj["support_reactions"], sol,
+        P := P + subs(obj["generic_support_reactions"], sol,
             TrussMe:-ComputeSpringEnergy(-MX, (x -> obj["stiffness"](x)[4]))
           );
       end if;
       # Support reaction My contribution
-      if (subs(obj["support_reactions"], MY) <> 0) and
+      if (subs(obj["generic_support_reactions"], MY) <> 0) and
           (obj["stiffness"](x)[5] <> infinity) and
           (obj["constrained_dof"][5] <> 0) then
-        P := P + TrussMe:-Subs(obj["support_reactions"], sol,
+        P := P + subs(obj["generic_support_reactions"], sol,
             TrussMe:-ComputeSpringEnergy(-MY, (x -> obj["stiffness"](x)[5]))
           );
       end if;
       # Support reaction Mz contribution
-      if (subs(obj["support_reactions"], MZ) <> 0) and
+      if (subs(obj["generic_support_reactions"], MZ) <> 0) and
           (obj["stiffness"](x)[6] <> infinity) and
           (obj["constrained_dof"][6] <> 0) then
-        P := P + TrussMe:-Subs(obj["support_reactions"], sol,
+        P := P + subs(obj["generic_support_reactions"], sol,
             TrussMe:-ComputeSpringEnergy(-MZ, (x -> obj["stiffness"](x)[6]))
           );
       end if;
@@ -670,7 +675,7 @@ export ComputePotentialEnergy := proc(
             FJX := FJX + f["components"][1];
           end if;
         end do;
-        P := P + TrussMe:-Subs(sol,
+        P := P + subs(sol,
             TrussMe:-ComputeSpringEnergy(FJX, (x -> obj["stiffness"](x)[1]))
           );
       end if;
@@ -684,7 +689,7 @@ export ComputePotentialEnergy := proc(
             FJY := FJY + f["components"][2];
           end if;
         end do;
-        P := P + TrussMe:-Subs(sol,
+        P := P + subs(sol,
             TrussMe:-ComputeSpringEnergy(FJY, (x -> obj["stiffness"](x)[2]))
           );
       end if;
@@ -698,7 +703,7 @@ export ComputePotentialEnergy := proc(
             FJZ := FJZ + f["components"][3];
           end if;
         end do;
-        P := P + TrussMe:-Subs(sol,
+        P := P + subs(sol,
             TrussMe:-ComputeSpringEnergy(FJZ, (x -> obj["stiffness"](x)[3]))
           );
       end if;
@@ -712,7 +717,7 @@ export ComputePotentialEnergy := proc(
             MJX := MJX + f["components"][1];
           end if;
         end do;
-        P := P + TrussMe:-Subs(sol,
+        P := P + subs(sol,
             TrussMe:-ComputeSpringEnergy(MJX, (x -> obj["stiffness"](x)[4]))
           );
       end if;
@@ -726,7 +731,7 @@ export ComputePotentialEnergy := proc(
             MJY := MJY + f["components"][2];
           end if;
         end do;
-        P := P + TrussMe:-Subs(sol,
+        P := P + subs(sol,
             TrussMe:-ComputeSpringEnergy(MJY, (x -> obj["stiffness"](x)[5]))
           );
       end if;
@@ -740,14 +745,19 @@ export ComputePotentialEnergy := proc(
             MJZ := MJZ + f["components"][3];
           end if;
         end do;
-        P := P + TrussMe:-Subs(sol,
+        P := P + subs(sol,
             TrussMe:-ComputeSpringEnergy(MJZ, (x -> obj["stiffness"](x)[6]))
           );
       end if;
     end if;
   end do;
-  return P;
-end proc: # PotentialEnergy
+
+  if _nresults = 1 then
+    return P;
+  else
+    return P, uveils;
+  end if;
+end proc: # ComputePotentialEnergy
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -769,25 +779,25 @@ export IsostaticSolver := proc(
     "the structure objects <objs>, the external actions <exts> and the variables "
     "<vars> to solve.";
 
-  local iso_eq, iso_eq_tmp, exts_comps, x, i, j, active_ext, iso_sol, A, B,
-    iso_vars;
+  local iso_eq, iso_eq_tmp, exts_comps, x, obj, ext, active_ext, iso_sol, A, B,
+    iso_vars, veils;
 
   # Compute structure equations
   if (m_VerboseMode > 0) then
     printf("TrussMe:-IsostaticSolver(...): computing the equilibrium equations...\n");
   end if;
   iso_eq := [];
-  for i from 1 to nops(objs) do
+  for obj in objs do
     active_ext := {};
-    for j from 1 to nops(exts) do
-      if (exts[j]["target"] = objs[i]["name"]) then
-        active_ext := active_ext union {exts[j]};
+    for ext in exts do
+      if (ext["target"] = obj["name"]) then
+        active_ext := active_ext union {eval(ext)};
       end if;
     end do;
-    iso_eq := iso_eq union TrussMe:-NewtonEuler(active_ext, objs[i]);
+    iso_eq := iso_eq union TrussMe:-NewtonEuler(active_ext, obj);
     # Add joints and supports constraint equations
-    if TrussMe:-IsSupport(objs[i]) or TrussMe:-IsJoint(objs[i]) then
-      iso_eq := iso_eq union objs[i]["constraint_loads"];
+    if TrussMe:-IsSupport(obj) or TrussMe:-IsJoint(obj) then
+      iso_eq := iso_eq union obj["constraint_loads"];
     end if;
   end do;
 
@@ -839,14 +849,12 @@ export IsostaticSolver := proc(
   if implicit then
     iso_sol := [];
   else
-    # Matrix form
-    A, B := LinearAlgebra:-GenerateMatrix(iso_eq, iso_vars);
-    A := Matrix(A, storage = sparse);
-
     if nops(iso_eq) = nops(iso_vars) then
-
       if (m_VerboseMode > 0) then
         if (m_VerboseMode > 1) then
+          # Matrix form
+          A, B := LinearAlgebra:-GenerateMatrix(iso_eq, iso_vars);
+          A := Matrix(A, storage = sparse);
           printf("TrussMe:-IsostaticSolver(...): matrix visualization of the "
             "linear system:\n");
           print(plots:-sparsematrixplot(A, matrixview));
@@ -855,9 +863,14 @@ export IsostaticSolver := proc(
           "forces...\n");
       end if;
       # Solve structure equations (LinearSolver)
-      iso_sol := TrussMe:-LinearSolver(iso_eq, iso_vars); # LAST solver
-      #iso_sol := op(RealDomain:-solve(iso_eq, iso_vars)); # Maple solver
-      # FIXME: this is a temporary fix (use LAST when stable)
+      if m_LinearSolver = "LAST" then
+        iso_sol, veils := TrussMe:-LinearSolver(iso_eq, iso_vars);
+      elif m_LinearSolver = "Maple" then
+        iso_sol := op(RealDomain:-solve(iso_eq, iso_vars));
+        veils := [];
+      else
+        error "TrussMe:-IsostaticSolver(...): invalid linear solver.";
+      end if;
 
     else
 
@@ -868,12 +881,7 @@ export IsostaticSolver := proc(
       end if;
       # Solve structure equations (solve)
       iso_sol := op(RealDomain:-solve(iso_eq, iso_vars));
-      # Append an empty list to the solution if the m_KeepVeiled flag
-      # is set to true
-      if m_KeepVeiled then
-        iso_sol := iso_sol union [[]];
-      end if;
-
+      veils := [];
     end if;
 
     if (iso_sol = NULL) then
@@ -886,10 +894,10 @@ export IsostaticSolver := proc(
     end if;
   end if;
 
-  if (_nresults = 3) then
-    return iso_sol, iso_eq, iso_vars;
+  if (_nresults = 4) then
+    return iso_sol, veils, iso_eq, iso_vars;
   else
-    return iso_sol;
+    return iso_sol, veils;
   end
 end proc: # IsostaticSolver
 
@@ -914,7 +922,7 @@ export ComputeInternalActions := proc(
   local i, j, active_ext, subs_ext;
 
   # Substitute structure solution into loads
-  subs_ext := map(convert, map2(Subs, sol, map(op, exts)), table);
+  subs_ext := map(convert, map2(subs, sol, map(op, exts)), table);
 
   for i from 1 to nops(objs) do
     # Extract active loads
@@ -1037,7 +1045,9 @@ export ComputeSpringDisplacement := proc(
     Dx,
     useassumptions = true,
     dropmultiplicity = true
-    )[1]; # select the first solution
+    );
+
+  # FIXME: deal with multiple solutions
 
   ##print("DISP EQ: ", spring_load = TrussMe:-Simplify(integrate(spring_stiffness(x), x = 0..Dx)));
 
@@ -1090,11 +1100,11 @@ export ComputeSupportDisplacements := proc(
 
   sup_disp := [];
   disp_vec := [tx, ty, tz, rx, ry, rz];
-  sup_reac := ['FX', 'FY', 'FZ', 'MX', 'MY', 'MZ'];
+  sup_reac := [FX, FY, FZ, MX, MY, MZ];
 
   for i from 1 to 6 do
     if (obj["constrained_dof"][i] = 1) and
-        member(sup_reac[i], map(lhs, obj["support_reactions"])) then
+        member(sup_reac[i], map(lhs, obj["generic_support_reactions"])) then
       disp := TrussMe:-ComputeSpringDisplacement(
         subs(obj["support_reactions"], - sup_reac[i]),
         (x -> obj["stiffness"](x)[i])
@@ -1132,7 +1142,7 @@ export ComputeJointDisplacements := proc(
   local jnt_disp, disp_vec, i, disp, x, jnt_load, f;
 
   jnt_disp := [];
-  disp_vec := [tx, ty, tz, rx, ry, rz];
+  disp_vec := ['tx', 'ty', 'tz', 'rx', 'ry', 'rz'];
   jnt_load := [0, 0, 0, 0, 0, 0];
 
   for i from 1 to 6 do
@@ -1152,7 +1162,7 @@ export ComputeJointDisplacements := proc(
             end if;
           end do;
         end if;
-      disp := TrussMe:-ComputeSpringDisplacement(TrussMe:-Subs(sol, jnt_load[i]),
+      disp := TrussMe:-ComputeSpringDisplacement(subs(sol, jnt_load[i]),
         (x -> obj["stiffness"](x)[i]));
       jnt_disp := jnt_disp union [disp_vec[i] = disp];
     end if;
@@ -1270,7 +1280,7 @@ export ComputePunctualDisplacement := proc(
     "<unveil_results> boolean flag to unveil the results.";
 
   local out, struct_copy, obj, objs_names, dummy_loads, subs_obj, obj_coords,
-    obj_targets, x, subs_null_dummy, disp, i, j, d_coords, sw_tmp;
+    obj_targets, x, subs_null_dummy, disp, i, j, d_coords, sw_tmp, out_veils;
 
   # Substitute -1 entries of coords with the corresponding object length
   d_coords := [seq(`if`(coords[i] = -1, objs[i]["length"], coords[i]), i = 1..nops(coords))];
@@ -1280,15 +1290,13 @@ export ComputePunctualDisplacement := proc(
 
   # Create a copy of the structure
   struct_copy := TrussMe:-CopyStructure(struct);
-
+  TrussMe:-CleanStructure(struct_copy);
   # Get objects names
   objs_names := TrussMe:-GetNames(objs);
 
   # Disable warnings temporarily
-  # FIXME: this is a temporary fix
   sw_tmp := m_WarningMode;
   m_WarningMode := false;
-
   # Replace rods with beams to be able to compute the displacements in all directions
   for obj in map(TrussMe:-GetObjByName, objs_names, struct_copy["objects"]) do
     if TrussMe:-IsRod(obj) then
@@ -1308,7 +1316,6 @@ export ComputePunctualDisplacement := proc(
       struct_copy["objects"] := struct_copy["objects"] union {eval(subs_obj)};
     end if;
   end do;
-
   # Update struct_copy supports and joints for the new objects
   for obj in struct_copy["objects"] do
     if TrussMe:-IsSupport(obj) then
@@ -1372,8 +1379,6 @@ export ComputePunctualDisplacement := proc(
     struct_copy["external_actions"] := struct_copy["external_actions"] union dummy_loads;
   end do;
 
-  m_StoredData := m_StoredData union subs_null_dummy;
-
   # Solve the structure copy
   TrussMe:-SolveStructure(
     struct_copy,
@@ -1386,7 +1391,7 @@ export ComputePunctualDisplacement := proc(
     parse("dummy_vars")               = lhs~(subs_null_dummy)
     );
 
-  # Enable warnings
+  # Reset warning mode
   m_WarningMode := sw_tmp;
 
   # Compute punctual displacements
@@ -1433,7 +1438,9 @@ export ComputePunctualDisplacement := proc(
     out := out union [disp];
   end do;
 
-  struct_copy["veils"] := subs(subs_null_dummy, struct_copy["veils"]);
+  # Compose output veils
+  # FIXME: only veils which are present in 'out' can be returned (with their recursive dependencies)
+  out_veils := subs(struct_copy["veils"]);
 
   # Simplify output
   out := TrussMe:-Simplify(out);
@@ -1441,7 +1448,7 @@ export ComputePunctualDisplacement := proc(
   if _nresults = 1 then
     return out;
   else
-    return out, struct_copy["veils"];
+    return out, out_veils;
   end if;
 end proc: # ComputePunctualDisplacement
 
@@ -1514,12 +1521,12 @@ end proc: # ComputeObjectFrameDisplacements
 export LinearSolver := proc(
   eqns::{list, set},
   vars::{list, set},
-  $)::list;
+  $)
 
   description "Solve the linear system of equations <eqns> for the variables "
     "<vars>.";
 
-  local T, sol, sol_tmp, A, B;
+  local T, sol, sol_tmp, veils, A, B;
 
   # Matrix form of the linear system
   A, B := LinearAlgebra:-GenerateMatrix(eqns, vars);
@@ -1552,11 +1559,12 @@ export LinearSolver := proc(
     # Remove indexed type from veils
     m_LEM:-VeilList(m_LEM);
     lhs~(%) =~ map2(op, 0, lhs~(%)) ||~ __ ||~ (op~(lhs~(%)));
-    print("LinearSolver", m_LEM:-GetVeilingLabel(m_LEM), m_LEM:-VeilList(m_LEM));
     # Substitutution
-    sol := convert(vars =~ subs(%, sol_tmp), list) union [subs(%, %%)];
+    sol := convert(vars =~ subs(%, sol_tmp), list);
+    veils := subs(%%, %%%);
   else
     sol := convert(vars =~ m_LEM:-SubsVeil(m_LEM, sol_tmp), list);
+    veils := [];
   end if;
   m_LEM:-ForgetVeil(m_LEM);
 
@@ -1564,7 +1572,12 @@ export LinearSolver := proc(
     printf("TrussMe:-LinearSolver(...): substituting veils... DONE\n");
   end if;
 
-  return TrussMe:-Simplify(sol);
+  if _nresults = 1 then
+    return sol;
+  elif _nresults = 2 then
+    return sol, veils;
+  end if;
+  return TrussMe:-Simplify(sol), veils;
 end proc: # LinearSolver
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

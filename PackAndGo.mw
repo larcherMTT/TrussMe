@@ -293,6 +293,7 @@ module TrussMe:
     SetModuleOptions( { LAST_TimeLimit::{nothing, constant} := NULL, 
                         LAST_VerboseMode::{boolean, nothing} := NULL, 
                         LAST_WarningMode::{boolean, nothing} := NULL, 
+                        LinearSolver::{nothing, string} := NULL, 
                         TimeLimit::{nothing, constant} := NULL, 
                         VerboseMode::{integer, nothing} := NULL, 
                         WarningMode::{boolean, nothing} := NULL }, $ )
@@ -338,10 +339,6 @@ module TrussMe:
 
     # Simplify an algebraic expression &lt;obj&gt;.
     Simplify( obj::anything, opt::anything := NULL, $ ) :: anything
-
-    # Perform substitution command neglecting sub-lists and sub-sets from the 
-    # substitution list.
-    Subs( )
 
     # Perform diff command on veiled expressions given the veiling list 
     # &lt;veils&gt;.
@@ -623,8 +620,8 @@ module TrussMe:
     PlotRod( obj::ROD, 
              { data::{list(`=`), set(`=`)} := [] }, $ ) :: function
 
-    # Plot the ROD object &lt;obj&gt; given the list of &lt;targets&gt;, an optional list 
-    # or set of substitution data &lt;data&gt; and scaling factor &lt;scaling&gt;.
+    # Plot the ROD object &lt;obj&gt; given an optional list or set of substitution 
+    # data &lt;data&gt; and scaling factor &lt;scaling&gt;.
     PlotDeformedRod( obj::ROD, 
                      { data::{list(`=`), set(`=`)} := [], 
                        scaling::numeric := 1 }, $ ) :: function
@@ -674,25 +671,6 @@ module TrussMe:
                            { data::{list(`=`), set(`=`)} := [], 
                              scaling::numeric := 1 }, $ )
                          :: {function, list(function)}
-
-    # Check if the point &lt;pnt&gt; is inside the JOINT &lt;obj&gt; within a optianl 
-    # tolerance value &lt;tol&gt;.
-    IsInsideJoint( obj::JOINT, pnt::POINT, tol::numeric := .1e-3, $ )
-                 :: boolean
-
-    # Check if the point &lt;p&gt; is inside the SUPPORT &lt;obj&gt; within a optianol 
-    # tolerance &lt;tol&gt; value.
-    IsInsideSupport( obj::SUPPORT, pnt::POINT, tol::numeric := .1e-3, $ )
-                   :: boolean
-
-    # Check if the point &lt;pnt&gt; is inside the ROD &lt;obj&gt;.
-    IsInsideRod( obj::ROD, pnt::POINT, $ ) :: boolean
-
-    # Check if the point &lt;pnt&gt; is inside the BEAM &lt;obj&gt;.
-    IsInsideBeam( obj::BEAM, pnt::POINT, $ ) :: boolean
-
-    # Check if the point &lt;pnt&gt; is inside the STRUCTURE &lt;obj&gt;.
-    IsInsideStructure( obj::STRUCTURE, pnt::POINT, $ ) :: boolean
 
     # Compute the degree of freedom of the input structure objects &lt;objs&gt;.
     ComputeDOF( objs::{list({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY}), 
@@ -753,7 +731,8 @@ module TrussMe:
                               set({BEAM, JOINT, ROD, SUPPORT})}, 
                             sol::{list, set} := [], 
                             { dummy_vars::{list, set} := [], 
-                              timoshenko_beam::boolean := false }, $ )
+                              timoshenko_beam::boolean := false, 
+                              veils::{list, set} := [] }, $ )
 
     # Solve the isostatic structure equilibrium equation system given the 
     # structure objects &lt;objs&gt;, the external actions &lt;exts&gt; and the variables 
@@ -828,14 +807,14 @@ module TrussMe:
                                    :: list
 
     # Solve the linear system of equations &lt;eqns&gt; for the variables &lt;vars&gt;.
-    LinearSolver( eqns::{list, set}, vars::{list, set}, $ ) :: list
+    LinearSolver( eqns::{list, set}, vars::{list, set}, $ )
 
 </Text-field>
 </Output>
 </Group>
 </Section><Presentation-Block>
 <Group view="presentation" inline-output="false" labelreference="L256808" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
-<Input><Text-field style="Text" layout="Normal"><Equation executable="true" style="2D Math" input-equation="" display="LUklbXJvd0c2Iy9JK21vZHVsZW5hbWVHNiJJLFR5cGVzZXR0aW5nR0koX3N5c2xpYkdGJzYlLUkjbWlHRiQ2I1EhRicvJStleGVjdXRhYmxlR1EmZmFsc2VGJy8lLG1hdGh2YXJpYW50R1Enbm9ybWFsRic=">JSFH</Equation></Text-field>
+<Input><Text-field style="Text" layout="Normal"><Equation executable="true" style="2D Math" input-equation="" display="LUklbXJvd0c2Iy9JK21vZHVsZW5hbWVHNiJJLFR5cGVzZXR0aW5nR0koX3N5c2xpYkdGJzYlLUkjbWlHRiQ2I1EhRicvJStleGVjdXRhYmxlR1EmZmFsc2VGJy8lLG1hdGh2YXJpYW50R1Enbm9ybWFsRic=">LUklbXJvd0c2Iy9JK21vZHVsZW5hbWVHNiJJLFR5cGVzZXR0aW5nR0koX3N5c2xpYkdGJzYjLUkjbWlHRiQ2I1EhRic=</Equation></Text-field>
 </Input>
 </Group></Presentation-Block>
 </Worksheet>

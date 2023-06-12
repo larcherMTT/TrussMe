@@ -47,7 +47,8 @@ TrussMe := module()
   local m_JointColor;
   local m_EarthColor;
   local m_VeilingLabel;
-  local m_StoredData;
+  local m_LinearSolver;
+  local m_AvailableSolvers;
 
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -172,7 +173,8 @@ TrussMe := module()
     m_JointColor            := "MediumSeaGreen";
     m_EarthColor            := "Firebrick";
     m_VeilingLabel          := "_V";
-    m_StoredData            := [];
+    m_LinearSolver          := "Maple";
+    m_AvailableSolvers      := {"Maple", "LAST"};
     m_earth := table({
       "type"                 = EARTH,
       "name"                 = "earth",
@@ -353,6 +355,7 @@ TrussMe := module()
       VerboseMode::{integer, nothing}      := NULL,
       WarningMode::{boolean, nothing}      := NULL,
       TimeLimit::{constant, nothing}       := NULL,
+      LinearSolver::{string, nothing}      := NULL,
       LAST_VerboseMode::{boolean, nothing} := NULL,
       LAST_WarningMode::{boolean, nothing} := NULL,
       LAST_TimeLimit::{constant, nothing}  := NULL
@@ -383,6 +386,15 @@ TrussMe := module()
         error "invalid time limit detected.";
       else
         m_TimeLimit := TimeLimit;
+      end if;
+    end if;
+
+    if (LinearSolver <> NULL) then
+      if not member(LinearSolver, m_AvailableSolvers) then
+        error "invalid linear solver detected. Available solvers are: %1, but "
+          "received %2.", m_AvailableSolvers, LinearSolver;
+      else
+        m_LinearSolver := LinearSolver;
       end if;
     end if;
 
@@ -638,19 +650,6 @@ TrussMe := module()
 
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-  export Subs := proc(
-    # _passed
-    )::anything;
-
-    description "Perform substitution command neglecting sub-lists and sub-sets "
-      "from the substitution list.";
-
-    map(x -> map(remove, y -> type(y, {list, set}), x), [_passed[1..-2]]);
-    return subs(op(%), _passed[-1]);
-  end proc: # Subs
-
-  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
   export Diff := proc(
     # _passed
     {
@@ -659,8 +658,6 @@ TrussMe := module()
 
     description "Perform diff command on veiled expressions given the veiling "
       "list <veils>.";
-
-    # TODO: optimize this procedure
 
     local subs_diff, i, tmp_vars, d_vars, v2f, f2v, last, veils_copy;
 
@@ -675,29 +672,21 @@ TrussMe := module()
     # Get the variables to be differentiated
     d_vars := _passed[2..last];
 
-    # Veil to functions substitution list
-    v2f := [];
-    for i from 1 to nops(veils_copy) do
-      tmp_vars := {d_vars} intersect indets(veils_copy[i]);
-      if (nops(tmp_vars) <> 0) then
-        v2f := [op(v2f), lhs(veils_copy[i]) = lhs(veils_copy[i])(op(tmp_vars))];
-      else
-        v2f := [op(v2f), lhs(veils_copy[i]) = lhs(veils_copy[i])];
-      end if;
-    end do;
+    # Veil-to-functions substitution list
+    v2f := map(x-> lhs(x) = lhs(x)(d_vars), veils_copy);
 
-    # Function to veils substitution list
+    # Function-to-veils substitution list
     f2v := rhs~(v2f) =~ lhs~(v2f);
 
     subs(v2f, veils_copy);
-    diff(lhs~(%), d_vars) =~ TrussMe:-Simplify(diff(rhs~(%), d_vars));
+    diff(lhs~(%), d_vars) =~ diff(rhs~(%), d_vars);
     subs_diff := lhs~(%) =~ TrussMe:-Simplify(subs(op(ListTools:-Reverse(%)), rhs~(%))):
 
     # Compute the derivative of the veiled expression
     subs(subs_diff, diff(subs(v2f, _passed[1]), d_vars));
 
     # Substitute back the veils
-    return subs(f2v, %);
+    return TrussMe:-Simplify(subs(f2v, %));
   end proc: # Diff
 
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -978,7 +967,7 @@ TrussMe := module()
 
     return table({
       "type"       = FORCE,
-      "components" = admissible_components,
+      "components" = eval(admissible_components),
       "coordinate" = TrussMe:-ListPadding(coords, 3),
       "target"     = obj["name"]
     });
@@ -1036,7 +1025,7 @@ TrussMe := module()
 
     return table({
       "type"       = MOMENT,
-      "components" = admissible_components,
+      "components" = eval(admissible_components),
       "coordinate" = TrussMe:-ListPadding(coords, 3),
       "target"     = obj["name"]
     });
@@ -1091,7 +1080,7 @@ TrussMe := module()
 
     return table({
       "type"       = QFORCE,
-      "components" = proj_components,
+      "components" = eval(proj_components),
       "target"     = obj["name"]
     });
   end proc: # MakeQForce
@@ -1136,7 +1125,7 @@ TrussMe := module()
 
     return table({
       "type"        = QMOMENT,
-      "components"  = proj_components,
+      "components"  = eval(proj_components),
       "target"      = obj["name"]
     });
   end proc: # MakeQMoment
@@ -1228,21 +1217,22 @@ TrussMe := module()
     end if;
 
     S := table({
-      "type"                = SUPPORT,
-      "constrained_dof"     = constrained_dof,
-      "admissible_loads"    = constrained_dof,
-      "coordinates"         = [[0, 0, 0], op(map(TrussMe:-ListPadding, obj_coords, 3))],
-      "name"                = name,
-      "frame"               = RF,
-      "targets"             = [m_earth["name"]] union TrussMe:-GetNames(objs),
-      "variables"           = [],
-      "forces"              = [],
-      "moments"             = [],
-      "constraint_loads"    = [],
-      "support_reactions"   = [], # Expressed in support reference frame
-      "stiffness"           = S_stiffness,
-      "displacements"       = [],
-      "frame_displacements" = LinearAlgebra:-IdentityMatrix(4)
+      "type"                      = SUPPORT,
+      "constrained_dof"           = eval(constrained_dof),
+      "admissible_loads"          = eval(constrained_dof),
+      "coordinates"               = [[0, 0, 0], op(map(TrussMe:-ListPadding, obj_coords, 3))],
+      "name"                      = name,
+      "frame"                     = eval(RF),
+      "targets"                   = [m_earth["name"]] union TrussMe:-GetNames(objs),
+      "variables"                 = [],
+      "forces"                    = [],
+      "moments"                   = [],
+      "constraint_loads"          = [],
+      "generic_support_reactions" = [], # Generic unsolved support reactions
+      "support_reactions"         = [], # Expressed in support reference frame
+      "stiffness"                 = eval(S_stiffness),
+      "displacements"             = [],
+      "frame_displacements"       = LinearAlgebra:-IdentityMatrix(4)
       });
 
     # Build the temporary joint
@@ -1256,7 +1246,7 @@ TrussMe := module()
     S["constraint_loads"] := J_tmp["constraint_loads"];
 
     # Retrieve support force reactions
-    sr_F_names := [FX, FY, FZ];
+    sr_F_names := ['FX', 'FY', 'FZ'];
     for i from 1 to nops(S["forces"]) do
       if (S["forces"][i]["target"] = m_earth["name"]) then
         # Project forces in the support reference frame
@@ -1265,8 +1255,8 @@ TrussMe := module()
         );
         for j from 1 to 3 do
           if (sr_F_values_tmp[j] <> 0) then
-            S["support_reactions"] :=
-              S["support_reactions"] union [sr_F_names[j] = -sr_F_values_tmp[j]];
+            S["generic_support_reactions"] :=
+              S["generic_support_reactions"] union [sr_F_names[j] = -sr_F_values_tmp[j]];
           end if;
         end do;
         break;
@@ -1274,7 +1264,7 @@ TrussMe := module()
     end do;
 
     # Retrieve support moments reactions
-    sr_M_names := [MX, MY, MZ];
+    sr_M_names := ['MX', 'MY', 'MZ'];
     for i from 1 to nops(S["moments"]) do
       if (S["moments"][i]["target"] = m_earth["name"]) then
         # Project moments in the support reference frame
@@ -1283,10 +1273,8 @@ TrussMe := module()
         );
         for j from 1 to 3 do
           if (sr_M_values_tmp[j] <> 0) then
-            S["support_reactions"] := [
-              op(S["support_reactions"]),
-              sr_M_names[j] = -sr_M_values_tmp[j]
-              ];
+            S["generic_support_reactions"] :=
+              S["generic_support_reactions"] union [sr_M_names[j] = -sr_M_values_tmp[j]];
           end if;
         end do;
         break;
@@ -1337,9 +1325,9 @@ TrussMe := module()
 
     description "Clean SUPPORT object <obj> internal variables.";
 
-    obj["constraint_loads"]  := [];
-    obj["support_reactions"] := [];
-    obj["displacements"]     := [];
+    obj["support_reactions"]   := [];
+    obj["displacements"]       := [];
+    obj["frame_displacements"] := [];
 
     return NULL;
   end proc: # CleanSupport
@@ -1426,32 +1414,21 @@ TrussMe := module()
 
     J := table({
       "type"                = JOINT,
-      "constrained_dof"     = constrained_dof,
-      "admissible_loads"    = constrained_dof,
+      "constrained_dof"     = eval(constrained_dof),
+      "admissible_loads"    = eval(constrained_dof),
       "coordinates"         = map(TrussMe:-ListPadding, obj_coords, 3),
       "name"                = name,
-      "frame"               = RF,
+      "frame"               = eval(RF),
       "targets"             = TrussMe:-GetNames(objs),
       "shell_targets"       = TrussMe:-GetNames(shell_objs),
       "variables"           = [],
       "forces"              = [],
       "moments"             = [],
       "constraint_loads"    = [],
-      "stiffness"           = J_stiffness,
+      "stiffness"           = eval(J_stiffness),
       "displacements"       = [],
-      "frame_displacements" = LinearAlgebra:-IdentityMatrix(4)
+      "frame_displacements" = []
       });
-
-    # Check if joint position on each object is the same
-    # FIXME: does not work for mixed numerical and symbolic coordinates
-    #if nops(ells) > 1 then
-    #  P_tmp := objs[1]["frame"].Translate(ells[1], 0, 0);
-    #  for i from 2 to nops(ells) do
-    #    if not (norm(P_tmp - objs[i]["frame"].Translate(ells[i], 0, 0)) = 0) then
-    #      error "Joint locations are not the same on all objects.";
-    #    end if;
-    #  end do;
-    #end if;
 
     # Add all the bodies forces
     for i from 1 to nops(objs) do
@@ -1589,7 +1566,10 @@ TrussMe := module()
 
     description "Clean JOINT object <obj> internal variables.";
 
-    obj["constraint_loads"] := [];
+    obj["displacements"]       := [];
+    obj["frame_displacements"] := [];
+
+    return NULL;
   end proc: # CleanJoint
 
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1666,10 +1646,10 @@ TrussMe := module()
     return table({
       "type"                = ROD,
       "name"                = name,
-      "length"              = ell,
-      "area"                = area_proc,
-      "material"            = material,
-      "frame"               = RF,
+      "length"              = eval(ell),
+      "area"                = eval(area_proc),
+      "material"            = eval(material),
+      "frame"               = eval(RF),
       "admissible_loads"    = [1, 0, 0, 0, 0, 0],
       "internal_actions"    = [],
       "displacements"       = [],
@@ -1815,12 +1795,12 @@ TrussMe := module()
     return table({
       "type"                = BEAM,
       "name"                = name,
-      "length"              = ell,
-      "area"                = area_proc,
-      "timo_shear_coeff"    = timo_shear_coeff_proc,
-      "material"            = material,
-      "inertias"            = [I_xx_proc, I_yy_proc, I_zz_proc],
-      "frame"               = RF,
+      "length"              = eval(ell),
+      "area"                = eval(area_proc),
+      "timo_shear_coeff"    = eval(timo_shear_coeff_proc),
+      "material"            = eval(material),
+      "inertias"            = [eval(I_xx_proc), eval(I_yy_proc), eval(I_zz_proc)],
+      "frame"               = eval(RF),
       "admissible_loads"    = [1, 1, 1, 1, 1, 1],
       "internal_actions"    = [],
       "displacements"       = [],
@@ -1982,8 +1962,8 @@ TrussMe := module()
 
     return table({
       "type"                       = STRUCTURE,
-      "objects"                    = objs,
-      "external_actions"           = S_ext,
+      "objects"                    = eval(objs),
+      "external_actions"           = eval(S_ext),
       "dof"                        = num_dof,
       "connections_graph"          = Graph,
       "hyperstatic_variables"      = convert(hyper_vars, list),
@@ -2021,9 +2001,6 @@ TrussMe := module()
 
     local str_obj;
 
-    print("Dirty structure");
-    print(map(Show,obj["objects"]));
-
     # Clean internal variables
     obj["equations"]                  := [];
     obj["variables"]                  := [];
@@ -2047,8 +2024,7 @@ TrussMe := module()
         TrussMe:-CleanJoint(str_obj);
       end if;
     end do;
-    print("Clean structure");
-    print(map(Show,obj["objects"]));
+
     return NULL;
   end proc: # CleanStructure
 
@@ -2063,14 +2039,14 @@ TrussMe := module()
     local struct_copy, obj, action;
 
     # Create a copy of the structure
-    struct_copy := copy(struct);
+    struct_copy := copy(struct, deep);
 
     # Substitute objects in the structure with a copy
     for obj in struct_copy["objects"] do
       struct_copy["objects"] := remove(
         x -> x["name"] = obj["name"], struct_copy["objects"]
       );
-      struct_copy["objects"] := struct_copy["objects"] union {copy(obj)};
+      struct_copy["objects"] := struct_copy["objects"] union {copy(obj, deep)};
     end do;
 
     # Substitute external actions in the structure with a copy
@@ -2078,7 +2054,7 @@ TrussMe := module()
       struct_copy["external_actions"] := remove(
         x -> x["name"] = action["name"], struct_copy["external_actions"]
       );
-      struct_copy["external_actions"] := struct_copy["external_actions"] union {copy(action)};
+      struct_copy["external_actions"] := struct_copy["external_actions"] union {copy(action, deep)};
     end do;
 
     return struct_copy;
