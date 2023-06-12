@@ -1,0 +1,820 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Worksheet>
+<Version major="2020" minor="2"/>
+<Label-Scheme value="2" prefix=""/>
+<View-Properties presentation="true" autoexpanding_sections="true" UserProfileName="Maple Default Profile" NumericFormat-ApplyInteger="true" NumericFormat-ApplyRational="true" NumericFormat-ApplyExponent="false" editable="true">
+</View-Properties>
+<MapleNet-Properties prettyprint="3" warnlevel="3" compactdisplay="false" preplot="" helpbrowser="standard" displayprecision="10" echo="1" unitattributes="&quot;fontweight&quot; = &quot;bold&quot;" imaginaryunit="I" longdelim="true" elisiontermsthreshold="10000" elisiondigitsafter="100" elisiondigitsbefore="100" plotdevice="inline" errorbreak="1" plotoptions="" plotdriver="opengl" quiet="false" elisiontermsbefore="100" elisiontermsafter="100" historytimestamp="false" screenwidth="79" indentamount="4" plotoutput="terminal" screenpixelheight="1440" rtablesize="[10, 10]" useclientjvm="true" labelwidth="20" postplot="" typesetting="extended" ansi="false" ansicolor="[]" elisiondigitsthreshold="10000" showassumed="1" ansilprint="false" trailingsemicolon="true" errorcursor="false" labelling="true" screenheight="25" prompt="&gt; " verboseproc="1" latexwidth="8.0" ShowLabels="true"/>
+<Styles>
+<Font name="Heading 1" background="[255,255,255]" bold="true" executable="false" family="Century Gothic" foreground="[195,69,11]" italic="false" opaque="false" readonly="false" size="20" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Warning" background="[255,255,255]" bold="false" executable="false" family="Courier New" foreground="[255,0,255]" italic="false" opaque="false" readonly="true" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="2D Output" background="[255,255,255]" bold="false" executable="false" family="Times New Roman" foreground="[51,51,51]" italic="false" opaque="false" readonly="true" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Heading 4" background="[255,255,255]" bold="true" executable="false" family="Century Gothic" foreground="[235,132,3]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Line Printed Output" background="[255,255,255]" bold="false" executable="false" family="Courier New" foreground="[1,86,2]" italic="false" opaque="false" readonly="true" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Heading 2" background="[255,255,255]" bold="true" executable="false" family="Century Gothic" foreground="[206,93,0]" italic="false" opaque="false" readonly="false" size="16" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Maple Output" background="[255,255,255]" bold="false" executable="false" family="Avenir Next" foreground="[0,0,0]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="2D Inert Output" background="[255,255,255]" bold="false" executable="true" family="Times New Roman" foreground="[144,144,144]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Heading 3" background="[255,255,255]" bold="true" executable="false" family="Century Gothic" foreground="[235,132,3]" italic="false" opaque="false" readonly="false" size="14" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Diagnostic" background="[255,255,255]" bold="false" executable="false" family="Courier New" foreground="[40,120,40]" italic="false" opaque="false" readonly="true" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Ordered List 1" background="[255,255,255]" bold="false" executable="false" family="Avenir Next" foreground="[0,0,0]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Maple Input" background="[255,255,255]" bold="true" executable="true" family="Menlo" foreground="[19,82,186]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Text Output" background="[255,255,255]" bold="false" executable="false" family="Menlo" foreground="[2,100,2]" italic="false" opaque="false" readonly="true" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Ordered List 2" background="[255,255,255]" bold="false" executable="false" family="Avenir Next" foreground="[0,0,0]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Ordered List 3" background="[255,255,255]" bold="false" executable="false" family="Times New Roman" foreground="[0,0,0]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Ordered List 4" background="[255,255,255]" bold="false" executable="false" family="Times New Roman" foreground="[0,0,0]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Ordered List 5" background="[255,255,255]" bold="false" executable="false" family="Times New Roman" foreground="[0,0,0]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Annotation Title" background="[255,255,255]" bold="true" executable="false" family="Century Gothic" foreground="[128,128,128]" italic="false" opaque="false" readonly="false" size="18" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="text-blue-colored" background="[255,255,255]" bold="true" executable="false" family="Century Gothic" foreground="[35,83,192]" italic="false" opaque="false" readonly="false" size="14" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Header and Footer" background="[255,255,255]" bold="false" executable="false" family="Century Gothic" foreground="[0,0,0]" italic="false" opaque="false" readonly="false" size="11" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="HyperlinkError" background="[255,255,255]" bold="false" executable="false" family="Courier New" foreground="[255,0,0]" italic="false" opaque="false" readonly="true" size="12" subscript="false" superscript="false" underline="true" placeholder="false"/>
+<Font name="SubSubTitle" background="[255,255,255]" bold="true" executable="false" family="Century Gothic" foreground="[69,69,69]" italic="false" opaque="false" readonly="false" size="20" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Atomic Variable" background="[255,255,255]" bold="false" executable="false" family="Times New Roman" foreground="[175,0,175]" italic="true" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="HyperlinkWarning" background="[255,255,255]" bold="false" executable="false" family="Courier New" foreground="[255,0,255]" italic="false" opaque="false" readonly="true" size="12" subscript="false" superscript="false" underline="true" placeholder="false"/>
+<Font name="Dictionary Hyperlink" background="[255,255,255]" bold="false" executable="false" family="Times New Roman" foreground="[147,0,15]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="true" placeholder="false"/>
+<Font name="2D Math" background="[255,255,255]" bold="false" executable="true" family="Times New Roman" foreground="[0,0,0]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="text-orange colored" background="[255,255,255]" bold="true" executable="false" family="Century Gothic" foreground="[255,155,20]" italic="false" opaque="false" readonly="false" size="14" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Bullet Item" background="[255,255,255]" bold="false" executable="false" family="Century Gothic" foreground="[0,0,0]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Maple Plot" background="[255,255,255]" bold="false" executable="false" family="Avenir Next" foreground="[0,0,0]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Annotation Text" background="[255,255,255]" bold="false" executable="false" family="Century Gothic" foreground="[0,0,0]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="List Item" background="[255,255,255]" bold="false" executable="false" family="Century Gothic" foreground="[0,0,0]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Dash Item" background="[255,255,255]" bold="false" executable="false" family="Century Gothic" foreground="[0,0,0]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="2D Input" background="[255,255,255]" bold="false" executable="true" family="Times New Roman" foreground="[0,0,0]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Error" background="[255,255,255]" bold="false" executable="false" family="Courier New" foreground="[255,0,0]" italic="false" opaque="false" readonly="true" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Title" background="[255,255,255]" bold="true" executable="false" family="Century Gothic" foreground="[181,3,22]" italic="false" opaque="false" readonly="false" size="36" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Text" background="[255,255,255]" bold="false" executable="false" family="Century Gothic" foreground="[0,0,0]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Normal" background="[255,255,255]" bold="false" executable="false" family="Century Gothic" foreground="[0,0,0]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Caption Reference" background="[255,255,255]" bold="true" executable="false" family="Century Gothic" foreground="[0,0,0]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Code" background="[255,255,255]" bold="false" executable="false" family="Menlo" foreground="[128,0,128]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Section" background="[255,255,255]" bold="true" executable="false" family="Century Gothic" foreground="[195,69,11]" italic="false" opaque="false" readonly="false" size="18" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Maple Input Placeholder" background="[255,255,255]" bold="true" executable="true" family="Courier New" foreground="[200,0,200]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="true"/>
+<Font name="Subtitle" background="[255,255,255]" bold="true" executable="false" family="Century Gothic" foreground="[128,128,128]" italic="false" opaque="false" readonly="false" size="24" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Equation Label" background="[255,255,255]" bold="true" executable="false" family="Times New Roman" foreground="[0,0,0]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Author" background="[255,255,255]" bold="false" executable="false" family="Century Gothic" foreground="[153,153,153]" italic="false" opaque="false" readonly="false" size="14" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Font name="Hyperlink" background="[255,255,255]" bold="false" executable="false" family="Times New Roman" foreground="[235,132,3]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="true" placeholder="false"/>
+<Font name="Caption Text" background="[255,255,255]" bold="true" executable="false" family="Century Gothic" foreground="[0,0,0]" italic="false" opaque="false" readonly="false" size="12" subscript="false" superscript="false" underline="false" placeholder="false"/>
+<Layout name="Heading 1" alignment="left" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="8" spacebelow="4" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="Warning" alignment="left" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="0" spacebelow="0" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="Heading 4" alignment="left" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="0" spacebelow="0" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="Line Printed Output" alignment="left" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="0" spacebelow="0" linebreak="any" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="Heading 2" alignment="left" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="8" spacebelow="2" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="Maple Output" alignment="centred" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.3" spaceabove="0" spacebelow="0" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="Heading 3" alignment="left" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="0" spacebelow="0" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="Diagnostic" alignment="left" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="0" spacebelow="0" linebreak="any" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="Ordered List 1" alignment="left" bullet="numeric" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="3" spacebelow="3" linebreak="space" pagebreak-before="false" initial="-1" bulletsuffix="."/>
+<Layout name="Text Output" alignment="left" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="0" spacebelow="0" linebreak="newline" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="Ordered List 2" alignment="left" bullet="alphabetic" firstindent="0" leftmargin="36" rightmargin="0" linespacing="0.0" spaceabove="3" spacebelow="3" linebreak="space" pagebreak-before="false" initial="-1" bulletsuffix="."/>
+<Layout name="Ordered List 3" alignment="left" bullet="roman" firstindent="0" leftmargin="72" rightmargin="0" linespacing="0.0" spaceabove="3" spacebelow="3" linebreak="space" pagebreak-before="false" initial="-1" bulletsuffix="."/>
+<Layout name="Ordered List 4" alignment="left" bullet="ALPHABETIC" firstindent="0" leftmargin="108" rightmargin="0" linespacing="0.0" spaceabove="3" spacebelow="3" linebreak="space" pagebreak-before="false" initial="-1" bulletsuffix="."/>
+<Layout name="Ordered List 5" alignment="left" bullet="ROMAN" firstindent="0" leftmargin="144" rightmargin="0" linespacing="0.0" spaceabove="3" spacebelow="3" linebreak="space" pagebreak-before="false" initial="-1" bulletsuffix="."/>
+<Layout name="Annotation Title" alignment="centred" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="12" spacebelow="12" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="text-blue-colored" alignment="left" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="0" spacebelow="0" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="HyperlinkError" alignment="left" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="0" spacebelow="0" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="SubSubTitle" alignment="left" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="0" spacebelow="0" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="HyperlinkWarning" alignment="left" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="0" spacebelow="0" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="Bullet Item" alignment="left" bullet="dot" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="3" spacebelow="3" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="Maple Plot" alignment="centred" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="0" spacebelow="0" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="List Item" alignment="left" bullet="indent" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="3" spacebelow="3" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="Dash Item" alignment="left" bullet="dash" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="3" spacebelow="3" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="Error" alignment="left" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="0" spacebelow="0" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="Title" alignment="left" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="12" spacebelow="12" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="Normal" alignment="left" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="0" spacebelow="0" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="Section" alignment="left" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="12" spacebelow="6" linebreak="newline" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="Subtitle" alignment="left" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="0" spacebelow="12" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Layout name="Author" alignment="centred" bullet="none" firstindent="0" leftmargin="0" rightmargin="0" linespacing="0.0" spaceabove="8" spacebelow="8" linebreak="space" pagebreak-before="false" initial="0" bulletsuffix=""/>
+<Pencil-style name="Pencil 1" pen-color="[0,0,0]" pen-height="1.0" pen-width="1.0" pen-opacity="1.0"/>
+<Pencil-style name="Pencil 2" pen-color="[0,0,255]" pen-height="1.0" pen-width="1.0" pen-opacity="1.0"/>
+<Pencil-style name="Pencil 3" pen-color="[0,0,0]" pen-height="3.0" pen-width="3.0" pen-opacity="1.0"/>
+<Pencil-style name="Pencil 4" pen-color="[0,0,255]" pen-height="3.0" pen-width="3.0" pen-opacity="1.0"/>
+<Pencil-style name="Pencil 5" pen-color="[255,0,0]" pen-height="5.0" pen-width="5.0" pen-opacity="1.0"/>
+<Highlighter-style name="Highlighter 5" pen-color="[255,255,0]" pen-height="48.0" pen-width="48.0" pen-opacity="0.8"/>
+<Highlighter-style name="Highlighter 3" pen-color="[51,255,0]" pen-height="24.0" pen-width="24.0" pen-opacity="0.8"/>
+<Highlighter-style name="Highlighter 4" pen-color="[0,255,255]" pen-height="32.0" pen-width="32.0" pen-opacity="0.8"/>
+<Highlighter-style name="Highlighter 1" pen-color="[255,153,255]" pen-height="12.0" pen-width="8.0" pen-opacity="0.8"/>
+<Highlighter-style name="Highlighter 2" pen-color="[255,204,0]" pen-height="14.0" pen-width="14.0" pen-opacity="0.8"/>
+</Styles>
+<Startup-Code startupcode=""/>
+<Task-table>
+    <Task-category name="&lt;default&gt;"/>
+</Task-table>
+<Task/>
+<Section collapsed="false" isCollapsible="true" drawButton="true" MultipleChoiceAnswerIndex="-1" MultipleChoiceRandomizeChoices="false" TrueFalseAnswerIndex="-1" EssayAnswerRows="5" EssayAnswerColumns="60"><Title><Text-field style="Heading 1" layout="Heading 1">Build the Library</Text-field></Title>
+<Group hide-input="false" labelreference="L256806" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
+<Input><Text-field prompt="&gt; " style="Maple Input" layout="Normal">restart:</Text-field>
+</Input>
+</Group>
+<Group labelreference="L256820" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
+<Input><Text-field prompt="&gt; " style="Maple Input" layout="Normal">ds := kernelopts('dirsep'):</Text-field>
+</Input>
+</Group><Presentation-Block>
+<Group view="code" hide-input="false" labelreference="L256809" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
+<Input><Text-field prompt="&gt; " style="Maple Input" layout="Normal">MODULE_NAME := &quot;TrussMe&quot;:</Text-field>
+</Input>
+</Group>
+<Group view="code" labelreference="L256812" drawlabel="true">
+<Input><Text-field prompt="&gt; " style="Maple Input" layout="Normal">SOURCE_DIR  := cat(currentdir(), ds, &quot;lib&quot;):</Text-field>
+</Input>
+</Group>
+<Group view="code" hide-input="false" labelreference="L256810" drawlabel="true">
+<Input><Text-field prompt="&gt; " style="Maple Input" layout="Normal">BINARY_DIR  := cat(currentdir(), ds, &quot;installer&quot;, ds, &quot;bin&quot;):</Text-field>
+</Input>
+</Group>
+<Group view="code" hide-input="false" labelreference="L256807" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
+<Input><Text-field prompt="&gt; " style="Maple Input" layout="Normal">LIBRARY_MLA := cat(BINARY_DIR, ds, MODULE_NAME, &quot;.mla&quot;):
+</Text-field>
+</Input>
+</Group></Presentation-Block>
+<Group labelreference="L256805" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
+<Input><Text-field style="Text" layout="Normal">Check bin directory</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Normal">if not FileTools:-Exists(BINARY_DIR) then
+  FileTools:-MakeDirectory(BINARY_DIR);
+end if;
+</Text-field>
+</Input>
+</Group>
+<Group labelreference="L256814" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
+<Input><Text-field style="Text" layout="Normal">Check MLA file</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Normal">if FileTools:-Exists(LIBRARY_MLA) then
+  FileTools:-Remove(LIBRARY_MLA);
+end if;
+</Text-field>
+</Input>
+</Group>
+<Group labelreference="L256801" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
+<Input><Text-field style="Text" layout="Normal">Library generation procedure</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Normal">GEN := proc( MODULE_NAME::{string} )
+
+  local bin_path, src_path;
+
+  bin_path := cat(BINARY_DIR, ds, MODULE_NAME, &quot;.mla&quot;);
+  src_path := cat(SOURCE_DIR, ds, MODULE_NAME, &quot;.mpl&quot;);
+
+  if FileTools:-Exists(src_path) then
+    if not FileTools:-Exists(BINARY_DIR) then
+      FileTools:-MakeDirectory(BINARY_DIR);
+    end if;
+    if FileTools:-Exists(bin_path) then
+      FileTools:-Remove(bin_path):
+    end if;
+    read(src_path);
+    march('create', bin_path );
+    savelib(convert(MODULE_NAME, symbol), bin_path);
+  else
+<Font encoding="UTF-8">    error &quot;Missing file %1.\134n&quot;, </Font>src_path;
+  end if;
+
+end proc:
+</Text-field>
+</Input>
+</Group>
+<Group hide-input="false" labelreference="L256811" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
+<Input><Text-field style="Text" layout="Normal">Generate module</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Normal">GEN(MODULE_NAME);
+</Text-field>
+</Input>
+</Group>
+<Group hide-input="false" labelreference="L256817" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
+<Input><Text-field style="Text" layout="Normal">Create sources path</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Normal">file := cat(interface(worksheetdir), ds, &quot;installer&quot;, ds, &quot;bin&quot;):
+</Text-field>
+</Input>
+</Group>
+<Group hide-input="false" labelreference="L256802" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
+<Input><Text-field style="Text" layout="Normal">Create destination path</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Normal">dest := cat(kernelopts(mapledir), ds, &quot;toolbox&quot;, ds, MODULE_NAME, ds, &quot;lib&quot;, ds):</Text-field>
+</Input>
+</Group>
+<Group labelreference="L256803" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
+<Input><Text-field style="Text" layout="Normal">Procedure for deep directory removal</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Normal">RmDir := proc( dirpath::string, $ )
+
+  local d, dd, ds;
+
+  ds := kernelopts('dirsep');
+  if FileTools:-Exists(dirpath) and FileTools:-IsDirectory(dirpath) then
+    for d in FileTools:-ListDirectory(dirpath, 'all') do
+      if evalb((d &lt;&gt; &quot;.&quot;) and (d &lt;&gt; &quot;..&quot;)) then
+        dd := cat(dirpath, ds, d);
+        if FileTools:-Exists(dd) then
+          if FileTools:-IsDirectory(dd) then
+            RmDir(dd);
+            # FileTools:-RemoveDirectory(dd, forceremove = true);
+          else
+           FileTools:-Remove(dd);
+          end if;
+        end if;
+      end if;
+    end do;
+    FileTools:-RemoveDirectory(dirpath, forceremove = true);
+  end if;
+  return;
+
+end proc:
+</Text-field>
+</Input>
+</Group>
+<Group hide-input="false" labelreference="L256821" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
+<Input><Text-field style="Text" layout="Normal">Check destination path</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Normal">RmDir(dest);
+FileTools:-MakeDirectory(dest, recurse = true);
+</Text-field>
+</Input>
+</Group>
+<Group hide-input="false" labelreference="L256818" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
+<Input><Text-field style="Text" layout="Normal">Copy the binaries in the toolbox folder</Text-field><Text-field prompt="&gt; " style="Maple Input" layout="Normal">n := 1 + length(file):</Text-field>
+</Input>
+</Group>
+<Group hide-input="false" labelreference="L256815" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
+<Input><Text-field prompt="&gt; " style="Maple Input" layout="Normal">for r in FileTools:-Walk(file, 'topdown', 'followlinks') do
+  limb := cat(dest, ds, r[dir][n..], ds);
+  for d in r[subdirs] do
+    ((d) -&gt; `if`(FileTools:-Exists(d), 0, FileTools:-MakeDirectory(d)))(cat(limb, d));
+  end do;
+  seq(FileTools:-Copy(cat(r[dir], ds, f), cat(limb, f)), f = r[files]);
+end do:</Text-field>
+</Input>
+</Group>
+</Section>
+<Section collapsed="false" isCollapsible="true" drawButton="true" MultipleChoiceAnswerIndex="-1" MultipleChoiceRandomizeChoices="false" TrueFalseAnswerIndex="-1" EssayAnswerRows="5" EssayAnswerColumns="60"><Title><Text-field style="Heading 1" layout="Heading 1">Test the Library</Text-field></Title>
+<Group hide-input="false" labelreference="L256813" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
+<Input><Text-field prompt="&gt; " style="Maple Input" layout="Normal">restart:</Text-field>
+</Input>
+</Group>
+<Group hide-input="false" labelreference="L256804" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
+<Input><Text-field prompt="&gt; " style="Maple Input" layout="Normal">with(TrussMe):</Text-field>
+</Input>
+</Group>
+<Group labelreference="L256816" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
+<Input><Text-field prompt="&gt; " style="Maple Input" layout="Normal">Describe(TrussMe):</Text-field>
+</Input>
+<Output><Text-field style="Line Printed Output" layout="Line Printed Output">
+# A Maple Library for Truss Elements Structures.
+module TrussMe:
+
+    # Print module information.
+    Info( )
+
+    # Module load procedure.
+    ModuleLoad( )
+
+    # Module unload procedure.
+    ModuleUnload( )
+
+    # Register module types.
+    TypeRegister( )
+
+    # UnRegister module types.
+    TypeUnRegister( )
+
+    # Initialize module internal variables.
+    InitTrussMe( )
+
+    # Protect module variables.
+    Protect( )
+
+    # Unprotect module variables.
+    Unprotect( )
+
+    # Check if the 'LAST' object is initialized.
+    CheckInit( $ )
+
+    # Initialize the 'LAST' object with veiling label &lt;label&gt;.
+    InitLAST( label::{string, symbol} := NULL, $ )
+
+    # Clear the 'LAST' (and 'LEM') object.
+    ClearLAST( $ )
+
+    # Set the 'LAST' (and 'LEM') object &lt;obj&gt;.
+    SetLAST( obj::LAST, $ )
+
+    # Get the 'LAST' object.
+    GetLAST( $ )
+
+    # Set the 'LEM' object &lt;obj&gt;.
+    SetLEM( obj::LEM, $ )
+
+    # Extension of union operator to list or set objects &lt;A&gt; and &lt;B&gt;.
+    union( A::{list, set}, B::{list, set}, $ ) :: {list, set}
+
+    # Set the module options: &lt;VerboseMode&gt; = [0, 1, 2], &lt;WarningMode&gt; = [true, 
+    # false], &lt;TimeLimit&gt; = [0, inf], &lt;LAST_VerboseMode&gt; = [true, false], 
+    # &lt;LAST_WarningMode&gt; = [true, false], &lt;LAST_TimeLimit&gt; = [0, inf].
+    SetModuleOptions( { LAST_TimeLimit::{nothing, constant} := NULL, 
+                        LAST_VerboseMode::{boolean, nothing} := NULL, 
+                        LAST_WarningMode::{boolean, nothing} := NULL, 
+                        LinearSolver::{nothing, string} := NULL, 
+                        TimeLimit::{nothing, constant} := NULL, 
+                        VerboseMode::{integer, nothing} := NULL, 
+                        WarningMode::{boolean, nothing} := NULL }, $ )
+
+    # Check if the object &lt;obj&gt; is a EARTH object.
+    IsEarth( obj::anything, $ ) :: boolean
+
+    # Set gravity vector with [x, y, z]^T components of &lt;vec&gt;.
+    SetGravity( vec::{Vector, list}, $ )
+
+    # Get gravity vector.
+    GetGravity( $ )
+
+    # Compute the Euclidean norm of the input vector &lt;vec&gt;.
+    Norm2( vec::{list, vector}, $ ) :: algebraic
+
+    # Pad a list or vector &lt;lst&gt; with value &lt;val&gt; to have &lt;num&gt; elements.
+    ListPadding( lst::{Vector, list, algebraic}, num::integer, 
+                 val::algebraic := 0, $ ) :: {Vector, list}
+
+    # Show the content of a table &lt;tab&gt;.
+    Show( tab::table, $ )
+
+    # Get names of a list or set of structural objects &lt;objs&gt;.
+    GetNames( objs::{list({BEAM, EARTH, JOINT, ROD, SUPPORT, MATERIAL, 
+                RIGID_BODY}), set({BEAM, EARTH, JOINT, ROD, SUPPORT, MATERIAL, 
+                RIGID_BODY})}, 
+              $ ) :: {list({string}), set({string})}
+
+    # Get object which field name is &lt;fld_name&gt; from a list or set of objects 
+    # &lt;objs&gt;.
+    GetObjByName( fld_name::string, 
+                  objs::{list({BEAM, EARTH, JOINT, ROD, SUPPORT, MATERIAL, 
+                    RIGID_BODY}), set({BEAM, EARTH, JOINT, ROD, SUPPORT, 
+                    MATERIAL, RIGID_BODY})}, 
+                  $ )
+                :: {BEAM, EARTH, JOINT, ROD, SUPPORT, MATERIAL, RIGID_BODY, anything}
+
+    # Get objects which field type is in &lt;fld_type&gt; from a list or set of 
+    # objects &lt;objs&gt;.
+    GetObjsByType( fld_type::{list(symbol), set(symbol)}, objs::{list, set}, 
+                   $ ) :: list
+
+    # Simplify an algebraic expression &lt;obj&gt;.
+    Simplify( obj::anything, opt::anything := NULL, $ ) :: anything
+
+    # Perform diff command on veiled expressions given the veiling list 
+    # &lt;veils&gt;.
+    Diff( { veils := NULL } ) :: anything
+
+    # Inverse of the affine transformation matrix &lt;RF&gt;.
+    InverseFrame( RF::FRAME, $ ) :: FRAME
+
+    # Check if the object &lt;obj&gt; is a FRAME object.
+    IsFrame( obj::anything, $ ) :: boolean
+
+    # Transformation matrix corresponding to the rotation &lt;angle&gt; around the 
+    # given &lt;axis&gt;.
+    Rotate( axis::{string, symbol}, angle::algebraic, $ ) :: FRAME
+
+    # Affine transformation matrix corresponding to a translation &lt;x, y, z&gt;.
+    Translate( x::algebraic, y::algebraic, z::algebraic, $ ) :: FRAME
+
+    # Extract the origin of the reference frame &lt;RF&gt;.
+    Origin( RF::FRAME, $ ) :: Vector
+
+    # Check if the object &lt;obj&gt; is a POINT object.
+    IsPoint( obj::anything, $ ) :: boolean
+
+    # Check if the object &lt;obj&gt; is a VECTOR object.
+    IsVector( obj::anything, $ ) :: boolean
+
+    # Extract the unit vector of the reference frame &lt;RF&gt; along the given 
+    # &lt;axis&gt;.
+    Uvec( axis::symbol, RF::FRAME := ground, $ ) :: Vector
+
+    # Extract the x-axis unit vector of the reference frame &lt;RF&gt;.
+    UvecX( RF::FRAME := ground, $ ) :: Vector
+
+    # Extract the y-axis unit vector of the reference frame &lt;RF&gt;.
+    UvecY( RF::FRAME := ground, $ ) :: Vector
+
+    # Extract the z-axis unit vector of the reference frame &lt;RF&gt;.
+    UvecZ( RF::FRAME := ground, $ ) :: Vector
+
+    # Project the list of vector &lt;x&gt; (of the form [x, y, z], [x, y, z, 0], or 
+    # [x, y, z, 1]) from reference frame &lt;RF_ini&gt; to reference frame &lt;RF_end&gt;.
+    Project( x::{Vector, list}, RF_ini::FRAME, RF_end::FRAME, $ )
+           :: {Vector, list}
+
+    # Define a MATERIAL object with inputs: name of the material &lt;name&gt;, 
+    # elastic modulus &lt;elastic_modulus&gt; (default = 210.0E9 (Pa)), Poisson's 
+    # ratio &lt;poisson_ratio&gt; (default = 0.3 (-)), shear modulus &lt;shear_modulus&gt; 
+    # (default = E/(2*(1+nu))), density &lt;density&gt; (default = 7.4E3 (kg/m^3)).
+    MakeMaterial( { density::algebraic := .74e4, 
+                    elastic_modulus::algebraic := .2100e12, 
+                    name::string := &quot;DeafultSteel&quot;, 
+                    poisson_ratio::algebraic := .3, 
+                    shear_modulus::algebraic := 
+                      elastic_modulus/(2+2*poisson_ratio) }, 
+                  $ ) :: MATERIAL
+
+    # Check if the object &lt;obj&gt; is a MATERIAL object.
+    IsMaterial( obj::anything, $ ) :: boolean
+
+    # Define a FORCE object with inputs: force components &lt;components&gt;, force 
+    # application axial coordinate &lt;coords&gt;, target object &lt;obj&gt;, and optional 
+    # reference frame &lt;RF&gt; in which the force is defined (default = ground).
+    MakeForce( components::{Vector, list}, 
+               coords::{algebraic, list(algebraic)}, 
+               obj::{BEAM, EARTH, JOINT, ROD, SUPPORT, RIGID_BODY}, 
+               RF::FRAME := ground, $ ) :: FORCE
+
+    # Check if the object &lt;obj&gt; is a FORCE object.
+    IsForce( obj::anything, $ ) :: boolean
+
+    # Define a MOMENT object with inputs: moment components &lt;components&gt;, 
+    # moment application axial coordinate &lt;coords&gt;, target object &lt;obj&gt;, and 
+    # optional reference frame &lt;RF&gt; in which the moment is defined (default = 
+    # ground).
+    MakeMoment( components::{Vector, list}, 
+                coords::{algebraic, list(algebraic)}, 
+                obj::{BEAM, EARTH, JOINT, SUPPORT, RIGID_BODY}, 
+                RF::FRAME := ground, $ ) :: MOMENT
+
+    # Check if the object &lt;obj&gt; is a MOMENT object.
+    IsMoment( obj::anything, $ ) :: boolean
+
+    # Define a QFORCE object with inputs: distributed load components 
+    # &lt;components&gt;, target object &lt;obj&gt;, optional reference frame &lt;RF&gt; in which 
+    # the load components are defined (default = ground), and optional initial 
+    # &lt;ell_min&gt; and final &lt;ell_max&gt; application points (axial coordinates).
+    MakeQForce( components::{procedure, list(algebraic)}, obj::{BEAM, ROD}, 
+                RF::FRAME := ground, 
+                { ell_max::algebraic := obj[&quot;length&quot;], 
+                  ell_min::algebraic := 0 }, $ ) :: QFORCE
+
+    # Check if the object &lt;obj&gt; is a QFORCE object.
+    IsQForce( obj::anything, $ ) :: boolean
+
+    # Define a QMOMENT object with inputs: distributed torque components 
+    # &lt;components&gt;, target object &lt;obj&gt;, optional reference frame &lt;RF&gt; in which 
+    # the load components are defined (default = ground), and optional initial 
+    # &lt;ell_min&gt; and final &lt;ell_max&gt; application points (axial coordinates).
+    MakeQMoment( components::{procedure, list(algebraic)}, obj::BEAM, 
+                 RF::FRAME := ground, 
+                 { ell_max::algebraic := obj[&quot;length&quot;], 
+                   ell_min::algebraic := 0 }, $ ) :: QMOMENT
+
+    # Check if the object &lt;obj&gt; is a QMOMENT object.
+    IsQMoment( obj::anything, $ ) :: boolean
+
+    # Make a SUPPORT object with inputs: support name &lt;name&gt;, constrained 
+    # degrees of freedom &lt;constrained_dof&gt;, target objects &lt;objs&gt;, support 
+    # locations &lt;coords&gt;, and optional reference frame &lt;RF&gt; in which the 
+    # support is defined (default = ground). The optional input &lt;stiffness&gt; is 
+    # a list of stiffness components (default = infinite) in the order: [ktx, 
+    # kty, ktz, krx, kry, krz].
+    MakeSupport( name::string, constrained_dof::list, 
+                 objs::{list({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY})}, 
+                 coords::list, RF::FRAME := ground, 
+                 { stiffness::{procedure, list(algebraic)} := [infinity, 
+                     infinity, infinity, infinity, infinity, infinity] *~ 
+                     constrained_dof }, 
+                 $ ) :: SUPPORT
+
+    # Check if the object &lt;obj&gt; is a SUPPORT object.
+    IsSupport( obj::anything, $ ) :: boolean
+
+    # Check if the object &lt;obj&gt; is a SUPPORT object with compliant constraints.
+    IsCompliantSupport( obj::anything, $ ) :: boolean
+
+    # Clean SUPPORT object &lt;obj&gt; internal variables.
+    CleanSupport( obj::SUPPORT, $ )
+
+    # Make a JOINT object with inputs: joint name &lt;name&gt;, constrained degrees 
+    # of freedom &lt;constrained_dof&gt;, target objects &lt;objs&gt;, joint locations 
+    # &lt;coords&gt;, and optional reference frame &lt;RF&gt; in which the joint is defined 
+    # (default = ground). The optional input &lt;stiffness&gt; is a list of stiffness 
+    # components (default = infinite) in the order: [ktx, kty, ktz, krx, kry, 
+    # krz] and &lt;shell_objs&gt; is a list of objects to be considered connected to 
+    # the shell of the joint (default = [objs[1]]).
+    MakeJoint( name::string, constrained_dof::list, 
+               objs::list({BEAM, EARTH, JOINT, ROD, SUPPORT, RIGID_BODY}), 
+               coords::list, RF::FRAME := ground, 
+               { shell_objs::list({BEAM, EARTH, JOINT, ROD, SUPPORT, 
+                   RIGID_BODY}) := [objs[1]], 
+                 stiffness::{procedure, list(algebraic)} := [infinity, 
+                   infinity, infinity, infinity, infinity, infinity] *~ 
+                   constrained_dof }, 
+               $ ) :: JOINT
+
+    # Check if the object &lt;obj&gt; is a JOINT object.
+    IsJoint( obj::anything, $ ) :: boolean
+
+    # Check if the object &lt;obj&gt; is a JOINT object with compliant constraints.
+    IsCompliantJoint( obj::anything, $ ) :: boolean
+
+    # Clean JOINT object &lt;obj&gt; internal variables.
+    CleanJoint( obj::JOINT, $ )
+
+    # Create a ROD object with inputs: object name &lt;name&gt;, first point &lt;p_1&gt;, 
+    # second point &lt;p_2&gt;, vector ortogonal to XY-plane &lt;vec&gt;, optional section 
+    # area &lt;area&gt; and material type &lt;material&gt;.
+    MakeRodPoints( name::string, p_1::POINT, p_2::POINT, vec::{Vector, list}, 
+                   { area::{algebraic, procedure} := infinity, 
+                     material::MATERIAL := TrussMe:-MakeMaterial() }, $ )
+                 :: ROD
+
+    # Create a ROD object with inputs: object name &lt;name&gt;, reference length 
+    # &lt;ell&gt;, optional reference frame &lt;RF&gt; in which the rod is defined, and 
+    # optional section area &lt;area&gt; and material type &lt;material&gt;.
+    MakeRod( name::string, ell::algebraic, RF::FRAME := ground, 
+             { area::{algebraic, procedure} := infinity, 
+               material::MATERIAL := TrussMe:-MakeMaterial() }, $ ) :: ROD
+
+    # Check if the object &lt;obj&gt; is a ROD object.
+    IsRod( obj::anything, $ ) :: boolean
+
+    # Clean ROD object &lt;obj&gt; internal variables.
+    CleanRod( obj::ROD, $ )
+
+    # Create a BEAM object with inputs: object name &lt;name&gt;, first point &lt;p_1&gt;, 
+    # second point &lt;p_2&gt;, vector in XY-plane &lt;vec&gt;, optional section area 
+    # &lt;area&gt;, optional Timoshenko shear coefficient &lt;timo_shear_coeff&gt;, 
+    # optional material type &lt;material&gt;, optional section x-axis inertia 
+    # &lt;I_xx&gt;, optional section y-axis inertia &lt;I_yy&gt; and optional section 
+    # z-axis inertia &lt;I_zz&gt;.
+    MakeBeamPoints( name::string, p_1::POINT, p_2::POINT, vec::{Vector, list}, 
+                    { I_xx::{algebraic, procedure} := infinity, 
+                      I_yy::{algebraic, procedure} := infinity, 
+                      I_zz::{algebraic, procedure} := infinity, 
+                      area::{algebraic, procedure} := infinity, 
+                      material::MATERIAL := TrussMe:-MakeMaterial(), 
+                      timo_shear_coeff::{procedure, list(algebraic)} := [5/6, 
+                        5/6] }, 
+                    $ ) :: BEAM
+
+    # Create a BEAM object with inputs: object name &lt;name&gt;, reference length 
+    # &lt;ell&gt;, optional reference frame &lt;RF&gt; in which the rod is defined, and 
+    # optional section area &lt;area&gt; and material type &lt;material&gt; and inertias on 
+    # x- &lt;I_xx&gt;, y- &lt;I_yy&gt;, and z-axis &lt;I_zz&gt;.
+    MakeBeam( name::string, ell::algebraic, RF::FRAME := ground, 
+              { I_xx::{algebraic, procedure} := infinity, 
+                I_yy::{algebraic, procedure} := infinity, 
+                I_zz::{algebraic, procedure} := infinity, 
+                area::{algebraic, procedure} := infinity, 
+                material::MATERIAL := TrussMe:-MakeMaterial(), 
+                timo_shear_coeff::{procedure, list(algebraic)} := [5/6, 5/6] 
+                  }, 
+              $ ) :: BEAM
+
+    # Check if the object &lt;obj&gt; is a BEAM object.
+    IsBeam( obj::anything, $ ) :: boolean
+
+    # Clean BEAM object &lt;obj&gt; internal variables.
+    CleanBeam( obj::BEAM, $ )
+
+    # Create a RIGID_BODY object with inputs: object name &lt;name&gt;, reference 
+    # frame &lt;RF&gt; in which the rigid body is defined, and optional center of 
+    # mass position &lt;COM&gt; and mass &lt;mass&gt;.
+    MakeRigidBody( name::string, RF::FRAME := ground, 
+                   { COM::list(algebraic) := [0, 0, 0], 
+                     mass::algebraic := 0 }, $ ) :: RIGID_BODY
+
+    # Check if the object &lt;obj&gt; is a RIGID_BODY object.
+    IsRigidBody( obj::anything, $ ) :: boolean
+
+    # Create a STRUCTURE object with inputs: structure objects &lt;objs&gt;, external 
+    # actions &lt;exts&gt;, optional hyperstatic variables &lt;hyper_vars&gt;, optional 
+    # hyperstatic displacements &lt;hyper_disp&gt;.
+    MakeStructure( objs::{list({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY}), 
+                     set({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY})}, 
+                   exts::{list({FORCE, MOMENT, QFORCE, QMOMENT}), set({FORCE, 
+                     MOMENT, QFORCE, QMOMENT})} := [], 
+                   { hyper_disp::{list, set} := [seq(0,1 .. 
+                       nops(hyper_vars))], 
+                     hyper_vars::{list, set} := [] }, $ ) :: STRUCTURE
+
+    # Check if the object &lt;obj&gt; is a STRUCTURE object.
+    IsStructure( obj::anything, $ ) :: boolean
+
+    # Clean STRUCTURE object &lt;obj&gt; internal variables.
+    CleanStructure( obj::STRUCTURE, $ )
+
+    # Create a copy of the structure &lt;struct&gt; and its objects.
+    CopyStructure( struct::STRUCTURE, $ ) :: STRUCTURE
+
+    # Return the color of the object &lt;obj&gt;.
+    ObjectColor( obj::{BEAM, EARTH, JOINT, ROD, SUPPORT, RIGID_BODY}, $ )
+               :: string
+
+    # Plot the RIGID_BODY object &lt;obj&gt; given the supports/joints list or set 
+    # &lt;joints&gt;, the concentrated loads list or set &lt;c_loads&gt;, and the optional 
+    # list or set of substitution &lt;data&gt;.
+    PlotRigidBody( obj::RIGID_BODY, 
+                   joints::{list({JOINT, SUPPORT}), set({JOINT, SUPPORT})}, 
+                   c_loads::{list({FORCE, MOMENT}), set({FORCE, MOMENT})}, 
+                   { data::{list(`=`), set(`=`)} := [] }, $ ) :: function
+
+    # Plot the deformed RIGID_BODY object &lt;obj&gt; given the supports/joints list 
+    # or set &lt;joints&gt;, the concentrated loads list or set &lt;c_loads&gt;, the 
+    # optional list or set of substitution &lt;data&gt; and scaling factor &lt;scaling&gt;.
+    PlotDeformedRigidBody( obj::RIGID_BODY, 
+                           joints::{list({JOINT, SUPPORT}), set({JOINT, 
+                             SUPPORT})}, 
+                           c_loads::{list({FORCE, MOMENT}), set({FORCE, 
+                             MOMENT})}, 
+                           { data::{list(`=`), set(`=`)} := [], 
+                             scaling::numeric := 1 }, $ ) :: function
+
+    # Plot the BEAM object &lt;obj&gt; given a list or set of substitution &lt;data&gt;.
+    PlotBeam( obj::BEAM, 
+              { data::{list(`=`), set(`=`)} := [] }, $ ) :: function
+
+    # Plot the deformed BEAM object &lt;obj&gt; given an optional list or set of 
+    # substitution &lt;data&gt; and a scaling factor &lt;scaling&gt;.
+    PlotDeformedBeam( obj::BEAM, 
+                      { data::{list(`=`), set(`=`)} := [], 
+                        scaling::numeric := 1 }, $ ) :: function
+
+    # Plot the ROD object &lt;obj&gt; given an optional list or set of substitution 
+    # data &lt;data&gt;.
+    PlotRod( obj::ROD, 
+             { data::{list(`=`), set(`=`)} := [] }, $ ) :: function
+
+    # Plot the ROD object &lt;obj&gt; given an optional list or set of substitution 
+    # data &lt;data&gt; and scaling factor &lt;scaling&gt;.
+    PlotDeformedRod( obj::ROD, 
+                     { data::{list(`=`), set(`=`)} := [], 
+                       scaling::numeric := 1 }, $ ) :: function
+
+    # Plot the JOINT object &lt;obj&gt; given the list of &lt;targets&gt; and an optional 
+    # list or set of substitution data &lt;data&gt;.
+    PlotJoint( obj::JOINT, 
+               targets::{list({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY}), 
+                 set({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY})}, 
+               { data::{list(`=`), set(`=`)} := [] }, $ ) :: function
+
+    # Plot the JOINT object &lt;obj&gt; given the list of &lt;targets&gt;, an optional list 
+    # or set of substitution data &lt;data&gt; and scaling factor &lt;scaling&gt;.
+    PlotDeformedJoint( obj::JOINT, 
+                       targets::{list({BEAM, JOINT, ROD, SUPPORT, 
+                         RIGID_BODY}), set({BEAM, JOINT, ROD, SUPPORT, 
+                         RIGID_BODY})}, 
+                       { data::{list(`=`), set(`=`)} := [], 
+                         scaling::numeric := 1 }, $ ) :: function
+
+    # Plot the SUPPORT object &lt;obj&gt; given the list of &lt;targets&gt;, an optional 
+    # list or set of substitution data &lt;data&gt; and scaling factor &lt;scaling&gt;.
+    PlotSupport( obj::SUPPORT, 
+                 targets::{list({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY}), 
+                   set({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY})}, 
+                 { data::{list(`=`), set(`=`)} := [] }, $ ) :: function
+
+    # Plot the deformed SUPPORT object &lt;obj&gt; given the list of &lt;targets&gt;, an 
+    # optional list or set of substitution data &lt;data&gt; and scaling factor 
+    # &lt;scaling&gt;.
+    PlotDeformedSupport( obj::SUPPORT, 
+                         targets::{list({BEAM, JOINT, ROD, SUPPORT, 
+                           RIGID_BODY}), set({BEAM, JOINT, ROD, SUPPORT, 
+                           RIGID_BODY})}, 
+                         { data::{list(`=`), set(`=`)} := [], 
+                           scaling::numeric := 1 }, $ ) :: function
+
+    # Plot the STRUCTURE object &lt;str&gt; given an optional list or set of 
+    # substitution data &lt;data&gt;.
+    PlotStructure( str::STRUCTURE, 
+                   { data::{list(`=`), set(`=`)} := [] }, $ )
+                 :: {function, list(function)}
+
+    # Plot the deformed 'STRUCTURE' object &lt;str&gt; given a optional list or set 
+    # of substitution data &lt;data&gt; and scaling factor &lt;scaling&gt;.
+    PlotDeformedStructure( str::STRUCTURE, 
+                           { data::{list(`=`), set(`=`)} := [], 
+                             scaling::numeric := 1 }, $ )
+                         :: {function, list(function)}
+
+    # Compute the degree of freedom of the input structure objects &lt;objs&gt;.
+    ComputeDOF( objs::{list({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY}), 
+                  set({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY})}, 
+                $ ) :: integer
+
+    # Draw the connections graph of the STRUCTURE object &lt;obj&gt;.
+    DrawStructureGraph( obj::STRUCTURE, $ ) :: function
+
+    # Draw the sparse matrix for the equation system of STRUCTURE object &lt;obj&gt; 
+    # and optionally apply Gaussian elimination to the matrix with the option 
+    # &lt;gauss_elimin&gt;.
+    DrawStructureSparseMatrix( obj::STRUCTURE, 
+                               { gauss_elimin::boolean := false }, $ )
+                             :: function
+
+    # Compute the Newton-Euler static equilibrium equations given a set of 
+    # external actions &lt;exts&gt;, and object to compute the equilibrium &lt;obj&gt;, the 
+    # axial coordinate of the pole &lt;pole&gt;, and an optional upper limit of the 
+    # integration &lt;upper_lim&gt;.
+    NewtonEuler( exts::{list({FORCE, MOMENT, QFORCE, QMOMENT}), set({FORCE, 
+                   MOMENT, QFORCE, QMOMENT})}, 
+                 obj::{BEAM, JOINT, ROD, SUPPORT, RIGID_BODY}, 
+                 { pole::POINT := [0, 0, 0], 
+                   upper_lim::algebraic := obj[&quot;length&quot;] }, $ ) :: list
+
+    # Solve the static equilibrium of a structure with inputs: structure 
+    # &lt;struct&gt;, optional compute internal action enabling flag 
+    # &lt;compute_internal_actions&gt;, optional compute displacement enabling flag 
+    # &lt;compute_displacements&gt;, optional Timoshenko beam flag &lt;timoshenko_beam&gt;, 
+    # optional implicit solution flag &lt;implicit&gt;, and optional unveil results 
+    # flag &lt;unveil_results&gt;.
+    SolveStructure( struct::STRUCTURE, 
+                    { compute_displacements::boolean := false, 
+                      compute_frame_displacements::boolean := false, 
+                      compute_internal_actions::boolean := false, 
+                      compute_potential_energy::boolean := false, 
+                      dummy_vars::{list, set} := [], 
+                      implicit::boolean := false, 
+                      timoshenko_beam::boolean := false, 
+                      unveil_results::boolean := true }, $ ) :: STRUCTURE
+
+    # Solve hyperstatic structure with inputs objects &lt;objs&gt;, external actions 
+    # &lt;exts&gt;, variables &lt;vars&gt;, hyperstatic variables &lt;hyper_vars&gt;, hyperstatic 
+    # displacements &lt;hyper_disp&gt; and optional Timoshenko beam flag 
+    # &lt;timoshenko_beam&gt;.
+    HyperstaticSolver( objs::{list({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY}), 
+                         set({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY})}, 
+                       exts::{list({FORCE, MOMENT, QFORCE, QMOMENT}), 
+                         set({FORCE, MOMENT, QFORCE, QMOMENT})}, 
+                       vars::list, hyper_vars::list, hyper_disp::list, 
+                       { implicit::boolean := false, 
+                         timoshenko_beam::boolean := false }, $ )
+
+    # Compute the internal potential energy of the structure given the objects 
+    # &lt;objs&gt; and optional Timoshenko beam flag &lt;timoshenko_beam&gt;.
+    ComputePotentialEnergy( objs::{list({BEAM, JOINT, ROD, SUPPORT}), 
+                              set({BEAM, JOINT, ROD, SUPPORT})}, 
+                            sol::{list, set} := [], 
+                            { dummy_vars::{list, set} := [], 
+                              timoshenko_beam::boolean := false, 
+                              veils::{list, set} := [] }, $ )
+
+    # Solve the isostatic structure equilibrium equation system given the 
+    # structure objects &lt;objs&gt;, the external actions &lt;exts&gt; and the variables 
+    # &lt;vars&gt; to solve.
+    IsostaticSolver( objs::{list({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY}), 
+                       set({BEAM, JOINT, ROD, SUPPORT, RIGID_BODY})}, 
+                     exts::{list({FORCE, MOMENT, QFORCE, QMOMENT}), 
+                       set({FORCE, MOMENT, QFORCE, QMOMENT})}, 
+                     vars::list, 
+                     { implicit::boolean := false }, $ )
+
+    # Programmatic computation of internal actions for structure objects &lt;objs&gt; 
+    # with given external actions &lt;exts&gt; and structure solution &lt;sol&gt;.
+    ComputeInternalActions( objs::{list({BEAM, ROD}), set({BEAM, ROD})}, 
+                            exts::{list({FORCE, MOMENT, QFORCE, QMOMENT}), 
+                              set({FORCE, MOMENT, QFORCE, QMOMENT})}, 
+                            sol::{list, set}, $ )
+
+    # Programmatic computation of internal actions for structure objects &lt;objs&gt; 
+    # with given external actions &lt;exts&gt; and structure solution &lt;sol&gt;. The 
+    # function return the internal actions as function of the axial coordinate 
+    # 'x'.
+    InternalActions( obj::{BEAM, ROD}, 
+                     exts::{list({FORCE, MOMENT, QFORCE, QMOMENT}), 
+                       set({FORCE, MOMENT, QFORCE, QMOMENT})}, 
+                     $ )
+
+    # Compute the displacement of a spring given the load &lt;spring_load&gt; and 
+    # spring stiffness &lt;stiffness&gt;.
+    ComputeSpringDisplacement( spring_load::algebraic, 
+                               spring_stiffness::procedure, $ ) :: anything
+
+    # Compute the potential energy of a spring given the load &lt;spring_load&gt; and 
+    # spring stiffness &lt;stiffness&gt;.
+    ComputeSpringEnergy( spring_load::algebraic, spring_stiffness::procedure, 
+                         $ ) :: algebraic
+
+    # Compute the displacements of the support &lt;obj&gt; from its support 
+    # reactions.
+    ComputeSupportDisplacements( obj::SUPPORT, $ )
+
+    # Compute the displacements of the joint &lt;obj&gt; given the solution &lt;sol&gt;.
+    ComputeJointDisplacements( obj::JOINT, sol::{list, set}, $ )
+
+    # Compute the structure displacements and rotations given the structure 
+    # objects &lt;objs&gt;, the exteranl forces &lt;exts&gt;, the solution &lt;sol&gt;, and the 
+    # Timoshenko beam flag &lt;timoshenko_beam&gt;.
+    ComputeDisplacements( objs::{list({BEAM, JOINT, ROD, SUPPORT}), 
+                            set({BEAM, JOINT, ROD, SUPPORT})}, 
+                          exts::{list({FORCE, MOMENT, QFORCE, QMOMENT}), 
+                            set({FORCE, MOMENT, QFORCE, QMOMENT})}, 
+                          sol::{list, set}, 
+                          { timoshenko_beam::boolean := false }, $ )
+
+    # Compute the structure &lt;struct&gt; punctual displacements of the object &lt;obj&gt; 
+    # at the coordinates &lt;coords&gt; in the directions &lt;directions&gt;. The 
+    # directions are defined in the reference frame &lt;RFs&gt;. Optional argument 
+    # are: &lt;timoshenko_beam&gt; boolean flag to use Timoshenko beam model, and 
+    # &lt;unveil_results&gt; boolean flag to unveil the results.
+    ComputePunctualDisplacement( struct::STRUCTURE, 
+                                 objs::{list({BEAM, JOINT, ROD, SUPPORT, 
+                                   RIGID_BODY})}, 
+                                 coords::list, directions::list, RFs::list, 
+                                 { timoshenko_beam::boolean := false, 
+                                   unveil_results::boolean := true }, $ )
+
+    # Compute the total displacements of the structure &lt;struct&gt; with optional 
+    # &lt;timoshenko_beam&gt; and &lt;unveil_results&gt; flags.
+    ComputeObjectFrameDisplacements( struct::STRUCTURE, 
+                                     { timoshenko_beam::boolean := false, 
+                                       unveil_results::boolean := true }, $ )
+                                   :: list
+
+    # Solve the linear system of equations &lt;eqns&gt; for the variables &lt;vars&gt;.
+    LinearSolver( eqns::{list, set}, vars::{list, set}, $ )
+
+</Text-field>
+</Output>
+</Group>
+</Section><Presentation-Block>
+<Group view="presentation" inline-output="false" labelreference="L256808" drawlabel="true" applyint="true" applyrational="true" applyexponent="false">
+<Input><Text-field style="Text" layout="Normal"><Equation executable="true" style="2D Math" input-equation="" display="LUklbXJvd0c2Iy9JK21vZHVsZW5hbWVHNiJJLFR5cGVzZXR0aW5nR0koX3N5c2xpYkdGJzYlLUkjbWlHRiQ2I1EhRicvJStleGVjdXRhYmxlR1EmZmFsc2VGJy8lLG1hdGh2YXJpYW50R1Enbm9ybWFsRic=">LUklbXJvd0c2Iy9JK21vZHVsZW5hbWVHNiJJLFR5cGVzZXR0aW5nR0koX3N5c2xpYkdGJzYjLUkjbWlHRiQ2I1EhRic=</Equation></Text-field>
+</Input>
+</Group></Presentation-Block>
+</Worksheet>
