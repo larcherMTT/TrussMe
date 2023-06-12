@@ -49,6 +49,7 @@ TrussMe := module()
   local m_VeilingLabel;
   local m_LinearSolver;
   local m_AvailableSolvers;
+  local m_StoredData;
 
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -175,6 +176,7 @@ TrussMe := module()
     m_VeilingLabel          := "_V";
     m_LinearSolver          := "Maple";
     m_AvailableSolvers      := {"Maple", "LAST"};
+    m_StoredData            := NULL;
     m_earth := table({
       "type"                 = EARTH,
       "name"                 = "earth",
@@ -352,13 +354,14 @@ TrussMe := module()
 
   export SetModuleOptions := proc(
     {
-      VerboseMode::{integer, nothing}      := NULL,
-      WarningMode::{boolean, nothing}      := NULL,
-      TimeLimit::{constant, nothing}       := NULL,
-      LinearSolver::{string, nothing}      := NULL,
-      LAST_VerboseMode::{boolean, nothing} := NULL,
-      LAST_WarningMode::{boolean, nothing} := NULL,
-      LAST_TimeLimit::{constant, nothing}  := NULL
+      VerboseMode::{integer, nothing}            := NULL,
+      WarningMode::{boolean, nothing}            := NULL,
+      TimeLimit::{constant, nothing}             := NULL,
+      LinearSolver::{string, nothing}            := NULL,
+      StoredData::{list(`=`), set(`=`), nothing} := NULL,
+      LAST_VerboseMode::{boolean, nothing}       := NULL,
+      LAST_WarningMode::{boolean, nothing}       := NULL,
+      LAST_TimeLimit::{constant, nothing}        := NULL
     }, $)
 
     description "Set the module options: <VerboseMode> = [0, 1, 2], <WarningMode> "
@@ -395,6 +398,14 @@ TrussMe := module()
           "received %2.", m_AvailableSolvers, LinearSolver;
       else
         m_LinearSolver := LinearSolver;
+      end if;
+    end if;
+
+    if (StoredData <> NULL) then
+      if not type(StoredData, {list(`=`), set(`=`)}) then
+        error "invalid StoredData value detected.";
+      else
+        m_StoredData := StoredData;
       end if;
     end if;
 

@@ -1536,6 +1536,9 @@ export LinearSolver := proc(
   end if;
 
   # LU decomposition
+  if (m_StoredData <> NULL) then
+    m_LAST:-SetStoredData(m_LAST, m_StoredData);
+  end if;
   m_LAST:-LU(m_LAST, A);
 
   if (m_VerboseMode > 0) then
