@@ -47,6 +47,7 @@ TrussMe := module()
   local m_JointColor;
   local m_EarthColor;
   local m_VeilingLabel;
+  local m_VeilingIdx;
   local m_LinearSolver;
   local m_AvailableSolvers;
   local m_StoredData;
@@ -174,9 +175,10 @@ TrussMe := module()
     m_JointColor            := "MediumSeaGreen";
     m_EarthColor            := "Firebrick";
     m_VeilingLabel          := "_V";
+    m_VeilingIdx            := 0;
     m_LinearSolver          := "Maple";
     m_AvailableSolvers      := {"Maple", "LAST"};
-    m_StoredData            := NULL;
+    m_StoredData            := [];
     m_earth := table({
       "type"                 = EARTH,
       "name"                 = "earth",
@@ -684,17 +686,84 @@ TrussMe := module()
     d_vars := _passed[2..last];
 
     # Veil-to-functions substitution list
+    printf("Computing the veil-to-functions substitution list...\n");
     v2f := map(x-> lhs(x) = lhs(x)(d_vars), veils_copy);
+    printf("Done.\n");
 
     # Function-to-veils substitution list
+    printf("Computing the function-to-veils substitution list...\n");
     f2v := rhs~(v2f) =~ lhs~(v2f);
+    printf("Done.\n");
 
+    printf("Computing the derivative of the veils...\n");
     subs(v2f, veils_copy);
     diff(lhs~(%), d_vars) =~ diff(rhs~(%), d_vars);
-    subs_diff := lhs~(%) =~ TrussMe:-Simplify(subs(op(ListTools:-Reverse(%)), rhs~(%))):
+    printf("Done.\n");
+    printf("Computing the subs_diff ...\n");
+    # In this case is way more convenient to perform substitution thorugh
+    # "eval[recurse]" in order to take advantage of the propagation of 0s
+
+    tmp := %;
+    #t1 := time():
+    #subs_diff := lhs~(%%) =~ TrussMe:-Simplify(eval['recurse'](rhs~(%%), %%));
+    #t2 := time():
+    #printf("Computation1 time: %.3f\n", t2-t1):
+
+    v1 := copy(tmp);
+    v_prec := [];
+    t1 := time():
+    while evalb(v1 <> v_prec) do
+      v_prec := v1;
+      v1 := lhs~(v1) =~ eval(rhs~(v1),v1);
+    end do:
+    t2 := time():
+    printf("Computation2 time: %.3f\n", t2-t1):
+
+    v2 := copy(tmp);
+    v_prec := [];
+    t1 := time():
+    while evalb(v2 <> v_prec) do
+      v_prec := v2;
+      v2 := lhs~(v2) =~ subs(v2,rhs~(v2));
+    end do:
+    t2 := time():
+    printf("Computation3 time: %.3f\n", t2-t1):
+
+    v3 := copy(tmp);
+    v_prec := [];
+    t1 := time():
+    while evalb(v3 <> v_prec) do
+      v_prec := v3;
+      v3 := lhs~(v3) =~ subs(op(v3),rhs~(v3));
+    end do:
+    t2 := time():
+    printf("Computation4 time: %.3f\n", t2-t1):
+
+    v4 := copy(tmp);
+    v_prec := [];
+    t1 := time():
+    while evalb(v4 <> v_prec) do
+      v_prec := v4;
+      v4 := lhs~(v4) =~ subs(op(ListTools:-Reverse(v4)),rhs~(v4));
+    end do:
+    t2 := time():
+    printf("Computation5 time: %.3f\n", t2-t1):
+
+    v5 :=copy(tmp);
+    t1 := time():
+    v5 := lhs~(v5) =~ subs(op(ListTools:-Reverse(v5)),rhs~(v5));
+    t2 := time():
+    printf("Computation6 time: %.3f\n", t2-t1):
+
+    subs_diff := v1;
+
+
+    printf("Done.\n");
 
     # Compute the derivative of the veiled expression
+    printf("Computing the derivative of the veiled expression...\n");
     subs(subs_diff, diff(subs(v2f, _passed[1]), d_vars));
+    printf("Done.\n");
 
     # Substitute back the veils
     return TrussMe:-Simplify(subs(f2v, %));

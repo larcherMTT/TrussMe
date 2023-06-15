@@ -221,10 +221,6 @@ export SolveStructure := proc(
     sol, obj, x, str_eq, str_vars, P_energy, veiling_idx, veiling_label, veils,
     i, uveils;
 
-  # Set veiling_label
-  veiling_idx := 1;
-  m_LEM:-SetVeilingLabel(m_LEM, cat(m_VeilingLabel, veiling_idx));
-
   # Parsing inputs
   S_obj        := {};
   S_rigid      := {};
@@ -249,6 +245,10 @@ export SolveStructure := proc(
     end if;
     unassign('obj'); # FIXME: try to remove this line when the bug is fixed
   end do;
+
+  # Add dummy_vars_subs to m_StoredData to avoid LAST pivoting on dummy variables
+  dummy_vars_subs := dummy_vars =~ [seq(0, i = 1..nops(dummy_vars))];
+  m_StoredData := m_StoredData union dummy_vars_subs;
 
   S_ext := struct["external_actions"];
 
@@ -292,7 +292,7 @@ export SolveStructure := proc(
   elif (struct["dof"] < 0) then
 
     if (nops(struct["hyperstatic_variables"]) <> -struct["dof"]) then
-      error "mismatch in the structure degrees of freedom, check the hyper"
+      error "TrussMe:-SolveStructure(...): mismatch in the structure degrees of freedom, check the hyper"
         "static variables of the structure and update the structure object";
     end if;
     if (m_VerboseMode > 0) then
@@ -335,16 +335,13 @@ export SolveStructure := proc(
     obj["support_reactions"] := subs(sol, obj["generic_support_reactions"]);
     end do;
     if (m_VerboseMode > 0) then
-      printf("TrussMe:-SolveStructure(...): updating support reactions fields... DONE\n");
+      printf("TrussMe:-SolveStructure(...): updating support reactions fields... "
+        "DONE\n");
     end if;
   end if;
 
   # Add veils
-  struct["veils"] := veils;
-  if m_KeepVeiled then
-    veiling_idx := veiling_idx + 1;
-    m_LEM:-SetVeilingLabel(m_LEM, cat(m_VeilingLabel, veiling_idx));
-  end if;
+  struct["veils"] := struct["veils"] union veils;
 
   # Set support reactions solved flag
   struct["support_reactions_solved"] := true;
@@ -362,13 +359,21 @@ export SolveStructure := proc(
   # Compute potential energy
   if compute_potential_energy and (not struct["potential_energy_solved"] or nops(dummy_vars)>0) then
     if implicit then
-      error "potential energy cannot be computed in implicit mode";
+      error "TrussMe:-SolveStructure(...): potential energy cannot be computed "
+        "in implicit mode";
+    end if;
+    if (m_VerboseMode > 0) then
+      printf("TrussMe:-SolveStructure(...): computing potential energy...\n");
     end if;
     P_energy, uveils := TrussMe:-ComputePotentialEnergy(
       S_obj union S_support union S_joint, sol,
       parse("timoshenko_beam") = timoshenko_beam,
       parse("dummy_vars")      = dummy_vars,
       parse("veils")           = veils);
+    if (m_VerboseMode > 0) then
+      printf("TrussMe:-SolveStructure(...): computing potential energy... "
+        "DONE\n");
+    end if;
     # Update structure energy
     struct["potential_energy"] := P_energy;
     # Update structure veils
@@ -388,20 +393,23 @@ export SolveStructure := proc(
   end if;
 
   if compute_frame_displacements and not struct["frame_displacements_solved"] then
+    if (m_VerboseMode > 0) then
+      printf("TrussMe:-SolveStructure(...): computing frame displacements...\n");
+    end if;
     veils := TrussMe:-ComputeObjectFrameDisplacements(
       struct,
       parse("timoshenko_beam") = timoshenko_beam,
       parse("unveil_results")  = unveil_results
     );
+    if (m_VerboseMode > 0) then
+      printf("TrussMe:-SolveStructure(...): computing frame displacements... "
+        "DONE\n");
+    end if;
     # Set frame displacements computed flag
     struct["frame_displacements_solved"] := true;
 
     # Add veils
-    if m_KeepVeiled then
-      struct["veils"] := struct["veils"] union veils;
-      veiling_idx     := veiling_idx + 1;
-      m_LEM:-SetVeilingLabel(m_LEM, cat(m_VeilingLabel, veiling_idx));
-    end if;
+    struct["veils"] := struct["veils"] union veils;
   end if;
 
   return struct;
@@ -432,7 +440,7 @@ export HyperstaticSolver := proc(
     "<timoshenko_beam>.";
 
   local hyper_eq, i, obj, iso_vars, iso_sol, iso_eq, hyper_sol, P_energy,
-    S_objs, E_objs, sol, veils;
+    S_objs, E_objs, sol, iso_veils, hyper_veils, veils;
 
   # Parse input objects and find objects with internal actions property
   S_objs := [seq(
@@ -445,7 +453,7 @@ export HyperstaticSolver := proc(
     `if`(member(vars[i], hyper_vars), NULL, vars[i]),
     i = 1..nops(vars))
   ];
-  iso_sol, veils, iso_eq, iso_vars := TrussMe:-IsostaticSolver(
+  iso_sol, iso_veils, iso_eq, iso_vars := TrussMe:-IsostaticSolver(
     objs, exts, iso_vars, parse("implicit") = implicit
   );
 
@@ -465,9 +473,14 @@ export HyperstaticSolver := proc(
   );
   P_energy := TrussMe:-Simplify(P_energy);
 
+  #print("P_energy: ", P_energy); #REMOVE
+  #print("hyper_vars: ", hyper_vars); #REMOVE
+  #print("veils: ", veils); #REMOVE
+  #print("hyper_disp: ", hyper_disp); #REMOVE
+
   # Compute the hyperstatic equation
   hyper_eq := TrussMe:-Diff~(
-    P_energy, hyper_vars, parse("veils") = veils
+    P_energy, hyper_vars, parse("veils") = iso_veils
   ) =~ hyper_disp;
 
   # Substitute Float(undefined) with 0 in the derivative of the potential energy
@@ -484,21 +497,35 @@ export HyperstaticSolver := proc(
       printf("TrussMe:-HyperstaticSolver(...): solving the hyperstatic variables...\n");
     end if;
     # Solve hyperstatic equations
-    hyper_sol := op(RealDomain:-solve(hyper_eq, hyper_vars)); # Maple solver
-    #hyper_sol := op(SolveTools:-Engine({op(hyper_eq)}, {op(hyper_vars)}, explicit));
+    #print("hyper_eq: ", hyper_eq); #REMOVE
+    #print("hyper_vars: ", hyper_vars); #REMOVE
+    #hyper_sol := op(solve(hyper_eq, hyper_vars)) assuming real; # Maple solver #REMOVE
+    # Solve structure equations (LinearSolver)
+    if m_LinearSolver = "LAST" then
+      hyper_sol, hyper_veils := TrussMe:-LinearSolver(hyper_eq, hyper_vars);
+    elif m_LinearSolver = "Maple" then
+      hyper_sol := op(solve(hyper_eq, hyper_vars)) assuming real;
+      hyper_veils := [];
+    else
+      error "TrussMe:-HyperstaticSolver(...): invalid linear solver.";
+    end if;
 
     if (hyper_sol = NULL) then
-      error "hyperstatic solution not found.";
+      error "TrussMe:-HyperstaticSolver(...): hyperstatic solution not found.";
     end if;
 
     # Substitute hyper_sol in P_energy
     P_energy := subs(hyper_sol, P_energy);
+
+    # Update m_StoredData
+    m_StoredData := subs(sol, m_StoredData);
 
     if (m_VerboseMode > 0) then
       printf("TrussMe:-HyperstaticSolver(...): solving the hyperstatic variables... "
         "DONE\n");
     end if;
     sol := hyper_sol union subs(hyper_sol, iso_sol);
+    veils := subs(hyper_sol, iso_veils) union hyper_veils;
   end if;
 
   if (_nresults = 5) then
@@ -529,9 +556,29 @@ export ComputePotentialEnergy := proc(
 
   dummy_vars_subs := dummy_vars =~ [seq(0, i = 1..nops(dummy_vars))];
   # Compute undummy veils
-  uveils_subs := map(x-> lhs(x) = cat(lhs(x),__ud), veils);
-  uveils := subs(uveils_subs, dummy_vars_subs, veils);
-
+  print("here1");
+  uveils_subs := lhs~(veils) =~ cat~(lhs~(veils),__ud);
+  print("here1");
+  subs(dummy_vars_subs, veils);
+  print("here1");
+  #lhs~(%) =~ TrussMe:-Simplify(eval['recurse'](rhs~(%), %));
+  v1 := %;
+  v_prec := [];
+  while evalb(v1 <> v_prec) do
+    v_prec := v1;
+    v1 := lhs~(v1) =~ eval(rhs~(v1),v1);
+  end do:
+  v1;
+  print("here1");
+  uveils := subs(uveils_subs, %);
+  print("here1");
+  uveils_zero, uveils := selectremove(x -> rhs(x) = 0, uveils);
+print("here1");
+  # Update StoredData
+  subs(op(m_StoredData), uveils);
+  print("here1");
+  m_StoredData := m_StoredData union (lhs~(%) =~ subs(op(ListTools:-Reverse(%)), rhs~(%)));
+print("here1");
   P := 0;
   for obj in objs do
     if TrussMe:-IsBeam(obj) or TrussMe:-IsRod(obj) then
@@ -539,7 +586,7 @@ export ComputePotentialEnergy := proc(
       if (member(N, map(lhs, obj["internal_actions"]))) and
           (subs(obj["internal_actions"](x), N(x)) <> 0) then
         subs(obj["internal_actions"](x), N(x));
-        subs(uveils_subs, dummy_vars_subs, %);
+        subs(uveils_subs, uveils_zero, dummy_vars_subs, %);
         # (%% - %) -> internal action of the structure due to dummy loads only
         # %        -> internal action of the structure without dummy loads
         # %%       -> internal action of the structure with all loads
@@ -553,7 +600,7 @@ export ComputePotentialEnergy := proc(
         if (member(Ty, map(lhs, obj["internal_actions"]))) and
             (subs(obj["internal_actions"](x), Ty(x)) <> 0) then
           subs(obj["internal_actions"](x), Ty(x));
-          subs(uveils_subs, dummy_vars_subs, %);
+          subs(uveils_subs, uveils_zero, dummy_vars_subs, %);
           # (%% - %) -> internal action of the structure due to dummy loads only
           # %        -> internal action of the structure without dummy loads
           # %%       -> internal action of the structure with all loads
@@ -566,7 +613,7 @@ export ComputePotentialEnergy := proc(
         if (member(Tz, map(lhs, obj["internal_actions"]))) and
             (subs(obj["internal_actions"](x), Tz(x)) <> 0) then
           subs(obj["internal_actions"](x), Tz(x));
-          subs(uveils_subs, dummy_vars_subs, %);
+          subs(uveils_subs, uveils_zero, dummy_vars_subs, %);
           # (%% - %) -> internal action of the structure due to dummy loads only
           # %        -> internal action of the structure without dummy loads
           # %%       -> internal action of the structure with all loads
@@ -580,7 +627,7 @@ export ComputePotentialEnergy := proc(
       if (member(Mx, map(lhs, obj["internal_actions"]))) and
           (subs(obj["internal_actions"](x), Mx(x)) <> 0) then
         subs(obj["internal_actions"](x), Mx(x));
-        subs(uveils_subs, dummy_vars_subs, %);
+        subs(uveils_subs, uveils_zero, dummy_vars_subs, %);
         # (%% - %) -> internal action of the structure due to dummy loads only
         # %        -> internal action of the structure without dummy loads
         # %%       -> internal action of the structure with all loads
@@ -593,7 +640,7 @@ export ComputePotentialEnergy := proc(
       if (member(My, map(lhs, obj["internal_actions"]))) and
           (subs(obj["internal_actions"](x), My(x)) <> 0) then
         subs(obj["internal_actions"](x), My(x));
-        subs(uveils_subs, dummy_vars_subs, %);
+        subs(uveils_subs, uveils_zero, dummy_vars_subs, %);
         # (%% - %) -> internal action of the structure due to dummy loads only
         # %        -> internal action of the structure without dummy loads
         # %%       -> internal action of the structure with all loads
@@ -606,7 +653,7 @@ export ComputePotentialEnergy := proc(
       if (member(Mz, map(lhs, obj["internal_actions"]))) and
           (subs(obj["internal_actions"](x), Mz(x)) <> 0) then
         subs(obj["internal_actions"](x), Mz(x));
-        subs(uveils_subs, dummy_vars_subs, %);
+        subs(uveils_subs, uveils_zero, dummy_vars_subs, %);
         # (%% - %) -> internal action of the structure due to dummy loads only
         # %        -> internal action of the structure without dummy loads
         # %%       -> internal action of the structure with all loads
@@ -866,7 +913,7 @@ export IsostaticSolver := proc(
       if m_LinearSolver = "LAST" then
         iso_sol, veils := TrussMe:-LinearSolver(iso_eq, iso_vars);
       elif m_LinearSolver = "Maple" then
-        iso_sol := op(RealDomain:-solve(iso_eq, iso_vars));
+        iso_sol := op(solve(iso_eq, iso_vars)) assuming real;
         veils := [];
       else
         error "TrussMe:-IsostaticSolver(...): invalid linear solver.";
@@ -880,12 +927,12 @@ export IsostaticSolver := proc(
           "LinearSolver");
       end if;
       # Solve structure equations (solve)
-      iso_sol := op(RealDomain:-solve(iso_eq, iso_vars));
+      iso_sol := op(solve(iso_eq, iso_vars)) assuming real;
       veils := [];
     end if;
 
     if (iso_sol = NULL) then
-      error "isostatic solution not found.";
+      error "TrussMe:-IsostaticSolver(...): isostatic solution not found.";
     end if;
 
     if (m_VerboseMode > 0) then
@@ -952,7 +999,6 @@ export InternalActions := proc(
     "coordinate 'x'.";
 
   local i, ia, N_sol, Ty_sol, Tz_sol, Mx_sol, My_sol, Mz_sol, x, xx, xxx;
-
 
   # Clear assumptions if old assumptions
   # NOTE: assumptions help readability of the solution and improve computation
@@ -1040,12 +1086,12 @@ export ComputeSpringDisplacement := proc(
   # Physics:-Assume(spring_load * Dx >= 0);
 
   # This works even for negative Dx
-  out := RealDomain:-solve(
+  out := solve(
     spring_load = TrussMe:-Simplify(integrate(spring_stiffness(x), x = 0..Dx)),
     Dx,
     useassumptions = true,
     dropmultiplicity = true
-    );
+    ) assuming real;
 
   # FIXME: deal with multiple solutions
 
@@ -1395,52 +1441,69 @@ export ComputePunctualDisplacement := proc(
   m_WarningMode := sw_tmp;
 
   # Compute punctual displacements
+  if (m_VerboseMode > 0) then
+    printf("TrussMe:-ComputePunctualDisplacement: Computing punctual "
+      "displacements... \n");
+  end if;
+
   out := [];
   for i from 1 to nops(objs_names) do
     disp := [];
     if directions[i,1] = 1 then
       disp := disp union [ux = subs(subs_null_dummy, TrussMe:-Diff(
-          struct_copy["potential_energy"], dFx_||i,
-          parse("veils") = struct_copy["veils"]
+          subs(subs_null_dummy[[2,3,4,5,6]], struct_copy["potential_energy"]),
+          dFx_||i,
+          parse("veils") = subs(subs_null_dummy[[2,3,4,5,6]], struct_copy["veils"])
         ))];
     end if;
     if directions[i,2] = 1 then
       disp := disp union [uy = subs(subs_null_dummy, TrussMe:-Diff(
-          struct_copy["potential_energy"], dFy_||i,
-          parse("veils") = struct_copy["veils"]
+          subs(subs_null_dummy[[1,3,4,5,6]], struct_copy["potential_energy"]),
+          dFy_||i,
+          parse("veils") = subs(subs_null_dummy[[1,3,4,5,6]], struct_copy["veils"])
         ))];
     end if;
     if directions[i,3] = 1 then
       disp := disp union [uz = subs(subs_null_dummy, TrussMe:-Diff(
-          struct_copy["potential_energy"], dFz_||i,
-          parse("veils") = struct_copy["veils"]
+          subs(subs_null_dummy[[1,2,4,5,6]], struct_copy["potential_energy"]),
+          dFz_||i,
+          parse("veils") = subs(subs_null_dummy[[1,2,4,5,6]], struct_copy["veils"])
         ))];
     end if;
     if directions[i,4] = 1 then
       disp := disp union [rx = subs(subs_null_dummy, TrussMe:-Diff(
-          struct_copy["potential_energy"], dMx_||i,
-          parse("veils") = struct_copy["veils"]
+          subs(subs_null_dummy[[1,2,3,5,6]], struct_copy["potential_energy"]),
+          dMx_||i,
+          parse("veils") = subs(subs_null_dummy[[1,2,3,5,6]], struct_copy["veils"])
         ))];
     end if;
     if directions[i,5] = 1 then
       disp := disp union [ry = subs(subs_null_dummy, TrussMe:-Diff(
-          struct_copy["potential_energy"], dMy_||i,
-          parse("veils") = struct_copy["veils"]
+          subs(subs_null_dummy[[1,2,3,4,6]], struct_copy["potential_energy"]),
+          dMy_||i,
+          parse("veils") = subs(subs_null_dummy[[1,2,3,4,6]], struct_copy["veils"])
         ))];
     end if;
     if directions[i,6] = 1 then
       disp := disp union [rz = subs(subs_null_dummy, TrussMe:-Diff(
-          struct_copy["potential_energy"], dMz_||i,
-          parse("veils") = struct_copy["veils"]
+          subs(subs_null_dummy[[1,2,3,4,5]], struct_copy["potential_energy"]),
+          dMz_||i,
+          parse("veils") = subs(subs_null_dummy[[1,2,3,4,5]], struct_copy["veils"])
         ))];
     end if;
     # Select displacement relative to desired directions and add to the list of displacements
     out := out union [disp];
   end do;
 
+  if (m_VerboseMode > 0) then
+    printf("TrussMe:-ComputePunctualDisplacement: Computing punctual "
+      "displacements... DONE.\n");
+  end if;
+
   # Compose output veils
-  # FIXME: only veils which are present in 'out' can be returned (with their recursive dependencies)
-  out_veils := subs(struct_copy["veils"]);
+  # FIXME: only veils which are present in 'out' can be returned
+  # (with their recursive dependencies), They should not contain dummy variables
+  out_veils := subs(subs_null_dummy, struct_copy["veils"]);
 
   # Simplify output
   out := TrussMe:-Simplify(out);
@@ -1528,8 +1591,19 @@ export LinearSolver := proc(
 
   local T, sol, sol_tmp, veils, A, B;
 
+  print(m_StoredData);
+
+  # Set veiling_label increasing index
+  m_VeilingIdx := m_VeilingIdx + 1;
+  m_LEM:-SetVeilingLabel(m_LEM, cat(m_VeilingLabel, m_VeilingIdx));
+
   # Matrix form of the linear system
   A, B := LinearAlgebra:-GenerateMatrix(eqns, vars);
+
+  if (has(A, vars)) or (has(B, vars)) then
+    error "TrussMe:-LinearSolver(...): the system is not linear in the "
+      "variables %1.", vars;
+  end if;
 
   if (m_VerboseMode > 0) then
     printf("TrussMe:-LinearSolver(...): performing LU decomposition...\n");
@@ -1543,18 +1617,17 @@ export LinearSolver := proc(
 
   if (m_VerboseMode > 0) then
     printf("TrussMe:-LinearSolver(...): performing LU decomposition... DONE\n");
-    printf("TrussMe:-LinearSolver(...): solved linear system...\n");
+    printf("TrussMe:-LinearSolver(...): solving linear system...\n");
   end if;
 
   # Solve linear system
   sol_tmp := m_LAST:-SolveLinearSystem(m_LAST, B);
 
   if (m_VerboseMode > 0) then
-    printf("TrussMe:-LinearSolver(...): solved linear system... DONE\n");
+    printf("TrussMe:-LinearSolver(...): solving linear system... DONE\n");
     if (m_VerboseMode > 1) then
       print("sol_tmp", sol_tmp);
     end if;
-    printf("TrussMe:-LinearSolver(...): substituting veils...\n");
   end if;
 
   # Substitute veils to solution
@@ -1565,15 +1638,21 @@ export LinearSolver := proc(
     # Substitutution
     sol := convert(vars =~ subs(%, sol_tmp), list);
     veils := subs(%%, %%%);
+    # Update StoredData
+    subs(op(m_StoredData), veils);
+    m_StoredData := m_StoredData union (lhs~(%) =~ subs(op(ListTools:-Reverse(%)), rhs~(%)));
   else
-    sol := convert(vars =~ m_LEM:-SubsVeil(m_LEM, sol_tmp), list);
+    if (m_VerboseMode > 0) then
+      printf("TrussMe:-LinearSolver(...): substituting veils...\n");
+    end if;
+    # Substitutution
+    sol := convert(vars =~ m_LEM:-UnVeil(m_LEM, sol_tmp), list);
     veils := [];
+    if (m_VerboseMode > 0) then
+      printf("TrussMe:-LinearSolver(...): substituting veils... DONE\n");
+    end if;
   end if;
   m_LEM:-ForgetVeil(m_LEM);
-
-  if (m_VerboseMode > 0) then
-    printf("TrussMe:-LinearSolver(...): substituting veils... DONE\n");
-  end if;
 
   if _nresults = 1 then
     return sol;
