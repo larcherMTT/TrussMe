@@ -219,7 +219,7 @@ export SolveStructure := proc(
 
   local g_load, S_obj, S_rigid, S_ext, S_support, S_joint, S_con_forces, vars,
     sol, obj, x, str_eq, str_vars, P_energy, veiling_idx, veiling_label, veils,
-    i, uveils;
+    i, uveils, dummy_vars_subs;
 
   # Parsing inputs
   S_obj        := {};
@@ -473,11 +473,6 @@ export HyperstaticSolver := proc(
   );
   P_energy := TrussMe:-Simplify(P_energy);
 
-  #print("P_energy: ", P_energy); #REMOVE
-  #print("hyper_vars: ", hyper_vars); #REMOVE
-  #print("veils: ", veils); #REMOVE
-  #print("hyper_disp: ", hyper_disp); #REMOVE
-
   # Compute the hyperstatic equation
   hyper_eq := TrussMe:-Diff~(
     P_energy, hyper_vars, parse("veils") = iso_veils
@@ -502,7 +497,7 @@ export HyperstaticSolver := proc(
     #hyper_sol := op(solve(hyper_eq, hyper_vars)) assuming real; # Maple solver #REMOVE
     # Solve structure equations (LinearSolver)
     if m_LinearSolver = "LAST" then
-      hyper_sol, hyper_veils := TrussMe:-LinearSolver(hyper_eq, hyper_vars);
+      hyper_sol, hyper_veils := TrussMe:-LinearSolver(hyper_eq, hyper_vars, parse("in_veils") = iso_veils);
     elif m_LinearSolver = "Maple" then
       hyper_sol := op(solve(hyper_eq, hyper_vars)) assuming real;
       hyper_veils := [];
@@ -518,7 +513,7 @@ export HyperstaticSolver := proc(
     P_energy := subs(hyper_sol, P_energy);
 
     # Update m_StoredData
-    m_StoredData := subs(sol, m_StoredData);
+    m_StoredData := subs(hyper_sol, m_StoredData);
 
     if (m_VerboseMode > 0) then
       printf("TrussMe:-HyperstaticSolver(...): solving the hyperstatic variables... "
@@ -552,33 +547,26 @@ export ComputePotentialEnergy := proc(
   description "Compute the internal potential energy of the structure given the "
     "objects <objs> and optional Timoshenko beam flag <timoshenko_beam>.";
 
-  local dummy_vars_subs, obj, P, x, f, FJX, FJY, FJZ, MJX, MJY, MJZ, i, uveils_subs, uveils;
+  local dummy_vars_subs, obj, P, x, f, FJX, FJY, FJZ, MJX, MJY, MJZ, i,
+    uveils_subs, uveils, v_tmp, uveils_zero;
 
   dummy_vars_subs := dummy_vars =~ [seq(0, i = 1..nops(dummy_vars))];
-  # Compute undummy veils
-  print("here1");
+  # Compute undummy veils name substitution list
   uveils_subs := lhs~(veils) =~ cat~(lhs~(veils),__ud);
-  print("here1");
-  subs(dummy_vars_subs, veils);
-  print("here1");
-  #lhs~(%) =~ TrussMe:-Simplify(eval['recurse'](rhs~(%), %));
-  v1 := %;
-  v_prec := [];
-  while evalb(v1 <> v_prec) do
-    v_prec := v1;
-    v1 := lhs~(v1) =~ eval(rhs~(v1),v1);
-  end do:
-  v1;
-  print("here1");
-  uveils := subs(uveils_subs, %);
-  print("here1");
-  uveils_zero, uveils := selectremove(x -> rhs(x) = 0, uveils);
-print("here1");
+  # Compute undummy veils list by zeroing the dummy variables
+  uveils := subs(dummy_vars_subs, veils);
+  # Back-substitute the undummy veils list into itself to find zero veils
+  v_tmp := copy(%);
+  v_tmp := lhs~(v_tmp) =~ subs(op(ListTools:-Reverse(v_tmp)), rhs~(v_tmp));
+  # Split the veils list into zero and non-zero veils
+  uveils_zero, v_tmp := selectremove(x -> rhs(x) = 0, subs(uveils_subs, v_tmp));
+  # Remove zero veils from the undummy veils list and update with the dummy names
+  subs(uveils_subs, uveils);
+  lhs~(%) =~ subs(uveils_zero, rhs~(%));
+  uveils := select(x -> not has(lhs~(uveils_zero), lhs(x)), %);
   # Update StoredData
-  subs(op(m_StoredData), uveils);
-  print("here1");
-  m_StoredData := m_StoredData union (lhs~(%) =~ subs(op(ListTools:-Reverse(%)), rhs~(%)));
-print("here1");
+  subs(op(m_StoredData), v_tmp);
+  m_StoredData := m_StoredData union %;
   P := 0;
   for obj in objs do
     if TrussMe:-IsBeam(obj) or TrussMe:-IsRod(obj) then
@@ -918,9 +906,7 @@ export IsostaticSolver := proc(
       else
         error "TrussMe:-IsostaticSolver(...): invalid linear solver.";
       end if;
-
     else
-
       if m_WarningMode then
         WARNING("TrussMe:-IsostaticSolver(...): the system of equations is not "
           "consistent, trying to solve the system of equations anyway without "
@@ -1326,7 +1312,8 @@ export ComputePunctualDisplacement := proc(
     "<unveil_results> boolean flag to unveil the results.";
 
   local out, struct_copy, obj, objs_names, dummy_loads, subs_obj, obj_coords,
-    obj_targets, x, subs_null_dummy, disp, i, j, d_coords, sw_tmp, out_veils;
+    obj_targets, x, subs_null_dummy, disp, i, j, d_coords, sw_tmp, out_veils,
+    p_veils;
 
   # Substitute -1 entries of coords with the corresponding object length
   d_coords := [seq(`if`(coords[i] = -1, objs[i]["length"], coords[i]), i = 1..nops(coords))];
@@ -1440,6 +1427,11 @@ export ComputePunctualDisplacement := proc(
   # Reset warning mode
   m_WarningMode := sw_tmp;
 
+  # Extract only veils which are present in struct_copy["potential_energy"] from
+  # the list of veils in struct_copy["veils"]
+  #p_veils := select(x -> has(struct_copy["potential_energy"], lhs(x)), struct_copy["veils"]);
+  p_veils := struct_copy["veils"];
+
   # Compute punctual displacements
   if (m_VerboseMode > 0) then
     printf("TrussMe:-ComputePunctualDisplacement: Computing punctual "
@@ -1453,42 +1445,42 @@ export ComputePunctualDisplacement := proc(
       disp := disp union [ux = subs(subs_null_dummy, TrussMe:-Diff(
           subs(subs_null_dummy[[2,3,4,5,6]], struct_copy["potential_energy"]),
           dFx_||i,
-          parse("veils") = subs(subs_null_dummy[[2,3,4,5,6]], struct_copy["veils"])
+          parse("veils") = subs(subs_null_dummy[[2,3,4,5,6]], p_veils)
         ))];
     end if;
     if directions[i,2] = 1 then
       disp := disp union [uy = subs(subs_null_dummy, TrussMe:-Diff(
           subs(subs_null_dummy[[1,3,4,5,6]], struct_copy["potential_energy"]),
           dFy_||i,
-          parse("veils") = subs(subs_null_dummy[[1,3,4,5,6]], struct_copy["veils"])
+          parse("veils") = subs(subs_null_dummy[[1,3,4,5,6]], p_veils)
         ))];
     end if;
     if directions[i,3] = 1 then
       disp := disp union [uz = subs(subs_null_dummy, TrussMe:-Diff(
           subs(subs_null_dummy[[1,2,4,5,6]], struct_copy["potential_energy"]),
           dFz_||i,
-          parse("veils") = subs(subs_null_dummy[[1,2,4,5,6]], struct_copy["veils"])
+          parse("veils") = subs(subs_null_dummy[[1,2,4,5,6]], p_veils)
         ))];
     end if;
     if directions[i,4] = 1 then
       disp := disp union [rx = subs(subs_null_dummy, TrussMe:-Diff(
           subs(subs_null_dummy[[1,2,3,5,6]], struct_copy["potential_energy"]),
           dMx_||i,
-          parse("veils") = subs(subs_null_dummy[[1,2,3,5,6]], struct_copy["veils"])
+          parse("veils") = subs(subs_null_dummy[[1,2,3,5,6]], p_veils)
         ))];
     end if;
     if directions[i,5] = 1 then
       disp := disp union [ry = subs(subs_null_dummy, TrussMe:-Diff(
           subs(subs_null_dummy[[1,2,3,4,6]], struct_copy["potential_energy"]),
           dMy_||i,
-          parse("veils") = subs(subs_null_dummy[[1,2,3,4,6]], struct_copy["veils"])
+          parse("veils") = subs(subs_null_dummy[[1,2,3,4,6]], p_veils)
         ))];
     end if;
     if directions[i,6] = 1 then
       disp := disp union [rz = subs(subs_null_dummy, TrussMe:-Diff(
           subs(subs_null_dummy[[1,2,3,4,5]], struct_copy["potential_energy"]),
           dMz_||i,
-          parse("veils") = subs(subs_null_dummy[[1,2,3,4,5]], struct_copy["veils"])
+          parse("veils") = subs(subs_null_dummy[[1,2,3,4,5]], p_veils)
         ))];
     end if;
     # Select displacement relative to desired directions and add to the list of displacements
@@ -1503,7 +1495,7 @@ export ComputePunctualDisplacement := proc(
   # Compose output veils
   # FIXME: only veils which are present in 'out' can be returned
   # (with their recursive dependencies), They should not contain dummy variables
-  out_veils := subs(subs_null_dummy, struct_copy["veils"]);
+  out_veils := subs(subs_null_dummy, p_veils);
 
   # Simplify output
   out := TrussMe:-Simplify(out);
@@ -1584,44 +1576,64 @@ end proc: # ComputeObjectFrameDisplacements
 export LinearSolver := proc(
   eqns::{list, set},
   vars::{list, set},
-  $)
+  {
+    in_veils::list := []
+  }, $)
 
   description "Solve the linear system of equations <eqns> for the variables "
     "<vars>.";
 
-  local T, sol, sol_tmp, veils, A, B;
+  local T, sol, sol_tmp, veils, A, B, var_unveil, vu_prec;
 
-  print(m_StoredData);
+  # Unveil the variables in the system of equations
+  var_unveil := copy(in_veils);
+  vu_prec := NULL;
+  while evalb(var_unveil <> vu_prec) do
+    vu_prec := var_unveil;
+    var_unveil := lhs~(var_unveil) =~ subs(op(ListTools:-Reverse(select(x -> has(rhs(x), vars), var_unveil))), rhs~(var_unveil));
+  end do:
+  # Remove from var_unveil the veils which do not contain any variable
+  var_unveil := TrussMe:-Simplify(select(x -> has(rhs(x), vars), var_unveil));
 
   # Set veiling_label increasing index
   m_VeilingIdx := m_VeilingIdx + 1;
   m_LEM:-SetVeilingLabel(m_LEM, cat(m_VeilingLabel, m_VeilingIdx));
 
   # Matrix form of the linear system
-  A, B := LinearAlgebra:-GenerateMatrix(eqns, vars);
+  A, B := LinearAlgebra:-GenerateMatrix(subs(var_unveil, eqns), vars);
 
   if (has(A, vars)) or (has(B, vars)) then
     error "TrussMe:-LinearSolver(...): the system is not linear in the "
       "variables %1.", vars;
   end if;
 
-  if (m_VerboseMode > 0) then
-    printf("TrussMe:-LinearSolver(...): performing LU decomposition...\n");
-  end if;
+  # Case trivial 1x1 linear system
+  if LinearAlgebra:-Dimension(B) = 1 then
+    if (m_VerboseMode > 0) then
+      printf("TrussMe:-LinearSolver(...): solving trivial 1x1 linear system...\n");
+    end if;
+    # FIXME: temporary fix to avoid excessive overhead in LAST for 1x1 systems with big expresions
+    #sol_tmp := [m_LEM:-Veil(m_LEM, B[1]) / m_LEM:-Veil(m_LEM, A[1, 1])];
+    sol_tmp := [B[1] / A[1, 1]];
+  else
+    if (m_VerboseMode > 0) then
+      printf("TrussMe:-LinearSolver(...): performing LU decomposition...\n");
+    end if;
 
-  # LU decomposition
-  if (m_StoredData <> NULL) then
-    m_LAST:-SetStoredData(m_LAST, m_StoredData);
-  end if;
-  m_LAST:-LU(m_LAST, A);
+    # LU decomposition
+    if (m_StoredData <> NULL) then
+      m_LAST:-SetStoredData(m_LAST, m_StoredData);
+    end if;
+    m_LAST:-LU(m_LAST, A);
 
-  if (m_VerboseMode > 0) then
-    printf("TrussMe:-LinearSolver(...): performing LU decomposition... DONE\n");
-    printf("TrussMe:-LinearSolver(...): solving linear system...\n");
-  end if;
+    if (m_VerboseMode > 0) then
+      printf("TrussMe:-LinearSolver(...): performing LU decomposition... DONE\n");
+      printf("TrussMe:-LinearSolver(...): solving linear system...\n");
+    end if;
 
-  # Solve linear system
-  sol_tmp := m_LAST:-SolveLinearSystem(m_LAST, B);
+    # Solve linear system
+    sol_tmp := m_LAST:-SolveLinearSystem(m_LAST, B);
+  end if;
 
   if (m_VerboseMode > 0) then
     printf("TrussMe:-LinearSolver(...): solving linear system... DONE\n");
@@ -1646,7 +1658,7 @@ export LinearSolver := proc(
       printf("TrussMe:-LinearSolver(...): substituting veils...\n");
     end if;
     # Substitutution
-    sol := convert(vars =~ m_LEM:-UnVeil(m_LEM, sol_tmp), list);
+    sol := convert(vars =~ m_LEM:-Unveil(m_LEM, sol_tmp), list);
     veils := [];
     if (m_VerboseMode > 0) then
       printf("TrussMe:-LinearSolver(...): substituting veils... DONE\n");
