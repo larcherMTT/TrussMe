@@ -731,9 +731,8 @@ module TrussMe:
     ComputePotentialEnergy( objs::{list({BEAM, JOINT, ROD, SUPPORT}), 
                               set({BEAM, JOINT, ROD, SUPPORT})}, 
                             sol::{list, set} := [], 
-                            { dummy_vars::{list, set} := [], 
-                              timoshenko_beam::boolean := false, 
-                              veils::{list, set} := [] }, $ )
+                            { timoshenko_beam::boolean := false }, $ )
+                          :: algebraic
 
     # Solve the isostatic structure equilibrium equation system given the 
     # structure objects &lt;objs&gt;, the external actions &lt;exts&gt; and the variables 
@@ -808,7 +807,8 @@ module TrussMe:
                                    :: list
 
     # Solve the linear system of equations &lt;eqns&gt; for the variables &lt;vars&gt;.
-    LinearSolver( eqns::{list, set}, vars::{list, set}, $ )
+    LinearSolver( eqns::{list, set}, vars::{list, set}, 
+                  { in_veils::list := [] }, $ )
 
 </Text-field>
 </Output>

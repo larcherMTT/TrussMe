@@ -686,11 +686,9 @@ TrussMe := module()
 
     # Get the variables to be differentiated
     d_vars := _passed[2..last];
-
-    # Veil-to-functions substitution list
+    # Veil-to-functions substitution list [V__xx -> V__xx(d_vars,xx)]
     v2f := map(x-> lhs(x) = lhs(x)(d_vars), veils_copy);
-
-    # Function-to-veils substitution list
+    # Function-to-veils substitution list [V__xx(d_vars,xx) -> V__xx]
     f2v := rhs~(v2f) =~ lhs~(v2f);
 
     subs(v2f, veils_copy);

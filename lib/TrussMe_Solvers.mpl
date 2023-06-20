@@ -219,7 +219,7 @@ export SolveStructure := proc(
 
   local g_load, S_obj, S_rigid, S_ext, S_support, S_joint, S_con_forces, vars,
     sol, obj, x, str_eq, str_vars, P_energy, veiling_idx, veiling_label, veils,
-    i, uveils, dummy_vars_subs;
+    i, dummy_vars_subs;
 
   # Parsing inputs
   S_obj        := {};
@@ -365,19 +365,15 @@ export SolveStructure := proc(
     if (m_VerboseMode > 0) then
       printf("TrussMe:-SolveStructure(...): computing potential energy...\n");
     end if;
-    P_energy, uveils := TrussMe:-ComputePotentialEnergy(
+    P_energy := TrussMe:-ComputePotentialEnergy(
       S_obj union S_support union S_joint, sol,
-      parse("timoshenko_beam") = timoshenko_beam,
-      parse("dummy_vars")      = dummy_vars,
-      parse("veils")           = veils);
+      parse("timoshenko_beam") = timoshenko_beam);
     if (m_VerboseMode > 0) then
       printf("TrussMe:-SolveStructure(...): computing potential energy... "
         "DONE\n");
     end if;
     # Update structure energy
     struct["potential_energy"] := P_energy;
-    # Update structure veils
-    struct["veils"] := struct["veils"] union uveils;
     # Set potential energy computed flag
     struct["potential_energy_solved"] := true;
   end if;
@@ -539,34 +535,14 @@ export ComputePotentialEnergy := proc(
   },
   sol::{list, set} := [],
   {
-    timoshenko_beam::boolean := false,
-    dummy_vars::{list, set}  := [],
-    veils::{list, set}       := []
-  }, $)
+    timoshenko_beam::boolean := false
+  }, $)::algebraic;
 
   description "Compute the internal potential energy of the structure given the "
     "objects <objs> and optional Timoshenko beam flag <timoshenko_beam>.";
 
-  local dummy_vars_subs, obj, P, x, f, FJX, FJY, FJZ, MJX, MJY, MJZ, i,
-    uveils_subs, uveils, v_tmp, uveils_zero;
+  local obj, P, x, f, FJX, FJY, FJZ, MJX, MJY, MJZ, i;
 
-  dummy_vars_subs := dummy_vars =~ [seq(0, i = 1..nops(dummy_vars))];
-  # Compute undummy veils name substitution list
-  uveils_subs := lhs~(veils) =~ cat~(lhs~(veils),__ud);
-  # Compute undummy veils list by zeroing the dummy variables
-  uveils := subs(dummy_vars_subs, veils);
-  # Back-substitute the undummy veils list into itself to find zero veils
-  v_tmp := copy(%);
-  v_tmp := lhs~(v_tmp) =~ subs(op(ListTools:-Reverse(v_tmp)), rhs~(v_tmp));
-  # Split the veils list into zero and non-zero veils
-  uveils_zero, v_tmp := selectremove(x -> rhs(x) = 0, subs(uveils_subs, v_tmp));
-  # Remove zero veils from the undummy veils list and update with the dummy names
-  subs(uveils_subs, uveils);
-  lhs~(%) =~ subs(uveils_zero, rhs~(%));
-  uveils := select(x -> not has(lhs~(uveils_zero), lhs(x)), %);
-  # Update StoredData
-  subs(op(m_StoredData), v_tmp);
-  m_StoredData := m_StoredData union %;
   P := 0;
   for obj in objs do
     if TrussMe:-IsBeam(obj) or TrussMe:-IsRod(obj) then
@@ -574,13 +550,8 @@ export ComputePotentialEnergy := proc(
       if (member(N, map(lhs, obj["internal_actions"]))) and
           (subs(obj["internal_actions"](x), N(x)) <> 0) then
         subs(obj["internal_actions"](x), N(x));
-        subs(uveils_subs, uveils_zero, dummy_vars_subs, %);
-        # (%% - %) -> internal action of the structure due to dummy loads only
-        # %        -> internal action of the structure without dummy loads
-        # %%       -> internal action of the structure with all loads
         P := P + integrate(
-            eval(`if`(nops(dummy_vars) > 0, 2 * (%% - %) * %, %%^2))/
-              (2*obj["material"]["elastic_modulus"]*obj["area"](x)),
+           %^2 / (2*obj["material"]["elastic_modulus"]*obj["area"](x)),
             x = 0..obj["length"]);
       end if;
       if timoshenko_beam then
@@ -588,26 +559,16 @@ export ComputePotentialEnergy := proc(
         if (member(Ty, map(lhs, obj["internal_actions"]))) and
             (subs(obj["internal_actions"](x), Ty(x)) <> 0) then
           subs(obj["internal_actions"](x), Ty(x));
-          subs(uveils_subs, uveils_zero, dummy_vars_subs, %);
-          # (%% - %) -> internal action of the structure due to dummy loads only
-          # %        -> internal action of the structure without dummy loads
-          # %%       -> internal action of the structure with all loads
           P := P + integrate(
-              eval(`if`(nops(dummy_vars) > 0, 2 * (%% - %) * %, %%^2))/
-                (2*obj["timo_shear_coeff"](x)[1]*obj["material"]["shear_modulus"]*obj["area"](x)),
+              %^2 / (2*obj["timo_shear_coeff"](x)[1]*obj["material"]["shear_modulus"]*obj["area"](x)),
               x = 0..obj["length"]);
         end if;
         # Shear action Tz contribution
         if (member(Tz, map(lhs, obj["internal_actions"]))) and
             (subs(obj["internal_actions"](x), Tz(x)) <> 0) then
           subs(obj["internal_actions"](x), Tz(x));
-          subs(uveils_subs, uveils_zero, dummy_vars_subs, %);
-          # (%% - %) -> internal action of the structure due to dummy loads only
-          # %        -> internal action of the structure without dummy loads
-          # %%       -> internal action of the structure with all loads
           P := P + integrate(
-              eval(`if`(nops(dummy_vars) > 0, 2 * (%% - %) * %, %%^2))/
-                (2*obj["timo_shear_coeff"](x)[2]*obj["material"]["shear_modulus"]*obj["area"](x)),
+              %^2 / (2*obj["timo_shear_coeff"](x)[2]*obj["material"]["shear_modulus"]*obj["area"](x)),
               x = 0..obj["length"]);
         end if;
       end if;
@@ -615,39 +576,24 @@ export ComputePotentialEnergy := proc(
       if (member(Mx, map(lhs, obj["internal_actions"]))) and
           (subs(obj["internal_actions"](x), Mx(x)) <> 0) then
         subs(obj["internal_actions"](x), Mx(x));
-        subs(uveils_subs, uveils_zero, dummy_vars_subs, %);
-        # (%% - %) -> internal action of the structure due to dummy loads only
-        # %        -> internal action of the structure without dummy loads
-        # %%       -> internal action of the structure with all loads
         P := P + integrate(
-            eval(`if`(nops(dummy_vars) > 0, 2 * (%% - %) * %, %%^2))/
-              (2*obj["material"]["shear_modulus"]*obj["inertias"][1](x)),
+            %^2 / (2*obj["material"]["shear_modulus"]*obj["inertias"][1](x)),
             x = 0..obj["length"]);
           end if;
       # Bending moment action My contribution
       if (member(My, map(lhs, obj["internal_actions"]))) and
           (subs(obj["internal_actions"](x), My(x)) <> 0) then
         subs(obj["internal_actions"](x), My(x));
-        subs(uveils_subs, uveils_zero, dummy_vars_subs, %);
-        # (%% - %) -> internal action of the structure due to dummy loads only
-        # %        -> internal action of the structure without dummy loads
-        # %%       -> internal action of the structure with all loads
         P := P + integrate(
-            eval(`if`(nops(dummy_vars) > 0, 2 * (%% - %) * %, %%^2))/
-              (2*obj["material"]["elastic_modulus"]*obj["inertias"][2](x)),
+            %^2 / (2*obj["material"]["elastic_modulus"]*obj["inertias"][2](x)),
             x = 0..obj["length"]);
       end if;
       # Bending moment action Mz contribution
       if (member(Mz, map(lhs, obj["internal_actions"]))) and
           (subs(obj["internal_actions"](x), Mz(x)) <> 0) then
         subs(obj["internal_actions"](x), Mz(x));
-        subs(uveils_subs, uveils_zero, dummy_vars_subs, %);
-        # (%% - %) -> internal action of the structure due to dummy loads only
-        # %        -> internal action of the structure without dummy loads
-        # %%       -> internal action of the structure with all loads
         P := P + integrate(
-            eval(`if`(nops(dummy_vars) > 0, 2 * (%% - %) * %, %%^2))/
-              (2*obj["material"]["elastic_modulus"]*obj["inertias"][3](x)),
+            %^2 / (2*obj["material"]["elastic_modulus"]*obj["inertias"][3](x)),
             x = 0..obj["length"]);
       end if;
     elif TrussMe:-IsCompliantSupport(obj) then
@@ -787,11 +733,7 @@ export ComputePotentialEnergy := proc(
     end if;
   end do;
 
-  if _nresults = 1 then
-    return P;
-  else
-    return P, uveils;
-  end if;
+  return P;
 end proc: # ComputePotentialEnergy
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1314,6 +1256,16 @@ export ComputePunctualDisplacement := proc(
   local out, struct_copy, obj, objs_names, dummy_loads, subs_obj, obj_coords,
     obj_targets, x, subs_null_dummy, disp, i, j, d_coords, sw_tmp, out_veils,
     p_veils;
+
+  # FIXME: Displacements are computed using the Castigliano theorem. This allows
+  # to compute the potential energy of the structure with all the dummy loads in
+  # a single shot and then derive wrt each one to get the relative displacements.
+  # However, it would be computationally convenient to use the Mohr integral
+  # since it does not need to derive any expressio but returns directly the
+  # displacement. The drawback is that the Mohr integral is not able to compute
+  # the displacements in all the directions at once, but only in one direction
+  # at a time. The Mohr's integral can beused also for hyperstatic solution
+  # (See Muller Breslau).
 
   # Substitute -1 entries of coords with the corresponding object length
   d_coords := [seq(`if`(coords[i] = -1, objs[i]["length"], coords[i]), i = 1..nops(coords))];
